@@ -34,3 +34,5 @@ crossReference <- function(x,y,value = TRUE) {
   }
 }
 
+# TODO: expand crossReference to optionally check for presence instead of absence
+#       of values.

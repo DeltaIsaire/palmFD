@@ -40,9 +40,7 @@ species <- list(
   palm.dist  = levels(palm.dist$SpecName), 
   trait.data = trait.data$SpecName, 
   tree       = tree$tip.label)
-# 2. cross-reference
-which(species$palm.dist == species$tree[1])
-# instead, take species$tree as vector, and execute the comparison for each value
-which(is.na(as.numeric(lapply(species$tree,function(x) { which(species$palm.dist==x) }))))
+# 2. cross-reference, using crossReference function
+crossReference(species$tree, species$palm.dist, value=FALSE)
 
-
+# TODO: implement wrapper function for crossReference, which takes a list and cross-references list components with each other.
