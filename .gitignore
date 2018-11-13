@@ -1,0 +1,6 @@
+$ cat .gitignore
+*~
+data/
+output/
+graphs/
+reference_literature/
