@@ -36,14 +36,28 @@ tree <- read.nexus(file="data/TREE.nex")
 
 # Explore if these three sources agree on which palm species exist
 # 1. Extract species names
+# Ensure that each variable uses underscores instead of spaces
 species <- list(
   palm.dist  = levels(palm.dist$SpecName), 
-  trait.data = trait.data$SpecName, 
+  trait.data = sub(pattern=" ", replacement="_", x=trait.data$SpecName), 
   tree       = tree$tip.label)
-# 2. cross-reference, using crossReference function
-multiCrossRef(species)
+# 2. cross-reference
+missing.table <- multiCrossRef(species, presence=FALSE, value=FALSE)
+missing.list <- multiCrossRef(species, presence=FALSE, value=TRUE)
+# palm.dist and trait.data are the same, but tree differs from the others.
+# 3. Find the list of species upon which all three sources agree
+present.list <- multiCrossRef(species, presence=TRUE, value=TRUE)
+# Just to verify:
+new.species <- list(
+  palm.dist = present.list$palm.dist$tree,
+  tree      = present.list$tree$palm.dist)
+multiCrossRef(new.species, presence=FALSE, value=FALSE)
+# Yup, nothing missing
+species.agreed <- sort(present.list$palm.dist$tree)
 
-# TODO: what you want to end up with is a table listing, for each element,
-# the number of entries present or missing from the list it is compared to.
+
+# TODO: Subset all datasets to the list of agreed species.
+# Can we remove species from the phylogenetic tree? How?
+
 
 
