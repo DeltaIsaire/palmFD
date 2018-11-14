@@ -14,3 +14,8 @@ The main file (00_main.R) automatically executes all scripts in sensible order,
 thus providing a one-click way to re-generate all output, e.g.
 > setwd("/home/delta/R_Projects/palm_FD")
 > source(file="00_main.R")
+
+List of required R packages:
+plyr
+ape
+

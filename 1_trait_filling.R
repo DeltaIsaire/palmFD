@@ -41,19 +41,9 @@ species <- list(
   trait.data = trait.data$SpecName, 
   tree       = tree$tip.label)
 # 2. cross-reference, using crossReference function
-crossReference(species$tree, species$palm.dist, presence=FALSE, value=FALSE)
-
-
-# TODO: implement wrapper function for crossReference, which takes a list and cross-references all list elements with each other. Maybe lapply or plyr::**ply can help.
-
-a <- plyr::llply(species, crossReference, y=species$palm.dist,
-  presence=FALSE, value=FALSE)
+multiCrossRef(species)
 
 # TODO: what you want to end up with is a table listing, for each element,
-# the number of entries present and/or missing from the list it is compared to.
-str(as.vector(a[3]))
-# it's a list, and lists are special. Use unlist to extract the values:
-b <- unlist(a[3],use.names=FALSE)
-# and then you can do stuff like
-length(b)
+# the number of entries present or missing from the list it is compared to.
+
 

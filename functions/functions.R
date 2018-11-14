@@ -11,6 +11,9 @@
 # FUNCTION LIST:
 # isOneDimensional
 # crossReference
+# multiCrossRef
+
+library(plyr)
 
 
 isOneDimensional <- function(x) {
@@ -79,4 +82,28 @@ crossReference <- function(x, y, presence = TRUE, value = TRUE) {
 }
 
 
+multiCrossRef <- function(x, presence = TRUE) {
+# Wrapper function for crossReference. Takes a list and cross-references all
+# elements of the list with each other.
+#
+# Args:
+#   x: List with elements to cross-reference.
+#   presence: Logical indicating whether to check for presence (TRUE) or
+#             absence (FALSE) of the values being cross-refernced.
+#              Default is TRUE.
+#
+# Returns:
+#   A dataframe listing the number of values missing in each pairwise comparison.
+  if(isOneDimensional(x)) {
+    stop("Argument x is one-dimensional")
+  }
+  a <- plyr::llply(x, function(a) { 
+       plyr::llply(x, crossReference, y=a, presence=presence, value=FALSE)
+       }
+       )
+  b <- plyr::laply(simplify2array(a), length)
+  c <- matrix(data=b, nrow=length(x), ncol=length(x),byrow=FALSE,
+    dimnames=list(names(x), names(x)))
+  return(data.frame(c))
+}
 
