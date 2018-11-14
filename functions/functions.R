@@ -7,8 +7,33 @@
 #   none
 # Generated output files:
 #   none
+#
+# FUNCTION LIST:
+# isOneDimensional
+# crossReference
 
-# F01: crossReference
+
+isOneDimensional <- function(x) {
+# Checks whether x has more than one element or column.
+#
+# Args:
+#   x: object to be evaluated
+#
+# Returns: TRUE if x has only one element or column, FALSE if x has more than
+#          one element or column
+  if(is.list(x)) {  # note: is.list returns TRUE for data frames
+    if(!length(x) == 1) {
+      return(FALSE)
+    }
+  } else {
+    if(!length(as.data.frame(x)) == 1) {
+      return(FALSE)
+    }
+  }
+  return(TRUE)
+}
+
+
 crossReference <- function(x, y, presence = TRUE, value = TRUE) {
 # For each value in x, check if it is present or absent in y, then return
 # the subset of x values that were present/absent, or their indices.
@@ -25,14 +50,11 @@ crossReference <- function(x, y, presence = TRUE, value = TRUE) {
 #  Vector of the same type as x containing the subset of x present/absent in y,
 #  or an integer vector with the indices of x whose values are present/absent
 #  in y.
-  if(is.list(y)) {  # note: is.list returns TRUE for data frames
-    if(!length(y) == 1) {
-      stop("argument y has more than one element")
-    }
-  } else {
-    if(!length(as.data.frame(y)) == 1) {
-      stop("argument y is not one-dimensional")
-    }
+  if(!isOneDimensional(x)) {
+    stop("argument x is not one-dimensional")
+  }
+  if(!isOneDimensional(y)) {
+    stop("argument y is not one-dimensional")
   }
   a <- as.numeric(
          lapply(x, function(x) {
@@ -55,4 +77,6 @@ crossReference <- function(x, y, presence = TRUE, value = TRUE) {
     }
   }
 }
+
+
 
