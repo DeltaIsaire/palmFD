@@ -10,8 +10,8 @@
 #
 # FUNCTION LIST:
 # isOneDimensional
-# crossReference
-# multiCrossRef
+# crossCheck
+# multiCC
 
 library(plyr)
 
@@ -37,7 +37,7 @@ isOneDimensional <- function(x) {
 }
 
 
-crossReference <- function(x, y, presence = TRUE, value = TRUE) {
+crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 # For each value in x, check if it is present or absent in y, then return
 # the subset of x values that were present/absent, or their indices.
 # 
@@ -82,8 +82,8 @@ crossReference <- function(x, y, presence = TRUE, value = TRUE) {
 }
 
 
-multiCrossRef <- function(x, presence = TRUE, value = TRUE) {
-# Wrapper function for crossReference. Takes a list and cross-references all
+multiCC <- function(x, presence = TRUE, value = TRUE) {
+# Wrapper function for crossCheck. Takes a list and cross-references all
 # elements of the list with each other.
 #
 # Args:
@@ -91,7 +91,7 @@ multiCrossRef <- function(x, presence = TRUE, value = TRUE) {
 #   presence: Logical indicating whether to check for presence (TRUE) or
 #             absence (FALSE) of the values being cross-referenced.
 #              Default is TRUE.
-#   value: Logical (see crossReference)
+#   value: Logical (see crossCheck)
 #
 # Returns:
 #   When value = TRUE, returns a list of the values present/absent in each
@@ -102,13 +102,13 @@ multiCrossRef <- function(x, presence = TRUE, value = TRUE) {
   }
   if(isTRUE(value)) {
     a <- plyr::llply(x, function(a) {
-           plyr::llply(x, crossReference, y=a, presence=presence, value=TRUE)
+           plyr::llply(x, crossCheck, y=a, presence=presence, value=TRUE)
          }
          )
     return(a)
   } else {
     a <- plyr::llply(x, function(a) { 
-           plyr::llply(x, crossReference, y=a, presence=presence, value=FALSE)
+           plyr::llply(x, crossCheck, y=a, presence=presence, value=FALSE)
          }
          )
     b <- plyr::laply(simplify2array(a), length)

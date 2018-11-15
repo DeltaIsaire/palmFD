@@ -42,16 +42,16 @@ species <- list(
   trait.data = sub(pattern=" ", replacement="_", x=trait.data$SpecName), 
   tree       = tree$tip.label)
 # 2. cross-reference
-missing.table <- multiCrossRef(species, presence=FALSE, value=FALSE)
-missing.list <- multiCrossRef(species, presence=FALSE, value=TRUE)
+missing.table <- multiCC(species, presence=FALSE, value=FALSE)
+missing.list <- multiCC(species, presence=FALSE, value=TRUE)
 # palm.dist and trait.data are the same, but tree differs from the others.
 # 3. Find the list of species upon which all three sources agree
-present.list <- multiCrossRef(species, presence=TRUE, value=TRUE)
+present.list <- multiCC(species, presence=TRUE, value=TRUE)
 # Just to verify:
 new.species <- list(
   palm.dist = present.list$palm.dist$tree,
   tree      = present.list$tree$palm.dist)
-multiCrossRef(new.species, presence=FALSE, value=FALSE)
+multiCC(new.species, presence=FALSE, value=FALSE)
 # Yup, nothing missing
 species.agreed <- sort(present.list$palm.dist$tree)
 
