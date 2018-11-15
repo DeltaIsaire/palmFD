@@ -53,30 +53,36 @@ crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 #  Vector of the same type as x containing the subset of x present/absent in y,
 #  or an integer vector with the indices of x whose values are present/absent
 #  in y.
+# TODO: handle cases where the value of x matches >1 value in y
   if(!isOneDimensional(x)) {
     stop("argument x is not one-dimensional")
   }
   if(!isOneDimensional(y)) {
     stop("argument y is not one-dimensional")
   }
-  a <- as.numeric(
-         lapply(x, function(x) {
-           which(x == y)
-          }
-       ) )
+  checklist <- lapply(x, function(x) {
+                 which(x == y)
+                 }
+               )
   if (isTRUE(presence)) {
-    present <- which(!is.na(a))
+    present <- lapply(checklist, function(x) {
+                 length(which(!is.na(x)))
+                 }
+               )
     if (isTRUE(value)) {
-      return(x[present])
+      return(x[which(present >= 1)])
     } else {
-      return(present)
+      return(which(present >= 1))
     }
   } else {
-    absent <- which(is.na(a))
+    absent <- lapply(checklist, function(x) {
+                which(length(x) == 0)
+                }
+              )
     if (isTRUE(value)) {
-      return(x[absent])
+      return(x[which(absent >= 1)])
     } else {
-      return(absent)
+      return(which(absent >= 1))
     }
   }
 }

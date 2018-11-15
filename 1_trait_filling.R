@@ -63,10 +63,15 @@ palm.traits    <- data.frame(
   stem.height  = trait.data$MaxStemHeight_m,  # maximum stem height in m.
   blade.length = trait.data$Max_Blade_Length_m,  # maximum blade length in m.
   fruit.length = trait.data$AverageFruitLength_cm)  # Average fruit length in cm.
-palm.traits <- palm.traits[crossCheck(species.agreed,
-  palm.traits$species, presence=TRUE, value=FALSE), ]
+palm.traits <- palm.traits[crossCheck(palm.traits$species,
+  species.agreed, presence=TRUE, value=FALSE), ]
 write.csv(palm.traits, file="output/palm.traits.subset.csv", eol="\r\n")
 
+# Calculate Genus-level mean trait values
+trait.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
+# Beware NAs for genera where all species have NA for the same trait
+# Those genera and all their species may have to be deleted
+# That is a drawback BHPMF *may* not have
 
 
 # TODO: Subset all datasets to the list of agreed species.
