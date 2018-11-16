@@ -11,7 +11,7 @@
 #   output/palm.traits.subset.csv
 
 library(ape)
-
+library(plyr)
 
 # Read palm distribution data
 palm.dist <- read.csv(file="data/palms_in_tdwg3.csv")
@@ -32,6 +32,7 @@ trait.data <- read.csv(file="data/PalmTraits_10.csv")
 
 # Read phylogenetic tree
 palm.tree <- read.nexus(file="data/TREE.nex")
+# It's in nexus format. see str(palm.tree) for components
 
 
 # Explore if these three sources agree on which palm species exist
@@ -67,12 +68,13 @@ palm.traits <- palm.traits[crossCheck(palm.traits$species,
   species.agreed, presence=TRUE, value=FALSE), ]
 write.csv(palm.traits, file="output/palm.traits.subset.csv", eol="\r\n")
 
-# Calculate Genus-level mean trait values
-trait.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
+# Calculate Genus-level mean trait values and fill trait matrix
+genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
 # Beware NAs for genera where all species have NA for the same trait
 # Those genera and all their species may have to be deleted
 # That is a drawback BHPMF *may* not have
-
+# TODO: removing these species / genera
+# TODO: finish gap-filling with genus means
 
 # TODO: Subset all datasets to the list of agreed species.
 # Can we remove species from the phylogenetic tree? How?

@@ -12,6 +12,7 @@
 # isOneDimensional
 # crossCheck
 # multiCC
+# gapFill
 
 library(plyr)
 
@@ -24,12 +25,12 @@ isOneDimensional <- function(x) {
 #
 # Returns: TRUE if x has only one element or column, FALSE if x has more than
 #          one element or column
-  if(is.list(x)) {  # note: is.list returns TRUE for data frames
-    if(!length(x) == 1) {
+  if (is.list(x)) {  # note: is.list returns TRUE for data frames
+    if (!length(x) == 1) {
       return(FALSE)
     }
   } else {
-    if(!length(as.data.frame(x)) == 1) {
+    if (!length(as.data.frame(x)) == 1) {
       return(FALSE)
     }
   }
@@ -53,11 +54,10 @@ crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 #  Vector of the same type as x containing the subset of x present/absent in y,
 #  or an integer vector with the indices of x whose values are present/absent
 #  in y.
-# TODO: handle cases where the value of x matches >1 value in y
-  if(!isOneDimensional(x)) {
+  if (!isOneDimensional(x)) {
     stop("argument x is not one-dimensional")
   }
-  if(!isOneDimensional(y)) {
+  if (!isOneDimensional(y)) {
     stop("argument y is not one-dimensional")
   }
   checklist <- lapply(x, function(x) {
@@ -103,10 +103,10 @@ multiCC <- function(x, presence = TRUE, value = TRUE) {
 #   When value = TRUE, returns a list of the values present/absent in each
 #   pairwise comparison. When value = FALSE, returns a matrix listing the
 #   number of values missing in each pairwise comparison.
-  if(isOneDimensional(x)) {
+  if (isOneDimensional(x)) {
     stop("Argument x is one-dimensional")
   }
-  if(isTRUE(value)) {
+  if (isTRUE(value)) {
     a <- plyr::llply(x, function(a) {
            plyr::llply(x, crossCheck, y=a, presence=presence, value=TRUE)
          }
@@ -124,3 +124,40 @@ multiCC <- function(x, presence = TRUE, value = TRUE) {
   }
 }
 
+
+gapFill <- function(x, y, by, fill) {
+# description
+#
+# Args:
+#   x: Dataframe with columns to be gap-filled
+#   y: Dataframe with data to use for gap filling. Must contain columns with
+#      names matching the columns in x which are to be gap-filled.
+#   by: Character vector of length 1 giving the column name used to match x
+#       to y. Both dataframes must contain a column with this name.
+#   fill: Character vector with the column names in x that should be gap-filled
+#
+# Returns:
+#   Dataframe x where the selected columns are gap-filled
+  if (!is.data.frame(x)) {
+    stop("argument 'x' must be a dataframe")
+  }
+  if (!is.data.frame(y)) {
+    stop("argument 'y' must be a dataframe")
+  }
+  if (! (is.character(by) && length(by) == 1)) {
+    stop("argument 'by' must be a character vector of length 1")
+  }
+  if (!is.character(fill)) {
+    stop("argument 'fill' must be a character vector")
+  }
+  x.by <- which(names(x) == by)
+  y.by <- which(names(y) == by)
+  name = fill[1]  # temporary for development
+  missing <- x[, x.by][which(is.na(x[, name]))]
+  indices <- unlist(lapply(missing, function(x) {
+               which(y[, y.by] == x)
+             }
+             ))
+  x[, name][which(is.na(x[, name]))] <- y[, name][indices]
+  return(x)
+}
