@@ -74,6 +74,9 @@ genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
 # Those genera and all their species may have to be deleted
 # That is a drawback BHPMF *may* not have
 # TODO: removing these species / genera
+traits.filled.means <- gapFill(palm.traits, genus.means, by="genus",
+  fill=c("stem.height", "blade.length", "fruit.length"))
+
 # TODO: finish gap-filling with genus means
 
 # TODO: Subset all datasets to the list of agreed species.

@@ -27,14 +27,14 @@ isOneDimensional <- function(x) {
 #          one element or column
   if (is.list(x)) {  # note: is.list returns TRUE for data frames
     if (!length(x) == 1) {
-      return(FALSE)
+      return (FALSE)
     }
   } else {
     if (!length(as.data.frame(x)) == 1) {
-      return(FALSE)
+      return (FALSE)
     }
   }
-  return(TRUE)
+  return (TRUE)
 }
 
 
@@ -61,28 +61,28 @@ crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
     stop("argument y is not one-dimensional")
   }
   checklist <- lapply(x, function(x) {
-                 which(x == y)
-                 }
-               )
+                      which(x == y)
+                      }
+                      )
   if (isTRUE(presence)) {
     present <- lapply(checklist, function(x) {
-                 length(which(!is.na(x)))
-                 }
-               )
+                      length(which(!is.na(x)))
+                      }
+                      )
     if (isTRUE(value)) {
-      return(x[which(present >= 1)])
+      return (x[which(present >= 1)])
     } else {
-      return(which(present >= 1))
+      return (which(present >= 1))
     }
   } else {
     absent <- lapply(checklist, function(x) {
-                which(length(x) == 0)
-                }
-              )
+                     which(length(x) == 0)
+                     }
+                     )
     if (isTRUE(value)) {
-      return(x[which(absent >= 1)])
+      return (x[which(absent >= 1)])
     } else {
-      return(which(absent >= 1))
+      return (which(absent >= 1))
     }
   }
 }
@@ -108,25 +108,28 @@ multiCC <- function(x, presence = TRUE, value = TRUE) {
   }
   if (isTRUE(value)) {
     a <- plyr::llply(x, function(a) {
-           plyr::llply(x, crossCheck, y=a, presence=presence, value=TRUE)
-         }
-         )
-    return(a)
+                     plyr::llply(x, crossCheck, y=a, presence=presence,
+                                 value=TRUE)
+                     }
+                     )
+    return (a)
   } else {
     a <- plyr::llply(x, function(a) { 
-           plyr::llply(x, crossCheck, y=a, presence=presence, value=FALSE)
-         }
-         )
+                     plyr::llply(x, crossCheck, y=a, presence=presence,
+                                 value=FALSE)
+                     }
+                     )
     b <- plyr::laply(simplify2array(a), length)
     c <- matrix(data=b, nrow=length(x), ncol=length(x),byrow=FALSE,
-      dimnames=list(x=names(x), y=names(x)))
-    return(c)
+                dimnames=list(x=names(x), y=names(x)))
+    return (c)
   }
 }
 
 
 gapFill <- function(x, y, by, fill) {
-# description
+# Fills missing values in the selected columns of x using the data provided
+# in y.
 #
 # Args:
 #   x: Dataframe with columns to be gap-filled
@@ -152,12 +155,23 @@ gapFill <- function(x, y, by, fill) {
   }
   x.by <- which(names(x) == by)
   y.by <- which(names(y) == by)
-  name = fill[1]  # temporary for development
-  missing <- x[, x.by][which(is.na(x[, name]))]
-  indices <- unlist(lapply(missing, function(x) {
-               which(y[, y.by] == x)
-             }
-             ))
-  x[, name][which(is.na(x[, name]))] <- y[, name][indices]
-  return(x)
+  filled <- lapply(fill, function(name) {
+                   missing <- x[, x.by][which(is.na(x[, name]))]
+                   indices <- unlist(lapply(missing, function(x) {
+                                            which(y[, y.by] == x)
+                                            }
+                                     )      )
+                   x[, name][which(is.na(x[, name]))] <- y[, name][indices]
+                   return (x[, name])
+                   }
+                   )
+  filled <- data.frame(simplify2array(filled))
+  names(filled) <- fill
+  fill.indices <- simplify2array(lapply(fill, function(a) {
+                                 which(names(x) == a)
+                                 }
+                          )      )
+  x[, fill.indices] <- filled
+  return (x)
 }
+
