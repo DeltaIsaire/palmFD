@@ -16,7 +16,7 @@
 print("Loading functions...",quote=FALSE)
 source(file="functions/functions.R")
 
-print("Gap-filling palm traits matrix...",quote=FALSE)
+print("Gap-filling palm traits matrix:",quote=FALSE)
 source(file="1_trait_filling.R")
 
 print("Done.",quote=FALSE)
