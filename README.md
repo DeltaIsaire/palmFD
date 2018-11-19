@@ -35,6 +35,7 @@ In addition, the following R packages are required:
 ```
 plyr
 ape
+BHPMF
 ```
 
 ## Running the code

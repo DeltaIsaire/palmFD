@@ -9,15 +9,15 @@
 #   none
 #
 # FUNCTION LIST:
-# isOneDimensional
-# crossCheck
-# multiCC
-# gapFill
+# IsOneDimensional
+# CrossCheck
+# MultiCC
+# GapFill
 
 library(plyr)
 
 
-isOneDimensional <- function(x) {
+IsOneDimensional <- function(x) {
 # Checks whether x has more than one element or column.
 #
 # Args:
@@ -38,7 +38,7 @@ isOneDimensional <- function(x) {
 }
 
 
-crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
+CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 # For each value in x, check if it is present or absent in y, then return
 # the subset of x values that were present/absent, or their indices.
 # 
@@ -54,10 +54,10 @@ crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 #  Vector of the same type as x containing the subset of x present/absent in y,
 #  or an integer vector with the indices of x whose values are present/absent
 #  in y.
-  if (!isOneDimensional(x)) {
+  if (!IsOneDimensional(x)) {
     stop("argument x is not one-dimensional")
   }
-  if (!isOneDimensional(y)) {
+  if (!IsOneDimensional(y)) {
     stop("argument y is not one-dimensional")
   }
   checklist <- lapply(x, function(x) {
@@ -88,8 +88,8 @@ crossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 }
 
 
-multiCC <- function(x, presence = TRUE, value = TRUE) {
-# Wrapper function for crossCheck. Takes a list and cross-references all
+MultiCC <- function(x, presence = TRUE, value = TRUE) {
+# Wrapper function for CrossCheck. Takes a list and cross-references all
 # elements of the list with each other.
 #
 # Args:
@@ -97,25 +97,25 @@ multiCC <- function(x, presence = TRUE, value = TRUE) {
 #   presence: Logical indicating whether to check for presence (TRUE) or
 #             absence (FALSE) of the values being cross-referenced.
 #              Default is TRUE.
-#   value: Logical (see crossCheck)
+#   value: Logical (see CrossCheck)
 #
 # Returns:
 #   When value = TRUE, returns a list of the values present/absent in each
 #   pairwise comparison. When value = FALSE, returns a matrix listing the
 #   number of values missing in each pairwise comparison.
-  if (isOneDimensional(x)) {
+  if (IsOneDimensional(x)) {
     stop("Argument x is one-dimensional")
   }
   if (isTRUE(value)) {
     a <- plyr::llply(x, function(a) {
-                     plyr::llply(x, crossCheck, y=a, presence=presence,
+                     plyr::llply(x, CrossCheck, y=a, presence=presence,
                                  value=TRUE)
                      }
                      )
     return (a)
   } else {
     a <- plyr::llply(x, function(a) { 
-                     plyr::llply(x, crossCheck, y=a, presence=presence,
+                     plyr::llply(x, CrossCheck, y=a, presence=presence,
                                  value=FALSE)
                      }
                      )
@@ -127,7 +127,7 @@ multiCC <- function(x, presence = TRUE, value = TRUE) {
 }
 
 
-gapFill <- function(x, y, by, fill) {
+GapFill <- function(x, y, by, fill) {
 # Fills missing values in the selected columns of x using the data provided
 # in y.
 #
