@@ -77,7 +77,7 @@ palm.traits <- data.frame(species      = sub(pattern=" ", replacement="_",
 # stem.height = maximum stem height in meters.
 # blade.length = maximum blade length in meters.
 # fruit.length = average fruit length in centimeters.
-# Genus column is included because we need it to calculate genus mean trait values
+# Genus is included because we need it to calculate genus mean trait values
 
 # DISABLED SUBSETTING TO AGREED SPECIES LIST
 # palm.traits <- palm.traits[CrossCheck(palm.traits$species,
@@ -117,12 +117,13 @@ trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
                                           "fruit.length")]
                           )
 rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
+# columns of the hierarchy matrix should be from high-level to low-level
+hierarchy.matrix <- as.matrix(data.frame(subfamily = trait.data$PalmSubfamily,
                                          tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
+                                         genus     = trait.data$accGenus,
+                                         species   = sub(pattern=" ",
+                                                         replacement="_",
+                                                         x=trait.data$SpecName))
                               )
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
@@ -134,10 +135,10 @@ trait.matrix <- trait.matrix[-to.remove, ]
 hierarchy.matrix <- hierarchy.matrix[-to.remove, ]
 rm(to.remove)
 # Run BHPMF. The function is BHPMF::GapFilling
-# GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-#            used.num.hierarchy.levels=3,
-#  mean.gap.filled.output.path="output/",
-# std.gap.filled.output.path="output/")
+GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
+           prediction.level=4, used.num.hierarchy.levels=3,
+           mean.gap.filled.output.path="output/BHPMF_mean_gap_filled.txt",
+           std.gap.filled.output.path="output/BHPMF_std_gap_filled.txt")
 
 
 
