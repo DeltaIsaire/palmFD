@@ -30,7 +30,7 @@ source(file="functions/base.functions.R")
 # -----------------
 # Read raw datasets
 # -----------------
-print("preparing data...",quote=FALSE)
+cat("Preparing data...", "\n")
 palm.dist <- read.csv(file="data/palms_in_tdwg3.csv")
 # Long-list Data frame with two columns:
 #	1. Area_code_L3 - 3-letter code for each botanical country
@@ -82,13 +82,14 @@ palm.traits <- data.frame(species      = sub(pattern=" ", replacement="_",
 # blade.length = maximum blade length in meters.
 # fruit.length = average fruit length in centimeters.
 # Genus is included because we need it to calculate genus mean trait values
-write.csv(palm.traits, file="output/palm.traits.csv", eol="\r\n")
+write.csv(palm.traits, file="output/palm.traits.csv", eol="\r\n",
+          row.names=FALSE)
 
 
 # ---------------------------------------
 # Gap-fill trait matrix using genus means
 # ---------------------------------------
-print("gap-filling with genus means...",quote=FALSE)
+cat("Gap-filling with genus means...", "\n")
 genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
 traits.filled.mean <- GapFill(palm.traits, genus.means, by="genus",
                                fill=c("stem.height", "blade.length",
@@ -103,14 +104,15 @@ genus.mean.missing <- traits.filled.mean[!complete.cases(traits.filled.mean), ]
 traits.filled.mean <- traits.filled.mean[complete.cases(traits.filled.mean), ]
 
 write.csv(traits.filled.mean, file="output/palm.traits.genus.mean.csv",
-          eol="\r\n")
-write.csv(genus.mean.missing, file="output/genus.mean.missing.csv", eol="\r\n")
+          eol="\r\n", row.names=FALSE)
+write.csv(genus.mean.missing, file="output/genus.mean.missing.csv", eol="\r\n",
+          row.names=FALSE)
 
 
 # ---------------------------------
 # Gap-fill trait matrix using BHPMF
 # ---------------------------------
-print("gap-filling with BHPMF... (this may take a while)",quote=FALSE)
+cat("Gap-filling with BHPMF... (this may take a while)", "\n")
 # First assemble the prerequisites data matrices.
 # Source dataframes are sorted by species name, so rows will correspond
 # automatically.
@@ -163,8 +165,9 @@ traits.filled.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
                                   genus   = as.character(hierarchy.matrix[, 2]),
                                   mean.BHPMF)
 write.csv(traits.filled.BHPMF, file="output/palm.traits.BHPMF.csv",
-          eol="\r\n")
-write.csv(BHPMF.missing, file="output/BHPMF.missing.csv", eol="\r\n")
+          eol="\r\n", row.names=FALSE)
+write.csv(BHPMF.missing, file="output/BHPMF.missing.csv", eol="\r\n",
+          row.names=FALSE)
 
 
 

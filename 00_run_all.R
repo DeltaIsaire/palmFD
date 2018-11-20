@@ -15,13 +15,14 @@
 #
 # See the individual scripts for comments and details of operations.
 
-print("Loading functions...",quote=FALSE)
+cat("Loading functions...", "\n")
 source(file="functions/base.functions.R")
+source(file="functions/plotting.functions.R")
 
-print("Gap-filling palm traits matrix:",quote=FALSE)
+cat("Gap-filling palm traits matrix:", "\n")
 source(file="1_trait_filling.R")
 
-print("Comparing trait filling methods...",quote=FALSE)
+cat("Comparing trait filling methods:", "\n")
 source(file="2_trait_filling_comparison.R")
 
-print("Done.",quote=FALSE)
+cat("Done.", "\n")
