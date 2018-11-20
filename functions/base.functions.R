@@ -60,6 +60,12 @@ CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
   if (!IsOneDimensional(y)) {
     stop("argument y is not one-dimensional")
   }
+  if (is.factor(x)) {
+    x <- as.character(x)
+  }
+  if (is.factor(y)) {
+    y <- as.character(y)
+  }
   checklist <- lapply(x, function(x) {
                       which(x == y)
                       }
@@ -174,4 +180,5 @@ GapFill <- function(x, y, by, fill) {
   x[, fill.indices] <- filled
   return (x)
 }
+
 

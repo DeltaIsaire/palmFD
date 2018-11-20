@@ -13,10 +13,19 @@
 # Generated output files:
 #   output/palm.traits.csv
 #   output/palm.traits.genus.mean.csv
+#   output/BHPMF_preprocessing (directory containing many files)
+#   output/BHPMF.mean.gap.filled.txt
+#   output/BHPMF.std.gap.filled.txt
+#   output/palm.traits.BHPMF.csv
+#   output/BHPMF.missing.csv
+
 
 library(ape)
 library(plyr)
 library(BHPMF)
+
+source(file="functions/base.functions.R")
+
 
 # -----------------
 # Read raw datasets
@@ -46,23 +55,17 @@ palm.tree <- read.nexus(file="data/TREE.nex")
 # Compare the list of palm species of each dataset
 # ------------------------------------------------
 # Do the three datasets agree on which palm species exist?
-# 1. Extract species names.
+# First extract species names.
 # Ensure that each variable uses underscores instead of spaces.
 species <- list(palm.dist  = levels(palm.dist$SpecName),
                 trait.data = sub(pattern=" ", replacement="_",
                                  x=trait.data$SpecName), 
                 palm.tree  = palm.tree$tip.label)
-# 2. cross-check
-missing.table <- MultiCC(species, presence=FALSE, value=FALSE)
-missing.list <- MultiCC(species, presence=FALSE, value=TRUE)
-# palm.dist and trait.data are the same, but palm.tree differs from the others.
-# 3. Find the list of species upon which all three sources agree.
+# For each dataset, extract the list of species that are present in the other
+# datasets
 present.list <- MultiCC(species, presence=TRUE, value=TRUE)
-# Verification test:
-new.species <- list(palm.dist = present.list$palm.dist$palm.tree,
-                    palm.tree = present.list$palm.tree$palm.dist)
-MultiCC(new.species, presence=FALSE, value=FALSE)
-# Yup, nothing missing.
+# palm.dist and trait.data are the same, but palm.tree differs from the others.
+# Therefore, the list of species present in all 3 datasets is:
 species.agreed <- sort(present.list$palm.dist$palm.tree)
 
 
@@ -79,12 +82,6 @@ palm.traits <- data.frame(species      = sub(pattern=" ", replacement="_",
 # blade.length = maximum blade length in meters.
 # fruit.length = average fruit length in centimeters.
 # Genus is included because we need it to calculate genus mean trait values
-
-# DISABLED SUBSETTING TO AGREED SPECIES LIST
-# palm.traits <- palm.traits[CrossCheck(palm.traits$species,
-#                                       species.agreed, presence=TRUE,
-#                                       value=FALSE), ]
-
 write.csv(palm.traits, file="output/palm.traits.csv", eol="\r\n")
 
 
@@ -122,7 +119,7 @@ trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
                                       ]
                           )
 rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-# columns of the hierarchy matrix should be from low-level to high-level
+# columns of the hierarchy matrix should be from low-level to high-level:
 hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
                                                          replacement="_",
                                                          x=trait.data$SpecName),
@@ -149,13 +146,9 @@ trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.01
 # needs to be emptied.
 unlink("output/BHPMF_preprocessing", recursive=TRUE)
 dir.create("output/BHPMF_preprocessing")
+
 # Run BHPMF. The function is BHPMF::GapFilling.
 # This step is computationally intensive!
-
-# To speed up code development you can run BHPMF with a test dataset
-# test.trait.matrix <- trait.matrix[1:200, ]
-# test.hierarchy.matrix <- hierarchy.matrix[1:200, ]
-
 GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
            prediction.level=4, used.num.hierarchy.levels=3,
            mean.gap.filled.output.path="output/BHPMF.mean.gap.filled.txt",
@@ -163,17 +156,20 @@ GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
            tmp.dir="output/BHPMF_preprocessing", 
            rmse.plot.test.data=FALSE, verbose=FALSE)
 
+# Extract BHPMF output into a neat dataframe:
 mean.BHPMF <- read.table(file="output/BHPMF.mean.gap.filled.txt",
                          header=TRUE, sep="	")
-traits.filled.BHPMF <- data.frame(species = hierarchy.matrix[, 1],
-                                  genus   = hierarchy.matrix[, 2],
+traits.filled.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
+                                  genus   = as.character(hierarchy.matrix[, 2]),
                                   mean.BHPMF)
 write.csv(traits.filled.BHPMF, file="output/palm.traits.BHPMF.csv",
           eol="\r\n")
 write.csv(BHPMF.missing, file="output/BHPMF.missing.csv", eol="\r\n")
 
+
+
 # TODO:we use the taxonomic data from the trait dataset.
-# Will we do nothing with the tree?
+# Will we do nothing with the phylogenetic tree?
 # Also, consider tuning (see ?GapFilling)
 
 # TODO: compare genus-mean filling with BHPMF filling.

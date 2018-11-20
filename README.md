@@ -40,14 +40,14 @@ BHPMF
 
 ## Running the code
 
-The main file (00_main.R) automatically executes all scripts in sensible order,
+The main file (00_run_all.R) automatically executes all scripts in sensible order,
 thus providing a one-click way to re-generate all output. To run it, launch R and set the working directory to the root folder of the project. For example:
 ```
 setwd("/home/delta/R_Projects/palm_FD")
 ```
 
-Then you can run the script 00_main.R to execute all the code at once:
+Then you can run the script 00_run_all.R to execute all the code at once:
 ```
-source(file="00_main.R")
+source(file="00_run_all.R")
 ```
 
