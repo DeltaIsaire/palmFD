@@ -9,6 +9,8 @@
 #   output/palm.traits.BHPMF.csv
 # Generated output files:
 #   graphs/scatter.stem.height.estimates.pdf
+#   graphs/scatter.blade.length.estimates.pdf
+#   graphs/scatter.fruit.length.estimates.pdf
 
 
 source(file="functions/base.functions.R")
@@ -49,11 +51,23 @@ opar <- par()
 # gap-filling, by invoking the power of functions:
 scatter.stem.height <- function() {
   MultiScatter(traits.mean.subset$stem.height, traits.BHPMF.subset$stem.height,
-               x.name="Genus Mean", y.name="BHPMF")
+               x.name="Genus Mean", y.name="BHPMF", title="Stem height")
+}
+scatter.blade.length <- function() {
+  MultiScatter(traits.mean.subset$blade.length, traits.BHPMF.subset$blade.length,
+               x.name="Genus Mean", y.name="BHPMF", title="Blade length")
+}
+scatter.fruit.length <- function() {
+  MultiScatter(traits.mean.subset$fruit.length, traits.BHPMF.subset$fruit.length,
+               x.name="Genus Mean", y.name="BHPMF", title="Fruit length")
 }
 
 # Save graphs to pdf:
 GraphPDF(scatter.stem.height(), file="graphs/scatter.stem.height.estimates.pdf",
+         width=12, height=4)
+GraphPDF(scatter.blade.length(), file="graphs/scatter.blade.length.estimates.pdf",
+         width=12, height=4)
+GraphPDF(scatter.fruit.length(), file="graphs/scatter.fruit.length.estimates.pdf",
          width=12, height=4)
 
 # Just in case:

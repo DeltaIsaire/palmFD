@@ -110,7 +110,7 @@ GraphPDF <- function(expr, file, ...) {
 }
 
 
-MultiScatter <- function(x, y, x.name="x", y.name="y", ...) {
+MultiScatter <- function(x, y, x.name="x", y.name="y", title=NULL, ...) {
 # Produce a neatly formatted multi-frame graph. IN DEVELOPMENT
 #
 # Args:
@@ -120,20 +120,28 @@ MultiScatter <- function(x, y, x.name="x", y.name="y", ...) {
 #            all frames.
 #   y.name: character vector of length 1 giving a name for the y-values.
 #            Will be used in the y-axis labels.
+#   title: A title for the overall graph. It will be displayed centered above
+#          the two plot frames.
 #   ...: additional arguments to pass to Scatterplot function. These arguments
 #        will apply to all frames.
 
 # Output:
-#   A graph with 2 frames
-  par(mfrow=c(1, 2))
-  # Genus mean vs BHPMF:
+#   A graph with 2 frames and a common title:
+  par(mar=c(0.5, 0.5, 0.5, 0.5))
+  layout(matrix(c(1, 2, 1, 3), ncol=2), heights=c(1, 9))
+  plot.new()
+  # add title:
+  text(x=0.5, y=0.5, labels=title, cex=1.8)
+  # return par to default:
+  par(mar=c(5, 4, 4, 2) + 0.1)
+  # First plot: x vs y
   Scatterplot(x=x, y=y, xlab=x.name, ylab=y.name, ...)
   # Add frame label in top left:
   text(x=par("usr")[1], y=par("usr")[4], 
        labels="A", cex=2, adj=c(-0.5, 1.5))
   # Add 1:1 line for reference:
-  lines(x=c(par("usr")[1], par("usr")[2]), y=c(par("usr")[3], par("usr")[4]))
-  # Second frame: a simple kind of residuals plot, which is visually easier
+  lines(x=c(-1000, 1000), y=c(-1000, 1000))
+  # Second plot: a simple kind of residuals plot, which is visually easier
   # to interpret.
   Scatterplot(x=x, y=(y-x), xlab=x.name, ylab=paste0("(", x.name, " - ",
                                                      y.name, ")"), ...)
