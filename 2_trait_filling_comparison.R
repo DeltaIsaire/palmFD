@@ -8,7 +8,7 @@
 #   output/palm.traits.genus.mean.csv
 #   output/palm.traits.BHPMF.csv
 # Generated output files:
-# none
+#   graphs/scatter.stem.height.estimates.pdf
 
 
 source(file="functions/base.functions.R")
@@ -42,23 +42,22 @@ traits.BHPMF.subset <- traits.BHPMF[CrossCheck(traits.BHPMF$species,
 # Scatterplots of gap-filled trait values
 # ---------------------------------------
 cat("Creating scatterplots...", "\n")
+# When plotting, always store default par values:
+opar <- par()
+
 # Plot the result of genus-mean gap-filling against the results of BHPMF
-# gap-filling.
-
+# gap-filling, by invoking the power of functions:
 scatter.stem.height <- function() {
-  Scatterplot(x    = traits.mean.subset$stem.height, 
-              y    = traits.BHPMF.subset$stem.height,
-              xlab = "Genus Mean estimated stem height",
-              ylab = "BHPMF estimated stem height")
-  # If mean and BHPMF estimated the same value for a species, then that
-  # data point should be on a straight line (x=y). Add this line to the plot:
-  lines(x=c(-10, 1000), y=c(-10, 1000))
-  # Reset graphical parameters to default
-  on.exit(par(mar=c(5, 4, 4, 2) + 0.1))
+  MultiScatter(traits.mean.subset$stem.height, traits.BHPMF.subset$stem.height,
+               x.name="Genus Mean", y.name="BHPMF")
 }
-GraphPDF(scatter.stem.height(), file="graphs/scatter.stem.height.estimates.pdf",
-         width=6, height=4)
 
+# Save graphs to pdf:
+GraphPDF(scatter.stem.height(), file="graphs/scatter.stem.height.estimates.pdf",
+         width=12, height=4)
+
+# Just in case:
+dev.off()
 
 
 # Remember the standard plotting workflow:
