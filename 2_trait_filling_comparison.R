@@ -13,8 +13,6 @@
 #   graphs/scatter.fruit.length.estimates.pdf
 
 
-library(plyr)
-
 source(file="functions/base.functions.R")
 source(file="functions/plotting.functions.R")
 
@@ -80,15 +78,15 @@ opar <- par()
 # gap-filling, by invoking the power of functions:
 scatter.stem.height <- function() {
   MultiScatter(traits.mean.subset$stem.height, traits.BHPMF.subset$stem.height,
-               x.name="Genus Mean", y.name="BHPMF", title="Stem height")
+               x.name="Genus Mean", y.name="BHPMF", title="Stem height (m)")
 }
 scatter.blade.length <- function() {
   MultiScatter(traits.mean.subset$blade.length, traits.BHPMF.subset$blade.length,
-               x.name="Genus Mean", y.name="BHPMF", title="Blade length")
+               x.name="Genus Mean", y.name="BHPMF", title="Blade length (m)")
 }
 scatter.fruit.length <- function() {
   MultiScatter(traits.mean.subset$fruit.length, traits.BHPMF.subset$fruit.length,
-               x.name="Genus Mean", y.name="BHPMF", title="Fruit length")
+               x.name="Genus Mean", y.name="BHPMF", title="Fruit length (cm)")
 }
 
 # Save graphs to pdf:
@@ -103,6 +101,20 @@ GraphPDF(scatter.fruit.length(), file="graphs/scatter.fruit.length.estimates.pdf
 dev.off()
 
 
+# ----------------------------------
+# Boxplots of estimated trait values
+# ----------------------------------
+cat("Creating Boxplots...", "\n")
+
+# For each trait, a boxplot comparing the estimations from genus mean and BHPMF
+# with the variation in the unfilled trait.
+Boxplot <- function() {
+ # set margins to be nicely narrow
+ par(mar=c(4.1, 4.1, .5, .5))
+  boxplot(height.estimates[, c("genus.mean", "BHPMF")],
+          border="black", col="lightgrey", ylab="Maximum stem height (m)")
+}
+traits$stem.height[!is.na(traits$stem.height)]
 
 
 # Remember the standard plotting workflow:

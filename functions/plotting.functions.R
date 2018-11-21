@@ -131,7 +131,7 @@ MultiScatter <- function(x, y, x.name="x", y.name="y", title=NULL, ...) {
   layout(matrix(c(1, 2, 1, 3), ncol=2), heights=c(1, 9))
   plot.new()
   # add title:
-  text(x=0.5, y=0.5, labels=title, cex=1.8)
+  text(x=0.5, y=0.5, labels=title, cex=1.7)
   # return par to default:
   par(mar=c(5, 4, 4, 2) + 0.1)
   # First plot: x vs y
@@ -143,8 +143,8 @@ MultiScatter <- function(x, y, x.name="x", y.name="y", title=NULL, ...) {
   lines(x=c(-1000, 1000), y=c(-1000, 1000))
   # Second plot: a simple kind of residuals plot, which is visually easier
   # to interpret.
-  Scatterplot(x=x, y=(y-x), xlab=x.name, ylab=paste0("(", x.name, " - ",
-                                                     y.name, ")"), ...)
+  Scatterplot(x=x, y=(y-x), xlab=x.name, ylab=paste0("(", y.name, " - ",
+                                                     x.name, ")"), ...)
   # Add frame label in top right:
   text(x=par("usr")[2], y=par("usr")[4], 
        labels="B", cex=2, adj=c(1.2, 1.5))

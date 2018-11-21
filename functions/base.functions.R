@@ -161,9 +161,17 @@ GapFill <- function(x, y, by, fill) {
   }
   x.by <- which(names(x) == by)
   y.by <- which(names(y) == by)
+  # Robustness against cases where the 'by' column is a factor with differing
+  # levels between dataframes:
+  if (is.factor(x[, x.by])) {
+    x[, x.by] <- as.character(x[, x.by])
+  }
+  if (is.factor(y[, y.by])) {
+    y[, y.by] <- as.character(y[, y.by])
+  }
   filled <- lapply(fill, function(name) {
                    missing <- x[, x.by][which(is.na(x[, name]))]
-                   indices <- unlist(lapply(missing, function(x) {
+                   indices <- as.numeric(lapply(missing, function(x) {
                                             which(y[, y.by] == x)
                                             }
                                      )      )

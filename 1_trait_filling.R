@@ -161,9 +161,24 @@ GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
 # Extract BHPMF output into a neat dataframe:
 mean.BHPMF <- read.table(file="output/BHPMF.mean.gap.filled.txt",
                          header=TRUE, sep="	")
-traits.filled.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
+mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
                                   genus   = as.character(hierarchy.matrix[, 2]),
                                   mean.BHPMF)
+# This looks complete but IT HAS A FLAW: BHPMF also outputs estimates for
+# what it calls 'observed' trait values. We want to extract only the predictions
+# for trait values that were actually missing.
+# So, we perform gap-filling:
+traits.filled.BHPMF <- GapFill(palm.traits, mean.BHPMF, by="species",
+                               fill=c("stem.height", "blade.length",
+                                      "fruit.length")
+                              )
+# Beware NAs for cases where all species of the genus have NA for the
+# same trait.
+# Solution: delete all cases where BHPMF filling is not possible.
+# We already have these cases extracted in 'BHPMF.missing'.
+# Remove them from the filled trait matrix:
+traits.filled.BHPMF <- traits.filled.BHPMF[complete.cases(traits.filled.BHPMF), ]
+
 write.csv(traits.filled.BHPMF, file="output/palm.traits.BHPMF.csv",
           eol="\r\n", row.names=FALSE)
 write.csv(BHPMF.missing, file="output/BHPMF.missing.csv", eol="\r\n",
@@ -183,6 +198,8 @@ write.csv(BHPMF.missing, file="output/BHPMF.missing.csv", eol="\r\n",
 # to estimate missing values for our three traits of interest, even for species
 # where all three trait values are missing.
 
+# TODO: BHPMF is stochastic. Should we use set.seed() or is it OK if results
+# can vary a bit?
 
 # TODO: Subset all datasets to the list of agreed species.
 #   Can we remove species from the phylogenetic tree? How?
