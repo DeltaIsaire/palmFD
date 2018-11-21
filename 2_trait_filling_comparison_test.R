@@ -15,9 +15,9 @@
 source(file="2_trait_filling_comparison.R")
 
 
-# ---------------
-# Read input data
-# ---------------
+# ----------------
+# Data preparation
+# ----------------
 # Find out how many species are not shared between filled trait matrices:
 MultiCC(list(mean  = traits.mean$species,
              BHPMF = traits.BHPMF$species),

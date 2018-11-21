@@ -13,14 +13,17 @@
 #   graphs/scatter.fruit.length.estimates.pdf
 
 
+library(plyr)
+
 source(file="functions/base.functions.R")
 source(file="functions/plotting.functions.R")
 
 
-# ---------------
-# Read input data
-# ---------------
+# ----------------
+# Data preparation
+# ----------------
 cat("Preparing data...", "\n")
+traits <- read.csv(file="output/palm.traits.csv")
 traits.mean <- read.csv(file="output/palm.traits.genus.mean.csv")
 traits.BHPMF <- read.csv(file="output/palm.traits.BHPMF.csv")
 
@@ -38,6 +41,32 @@ traits.mean.subset <- traits.mean[CrossCheck(traits.mean$species,
 traits.BHPMF.subset <- traits.BHPMF[CrossCheck(traits.BHPMF$species,
                                              shared.species, presence=TRUE,
                                              value=FALSE), ]
+
+# In addition to the complete filled trait matrices, we also need to have
+# the estimated trait values separately.
+# First, for each trait, we need the list of shared.species whose trait value
+# was estimated:
+height.shared <- CrossCheck(traits[which(is.na(traits$stem.height)), "species"],
+                            shared.species, presence=TRUE, value=TRUE)
+blade.shared <- CrossCheck(traits[which(is.na(traits$blade.length)), "species"],
+                            shared.species, presence=TRUE, value=TRUE)
+fruit.shared <- CrossCheck(traits[which(is.na(traits$fruit.length)), "species"],
+                            shared.species, presence=TRUE, value=TRUE)
+# Then, for each trait, we extract the predicted trait values for these species.
+# We use a local function for the sake of code legibility:
+Extract <- function(shared, trait) {
+  data.frame(species = shared,
+             genus.mean = traits.mean.subset[, trait][
+               CrossCheck(traits.mean.subset$species, shared, presence=TRUE,
+                 value=FALSE)],
+             BHPMF = traits.BHPMF.subset[, trait][
+               CrossCheck(traits.BHPMF.subset$species, shared, presence=TRUE,
+                 value=FALSE)]
+             )
+}
+height.estimates <- Extract(shared=height.shared, trait="stem.height")
+blade.estimates <- Extract(shared=blade.shared, trait="blade.length")
+fruit.estimates <- Extract(shared=fruit.shared, trait="fruit.length")
 
 
 # ---------------------------------------
@@ -72,6 +101,8 @@ GraphPDF(scatter.fruit.length(), file="graphs/scatter.fruit.length.estimates.pdf
 
 # Just in case:
 dev.off()
+
+
 
 
 # Remember the standard plotting workflow:
