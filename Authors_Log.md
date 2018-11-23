@@ -135,4 +135,5 @@ Here, we generate:
 ```
 The next thing to do is comparing the outputs of these five gap-filling attempts. The code for that will be in 2_trait_filling_comparison_test.R, and I'm making a document trait_filling_comparison.docx as an update. To import graphs into a writer document it is best to export as SVG rather than PDF, so I made a custom GraphSVG function first. UPDATE: I might end up using SVGs from now on, cause they're way more awesome than PDFs.
 
-
+At the end of the day I have some neat combined boxplots, comparing for each
+trait the estimated values for each of the five methods. 

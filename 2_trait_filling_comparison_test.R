@@ -47,6 +47,8 @@ filled.four <- read.csv(file="output/TEST.BHPMF_filled_4.csv")
 #    AverageFruitWidth_cm
 filled.five <- read.csv(file="output/TEST.BHPMF_filled_5.csv")
 
+# Completeness
+# ------------
 # As a first step, compare the number of species in the filled matrices,
 # as a measure of completeness.
 # For comparison we load the original unfilled matrix as well.
@@ -60,4 +62,50 @@ names(lengths) <- "species.count"
 GraphSVG(barplot(lengths[, 1], names.arg=rownames(lengths), ylab="species count"),
          file="graphs/gapfill_completeness.svg", width=6, height=4)
 
+# Boxplots
+# --------
+# Next, for each trait we can make a boxplot to compare the spread of the
+# original and gap-filled trait values.
+
+# First, for each trait, we need the list of shared.species whose trait value
+# was estimated. Thankfully we only need to look at the most conservative of
+# the BHPMF methods, which is method two, and crossCheck it with genus means
+# (method one)
+shared.species <- CrossCheck(filled.two$species,
+                             filled.one$ species,
+                             presence=TRUE, value=TRUE)
+# Then, for each trait, we extract the predicted trait values for these species.
+# We use the power of functions for the sake of code legibility:
+objects <- list(original, filled.one, filled.two, filled.three, filled.four,
+                filled.five)
+Extract <- function(objects, trait) {
+  values <- lapply(objects, function(x) {
+                    spec <- CrossCheck(x[, "species"], shared.species,
+                                       presence=TRUE, value=FALSE)
+                    return (x[, trait][spec])
+                    }
+                  )
+ frame <- data.frame(species = shared.species, values)
+ names(frame) <- c("species", "original", "one", "two", "three", "four", "five")
+ return (frame)
+}
+height.estimates <- Extract(objects=objects, trait="stem.height")
+blade.estimates <- Extract(objects=objects, trait="blade.length")
+fruit.estimates <- Extract(objects=objects, trait="fruit.length")
+
+# Now we can make the boxplots
+Boxplot <- function(x, ylab) {
+  # set margins to be nicely narrow
+  par(mar=c(4.1, 4.1, .5, .5))
+  boxplot(log10(x[, -1]), border="black", col="lightgrey", ylab=ylab,
+          xlab="log10(values)")
+  # Add horizontal line for comparison
+  abline(h=median(log10(x[, "original"]), na.rm=TRUE))
+}
+GraphSVG(Boxplot(x=height.estimates, ylab="log10(stem height)"),
+         file="graphs/boxplot.estimates.height.svg", width=6, height=9)
+GraphSVG(Boxplot(x=blade.estimates, ylab="log10(blade length)"),
+         file="graphs/boxplot.estimates.blade.svg", width=6, height=9)
+GraphSVG(Boxplot(x=fruit.estimates, ylab="log10(fruit length)"),
+         file="graphs/boxplot.estimates.fruit.svg", width=6, height=9)
 
