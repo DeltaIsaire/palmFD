@@ -14,8 +14,8 @@
 #   output/palm.traits.csv
 #   output/palm.traits.genus.mean.csv
 #   output/BHPMF_preprocessing (directory containing many files)
-#   output/BHPMF.mean.gap.filled.txt
-#   output/BHPMF.std.gap.filled.txt
+#   output/BHPMF.mean.txt
+#   output/BHPMF.std.txt
 #   output/palm.traits.BHPMF.csv
 #   output/BHPMF.missing.csv
 
@@ -142,7 +142,7 @@ rm(to.remove)
 # These do occur in our dataset, for stem height.
 # Solution: set these values to 0.01 (corresponding to stem height of 1 cm,
 # which is sufficiently close to zero for biological purposes)
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.01
+trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
 # BHPMF wants a preprocessing directory, where it saves pre-processed files.
 # To avoid errors or erronous output when re-running the code, this directory
 # needs to be emptied.
@@ -153,17 +153,17 @@ dir.create("output/BHPMF_preprocessing")
 # This step is computationally intensive!
 GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
            prediction.level=4, used.num.hierarchy.levels=3,
-           mean.gap.filled.output.path="output/BHPMF.mean.gap.filled.txt",
-           std.gap.filled.output.path="output/BHPMF.std.gap.filled.txt",
+           mean.gap.filled.output.path="output/BHPMF.mean.txt",
+           std.gap.filled.output.path="output/BHPMF.std.txt",
            tmp.dir="output/BHPMF_preprocessing", 
            rmse.plot.test.data=FALSE, verbose=FALSE)
 
 # Extract BHPMF output into a neat dataframe:
-mean.BHPMF <- read.table(file="output/BHPMF.mean.gap.filled.txt",
+mean.BHPMF <- read.table(file="output/BHPMF.mean.txt",
                          header=TRUE, sep="	")
 mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                                  genus   = as.character(hierarchy.matrix[, 2]),
-                                  mean.BHPMF)
+                         genus   = as.character(hierarchy.matrix[, 2]),
+                         mean.BHPMF)
 # This looks complete but IT HAS A FLAW: BHPMF also outputs estimates for
 # what it calls 'observed' trait values. We want to extract only the predictions
 # for trait values that were actually missing.

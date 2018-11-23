@@ -102,3 +102,36 @@ In hindsight, I could have known. The description of the BHPMF::GapFilling funct
 That's all very well, but it might not be what we need. We should probably assume that the observed values are 'correct' and do not need to be predicted. Then instead of taking the BHPMF output as-is, we should extract only the predicted values for trait values which were missing. In theory that's easy enough, relatively speaking.
 
 I have implemented this. In practice it wasn't entirely straightforward. It involved updating my custom GapFill function to handle the case where the 'by' column in the two provided dataframes is a factor, with differing levels between the datasets. And also, bugfix the gapfilling routine: I replaced an unlist() with as.numeric(). And then of course I had to check if everything now works as intended, which thankfully it does. 
+
+
+## Friday November 23, 2018
+Yesterday I emailed my daily supervisor with some questions about BHPMF and the inputs/outputs used in the process. Now it's time to get our hands dirty and see if we can make this work. 
+
+Yesterday I already started playing around with the inputs of the BHPMF GapFilling function. There are a few issues to work out. Specifically:
+- BHPMF got stuck in an infinite loop if some observed trait values are exactly 0
+	Tested solution: set these values to a small non-zero value.
+- BHPMF doesn't work if a species has NA for all included traits, even if only one column of trait values (i.e. only a single trait) is provided as input.
+	Tested solutions: remove these species, include a dummy trait with all values 1.
+All the test code is in '1_trait_filling_test.R'
+
+Today I continue testing, and the goal is to report outcomes as well as comparisons of outputs between different BHPMF attemps and with Genus-Mean gap-filling.
+
+First I run a series of BHPMF Gap-filling with different inputs:
+```
+From 1_trait_filling.test.R:
+We begin with the base unimputed trait matrix, which has a single 'oberved'
+trait value for each species, with gaps (NAs).
+The main script generates:
+1. Matrix gap-filled using genus means.
+2. Matrix gap-filled using BHPMF with our three traits of interest, extracting
+   from the BHPMF output only the estimates for the gaps in the original matrix.
+Here, we generate:
+3. Matrix gap-filled using BHPMF with our three traits of interest,
+   using the full output of BHPMF (including estimates of 'observed' trait data)
+4. Same as #2, but including a fourth dummy trait, with all values = 1
+5. Same as #2, but including the following additional traits:
+   MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
+   AverageFruitWidth_cm
+```
+The next thing to do is comparing the outputs of these five gap-filling attempts.
+
