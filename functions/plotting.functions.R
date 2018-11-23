@@ -11,6 +11,7 @@
 # FUNCTION LIST:
 # Scatterplot
 # GraphPDF
+# graphSVG
 # MultiScatter
 
 
@@ -103,8 +104,24 @@ GraphPDF <- function(expr, file, ...) {
 #   ...: additional arguments to pass to the 'pdf' function
 #
 # Returns:
-#   Creates a PDF files with the given filename, containing the graph.
+#   Creates a PDF file with the given filename, containing the graph.
   pdf(file=file, ...)
+  eval.parent(substitute(expr))
+  on.exit(dev.off())
+}
+
+
+GraphSVG <- function(expr, file, ...) {
+# Wrapper function for 'svg', to simplify saving graphs as svg files.
+#
+# Args:
+#   expr: Function which creates a graph
+#   file: A character string giving the name of the file to create.
+#   ...: additional arguments to pass to the 'svg' function
+#
+# Returns:
+#   Creates an svg file with the given filename, containing the graph.
+  svg(file=file, ...)
   eval.parent(substitute(expr))
   on.exit(dev.off())
 }
