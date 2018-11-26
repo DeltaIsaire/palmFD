@@ -103,9 +103,84 @@ Boxplot <- function(x, ylab) {
   abline(h=median(log10(x[, "original"]), na.rm=TRUE))
 }
 GraphSVG(Boxplot(x=height.estimates, ylab="log10(stem height)"),
-         file="graphs/boxplot.estimates.height.svg", width=6, height=9)
+         file="graphs/boxplot.test.height.svg", width=6, height=9)
 GraphSVG(Boxplot(x=blade.estimates, ylab="log10(blade length)"),
-         file="graphs/boxplot.estimates.blade.svg", width=6, height=9)
+         file="graphs/boxplot.test.blade.svg", width=6, height=9)
 GraphSVG(Boxplot(x=fruit.estimates, ylab="log10(fruit length)"),
-         file="graphs/boxplot.estimates.fruit.svg", width=6, height=9)
+         file="graphs/boxplot.test.fruit.svg", width=6, height=9)
+
+# Next, it would be cool to boxplot only the gap-filled values.
+# For this we have to subset the data.
+# For each trait, subset the trait.estimates dataframes
+# to only species with original NA value.
+height.estimates.subset <- 
+  height.estimates[which(is.na(height.estimates$original)), ]
+blade.estimates.subset <- 
+  blade.estimates[which(is.na(blade.estimates$original)), ]
+fruit.estimates.subset <- 
+  fruit.estimates[which(is.na(fruit.estimates$original)), ]
+# And produce the boxplots:
+GraphSVG(Boxplot(x=height.estimates.subset, ylab="log10(stem height)"),
+         file="graphs/boxplot.test.height.subset.svg", width=6, height=9)
+GraphSVG(Boxplot(x=blade.estimates.subset, ylab="log10(blade length)"),
+         file="graphs/boxplot.test.blade.subset.svg", width=6, height=9)
+GraphSVG(Boxplot(x=fruit.estimates.subset, ylab="log10(fruit length)"),
+         file="graphs/boxplot.test.fruit.subset.svg", width=6, height=9)
+
+# Scatterplots
+# ------------
+# 1 on 1 comparison of methods. Most relevant is comparing method 2 (standard
+# BHPMF) to all the other methods. That's a lot of graphs. 
+# First for stem height:
+GraphSVG(MultiScatter(height.estimates$one, height.estimates$two, x.name="mean",
+         y.name="BHPMF"),
+         file="graphs/scatter.test.height.2.vs.1.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(height.estimates$three, height.estimates$two, x.name="three",
+         y.name="two"),
+         file="graphs/scatter.test.height.2.vs.3.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(height.estimates$four, height.estimates$two, x.name="four",
+         y.name="two"),
+         file="graphs/scatter.test.height.2.vs.4.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(height.estimates$five, height.estimates$two, x.name="five",
+         y.name="two"),
+         file="graphs/scatter.test.height.2.vs.5.svg",
+         width=12, height=4)
+# Next for Blade length:
+GraphSVG(MultiScatter(blade.estimates$one, blade.estimates$two, x.name="mean",
+         y.name="BHPMF"),
+         file="graphs/scatter.test.blade.2.vs.1.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(blade.estimates$three, blade.estimates$two, x.name="three",
+         y.name="two"),
+         file="graphs/scatter.test.blade.2.vs.3.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(blade.estimates$four, blade.estimates$two, x.name="four",
+         y.name="two"),
+         file="graphs/scatter.test.blade.2.vs.4.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(blade.estimates$five, blade.estimates$two, x.name="five",
+         y.name="two"),
+         file="graphs/scatter.test.blade.2.vs.5.svg",
+         width=12, height=4)
+# And finally for fruit length:
+GraphSVG(MultiScatter(fruit.estimates$one, fruit.estimates$two, x.name="mean",
+         y.name="BHPMF"),
+         file="graphs/scatter.test.fruit.2.vs.1.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(fruit.estimates$three, fruit.estimates$two, x.name="three",
+         y.name="two"),
+         file="graphs/scatter.test.fruit.2.vs.3.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(fruit.estimates$four, fruit.estimates$two, x.name="four",
+         y.name="two"),
+         file="graphs/scatter.test.fruit.2.vs.4.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(fruit.estimates$five, fruit.estimates$two, x.name="five",
+         y.name="two"),
+         file="graphs/scatter.test.fruit.2.vs.5.svg",
+         width=12, height=4)
+
 
