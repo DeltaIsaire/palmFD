@@ -15,6 +15,9 @@
 #   output/TEST.BHPMF.mean.txt
 #   output/TEST.BHPMF.std.txt
 #   output/TEST.BHPMF_filled_3.csv
+#   output/TEST.BHPMF_filled_4.csv
+#   output/TEST.BHPMF_filled_5.csv
+#   output/TEST.BHPMF_filled_6.csv
 
 
 source(file="1_trait_filling.R")
@@ -119,13 +122,15 @@ dir.create("output/BHPMF_preprocessing_test")
 # 5. Same as #2, but including the following additional traits:
 #    MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
 #    AverageFruitWidth_cm
+#
+# 6. Same as #4, but with 10 such dummy traits intead of just one.
 
 # In all the following, the BHPMF preprocessing directory is
 # output/BHPMF_preprocessing_test
 # And the output files are named according to
 # TEST.BHPMF.mean.number.txt
 # TEST.BHPMF.std.number.txt
-# Where 'number' is the number of the test (3, 4 or 5).
+# Where 'number' is the number of the test;
 # And the resulting gap-filled matrix is saved as
 # TEST.BHPMF_filled_number.csv
 
@@ -259,3 +264,43 @@ test.filled.BHPMF <- test.filled.BHPMF[complete.cases(test.filled.BHPMF), ]
 write.csv(test.filled.BHPMF, file="output/TEST.BHPMF_filled_5.csv",
           eol="\r\n", row.names=FALSE)
 
+# 6. Same as #4, but with 10 such dummy traits intead of just one.
+# This is largely the same code as used in the main script
+trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
+                                          "fruit.length")
+                                      ]
+                          )
+rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
+hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
+                                                         replacement="_",
+                                                         x=trait.data$SpecName),
+                                         genus     = trait.data$accGenus,
+                                         tribe     = trait.data$PalmTribe,
+                                         subfamily = trait.data$PalmSubfamily)
+                              )
+trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
+for (i in 1:10) {
+trait.matrix <- as.matrix(data.frame(trait.matrix,
+                                     dummy=rep(1, times=length(trait.matrix[, 1]))
+                          )          )
+}
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
+           prediction.level=4, used.num.hierarchy.levels=3,
+           mean.gap.filled.output.path="output/TEST_BHPMF.mean.6.txt",
+           std.gap.filled.output.path="output/TEST_BHPMF.std.6.txt",
+           tmp.dir="output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE, verbose=TRUE)
+test.mean.BHPMF <- read.table(file="output/TEST_BHPMF.mean.6.txt",
+                              header=TRUE, sep="	")
+test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
+                              genus   = as.character(hierarchy.matrix[, 2]),
+                              test.mean.BHPMF)
+test.filled.BHPMF <- GapFill(palm.traits, test.mean.BHPMF, by="species",
+                               fill=c("stem.height", "blade.length",
+                                      "fruit.length")
+                              )
+test.filled.BHPMF <- test.filled.BHPMF[complete.cases(test.filled.BHPMF), ]
+write.csv(test.filled.BHPMF, file="output/TEST.BHPMF_filled_6.csv",
+          eol="\r\n", row.names=FALSE)

@@ -7,12 +7,15 @@
 # The code in this file is non-essential and provided only for reference and
 # bug-fixing purposes.
 # Input files:
-#   none.
+#   output/palm.traits.genus.mean.csv
+#   output/palm.traits.BHPMF.csv
+#   output/TEST.BHPMF_filled_3.csv
+#   output/TEST.BHPMF_filled_4.csv
+#   output/TEST.BHPMF_filled_5.csv
+#   output/palm.traits.csv
 # Generated output files:
-#   none.
+#   A series of graphs in graphs/
 
-
-library(plyr)
 
 source(file="2_trait_filling_comparison.R")
 
@@ -26,9 +29,9 @@ MultiCC(list(mean  = traits.mean$species,
         presence=FALSE, value=FALSE)
 
 
-# ---------------------------------
-# Comparing 5 gap-filling scenarios
-# ---------------------------------
+# -------------------------------
+# Comparing gap-filling scenarios
+# -------------------------------
 # We begin with the base unimputed trait matrix, which has a single 'oberved'
 # trait value for each species, with gaps (NAs).
 # Subsequently we have generated:
@@ -46,6 +49,10 @@ filled.four <- read.csv(file="output/TEST.BHPMF_filled_4.csv")
 #    MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
 #    AverageFruitWidth_cm
 filled.five <- read.csv(file="output/TEST.BHPMF_filled_5.csv")
+#
+# 6. Same as #4, but with 10 such dummy traits intead of just one.
+filled.six <- read.csv(file="output/TEST.BHPMF_filled_6.csv")
+
 
 # Completeness
 # ------------
@@ -78,7 +85,7 @@ shared.species <- CrossCheck(filled.two$species,
 # We use the power of functions for the sake of code legibility:
 objects <- list(original, filled.one, filled.two, filled.three, filled.four,
                 filled.five)
-Extract <- function(objects, trait) {
+Temp <- function(objects, trait) {
   values <- lapply(objects, function(x) {
                     spec <- CrossCheck(x[, "species"], shared.species,
                                        presence=TRUE, value=FALSE)
@@ -89,9 +96,9 @@ Extract <- function(objects, trait) {
  names(frame) <- c("species", "original", "one", "two", "three", "four", "five")
  return (frame)
 }
-height.estimates <- Extract(objects=objects, trait="stem.height")
-blade.estimates <- Extract(objects=objects, trait="blade.length")
-fruit.estimates <- Extract(objects=objects, trait="fruit.length")
+height.estimates <- Temp(objects=objects, trait="stem.height")
+blade.estimates <- Temp(objects=objects, trait="blade.length")
+fruit.estimates <- Temp(objects=objects, trait="fruit.length")
 
 # Now we can make the boxplots
 Boxplot <- function(x, ylab) {
@@ -228,4 +235,58 @@ GraphSVG(MultiScatter(fruit[, 2], fruit[, 3],
          file="graphs/scatter.test.fruit.original.vs.estimated.svg",
          width=12, height=4)
 
+
+# BHPMF: the effect of dummy traits
+# ---------------------------------
+# In Method 4 we add a dummy trait. But how does that affect gap-filling?
+# To assess this, we can compare gap-filling results of standard BHPMF 
+# (method 2) with scenario 4 and with a new scenario, where we add many more
+# (like 10) such dummy variables.
+# We already have the first two data series, in the dataframes
+# height.estimates.subset
+# blade.estimates.subset
+# fruit.estimates.subset
+# Now we generate it for the new scenario. This scenario was implemented
+# in 1_trait_filling_test.R and the output file was loaded above
+# (dataframe filled.six).
+# So, we prepare the data for each trait:
+Temp <- function(trait, estimates) {
+  # Subset to shared species:
+  dummy.10 <- filled.six[, trait][
+    CrossCheck(filled.six$species, shared.species, presence=TRUE, value=FALSE)]
+  # Subset to gap-filled values:
+  dummy.10 <- dummy.10[which(is.na(estimates[, "original"]))]
+  return (dummy.10)
+}
+dummy.height <- data.frame(species  = height.estimates.subset[, "species"],
+                           standard = height.estimates.subset[, "two"],
+                           dummy.1  = height.estimates.subset[, "four"],
+                           dummy.10 = Temp("stem.height", height.estimates))
+dummy.blade <- data.frame(species  = blade.estimates.subset[, "species"],
+                          standard = blade.estimates.subset[, "two"],
+                          dummy.1  = blade.estimates.subset[, "four"],
+                          dummy.10 = Temp("blade.length", blade.estimates))
+dummy.fruit <- data.frame(species  = fruit.estimates.subset[, "species"],
+                          standard = fruit.estimates.subset[, "two"],
+                          dummy.1  = fruit.estimates.subset[, "four"],
+                          dummy.10 = Temp("fruit.length", fruit.estimates))
+
+# And then, for each trait, we prepare the data using combined Scatterplots:
+Temp <- function(dummy, ylab) {
+  Scatterplot(dummy[, "standard"], dummy[, "dummy.1"],
+              xlab="Standard BHPMF estimate", ylab=ylab)
+  points(dummy[, "standard"], dummy[, "dummy.10"], pch=21, col="red")
+  lines(x=c(par("usr")[1], par("usr")[2]), y=c(par("usr")[1], par("usr")[2]))
+  legend("topleft", legend=c("1 dummy", "10 dummies"), col=c("black", "red"),
+         pch=21, bg="white")
+}
+GraphSVG(Temp(dummy.height, "Estimated stem height"),
+         file="graphs/scatter.test.dummies.height.svg",
+         width=6, height=4)
+GraphSVG(Temp(dummy.blade, "Estimated blade length"),
+         file="graphs/scatter.test.dummies.blade.svg",
+         width=6, height=4)
+GraphSVG(Temp(dummy.fruit, "Estimated fruit length"),
+         file="graphs/scatter.test.dummies.fruit.svg",
+         width=6, height=4)
 
