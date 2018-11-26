@@ -184,3 +184,48 @@ GraphSVG(MultiScatter(fruit.estimates$five, fruit.estimates$two, x.name="five",
          width=12, height=4)
 
 
+# --------------------------------
+# In-depth gap-filling comparisons
+# --------------------------------
+# above, we compared 5 gap-filling scenarios.
+# Here, we do a few more in-depth comparisons.
+
+# BHPMF: original vs estimated values
+# -----------------------------------
+# Here we compare the original values (dataframe 'original') to estimates from
+# BHPMF (dataframe 'filled.three')
+# First prepare the data. For each trait, data for the subset of species whose
+# trait value was known/available.
+temp <- function(trait) {
+  temp <- original[!is.na(original[, trait]), c("species", trait)]
+  temp <- data.frame(temp,
+                     estimate = filled.three[CrossCheck(filled.three$species,
+                                                        temp$species,
+                                                        presence=TRUE,
+                                                        value=FALSE),
+                                             trait]
+                     )
+  return (temp)
+}
+height <- temp("stem.height")
+blade <- temp("blade.length")
+fruit <- temp("fruit.length")
+
+# Then we can compare originals with estimates using MultiScatter:
+GraphSVG(MultiScatter(height[, 2], height[, 3],
+                      x.name="observed stem height", 
+                      y.name="estimated stem height"),
+         file="graphs/scatter.test.height.original.vs.estimated.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(blade[, 2], blade[, 3],
+                      x.name="observed blade length", 
+                      y.name="estimated blade length"),
+         file="graphs/scatter.test.blade.original.vs.estimated.svg",
+         width=12, height=4)
+GraphSVG(MultiScatter(fruit[, 2], fruit[, 3],
+                      x.name="observed fruit length", 
+                      y.name="estimated fruit length"),
+         file="graphs/scatter.test.fruit.original.vs.estimated.svg",
+         width=12, height=4)
+
+

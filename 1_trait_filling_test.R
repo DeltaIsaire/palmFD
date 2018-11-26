@@ -164,7 +164,10 @@ test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
                               test.mean.BHPMF)
 write.csv(test.mean.BHPMF, file="output/TEST.BHPMF_filled_3.csv",
           eol="\r\n", row.names=FALSE)
-
+test.std <- read.table(file='output/TEST_BHPMF.std.3.txt', header=TRUE, sep='')
+test.std <- data.frame(species = as.character(hierarchy.matrix[, 1]),
+                       genus   = as.character(hierarchy.matrix[, 2]),
+                       test.std)
 
 # 4. Same as #2, but including a fourth dummy trait, with all values = 1
 # This is largely the same code as used in the main script
