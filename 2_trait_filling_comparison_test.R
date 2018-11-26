@@ -290,3 +290,41 @@ GraphSVG(Temp(dummy.fruit, "Estimated fruit length"),
          file="graphs/scatter.test.dummies.fruit.svg",
          width=6, height=4)
 
+# In addition, we should compare scenario 4 to scenario 1,
+# for only those species with NA for all three traits.
+# First, find the list of species with NA for all three traits:
+all.missing <- traits[which(rowSums(is.na(traits[, c("stem.height", 
+                                                     "blade.length", 
+                                                     "fruit.length")
+                                                 ])) == 3),
+                      "species"]
+# Then subset the scenario 1 and 4 results to these species:
+filled.one.subset <- filled.one[CrossCheck(filled.one$species, all.missing,
+                                           presence=TRUE, value=FALSE),
+                                ]
+filled.four.subset <- filled.four[CrossCheck(filled.four$species, all.missing,
+                                           presence=TRUE, value=FALSE),
+                                ]
+# These are of different lengths: the genus mean data is shorter (by 1).
+# So we have to subset again:
+filled.four.subset <- filled.four.subset[CrossCheck(filled.four.subset$species,
+                                                    filled.one.subset$species,
+                                                    presence=TRUE, value=FALSE),
+                                         ]
+# And finally, plot the results:
+Temp <- function(trait) {
+  Scatterplot(filled.one.subset[, trait], filled.four.subset[, trait],
+              xlab=paste("genus-mean estimated", trait),
+              ylab=paste("dummy-BHPMF estimated", trait))
+  lines(x=c(par("usr")[1], par("usr")[2]), y=c(par("usr")[1], par("usr")[2]))
+}
+GraphSVG(Temp("stem.height"), 
+  file="graphs/scatter.test.dummy.vs.mean.height.svg",
+  width=6, height=4)
+GraphSVG(Temp("blade.length"), 
+  file="graphs/scatter.test.dummy.vs.mean.blade.svg",
+  width=6, height=4)
+GraphSVG(Temp("fruit.length"), 
+  file="graphs/scatter.test.dummy.vs.mean.fruit.svg",
+  width=6, height=4)
+
