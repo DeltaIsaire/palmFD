@@ -2,7 +2,7 @@
 # Palm FD project: custom functions
 ###################################
 #
-# In which custom functions are defined.
+# In which custom general-purpose functions are defined.
 # Input files:
 #   none
 # Generated output files:
@@ -14,7 +14,9 @@
 # MultiCC
 # GapFill
 
+
 library(plyr)
+library(magrittr)
 
 
 IsOneDimensional <- function(x) {
@@ -25,8 +27,8 @@ IsOneDimensional <- function(x) {
 #
 # Returns: TRUE if x has only one element or column, FALSE if x has more than
 #          one element or column
-  if (is.list(x)) {  # note: is.list returns TRUE for data frames
-    if (!length(x) == 1) {
+  if (is.list(x)) {  # is.list() returns TRUE for data frames
+    if (!length(x) == 1) {  # for data frames, length()returns # of columns
       return (FALSE)
     }
   } else {
@@ -34,7 +36,7 @@ IsOneDimensional <- function(x) {
       return (FALSE)
     }
   }
-  return (TRUE)
+  TRUE
 }
 
 
@@ -48,7 +50,7 @@ CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 #   presence: Logical indicating whether to check for presence (TRUE) or
 #             absence (FALSE) of the values of x in y. Default is TRUE.
 #   value: Logical indicating whether to return the values of x (TRUE) which
-#          are present/absent in y, or their index (FALSE). Default is TRUE.
+#          are present/absent in y, or their index in x (FALSE). Default is TRUE.
 #
 # Returns:
 #  Vector of the same type as x containing the subset of x present/absent in y,
@@ -61,30 +63,21 @@ CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
     stop("argument y is not one-dimensional")
   }
   if (is.factor(x)) {
-    x <- as.character(x)
+    x %<>% as.character()
   }
   if (is.factor(y)) {
-    y <- as.character(y)
+    y %<>% as.character()
   }
-  checklist <- lapply(x, function(x) {
-                      which(x == y)
-                      }
-                      )
+  checklist <- lapply(x, function(x) { which(x == y) } )
   if (isTRUE(presence)) {
-    present <- lapply(checklist, function(x) {
-                      length(which(!is.na(x)))
-                      }
-                      )
+    present <- lapply(checklist, function(x) { length(which(!is.na(x))) } )
     if (isTRUE(value)) {
       return (x[which(present >= 1)])
     } else {
       return (which(present >= 1))
     }
   } else {
-    absent <- lapply(checklist, function(x) {
-                     which(length(x) == 0)
-                     }
-                     )
+    absent <- lapply(checklist, function(x) { which(length(x) == 0) } )
     if (isTRUE(value)) {
       return (x[which(absent >= 1)])
     } else {
@@ -102,7 +95,7 @@ MultiCC <- function(x, presence = TRUE, value = TRUE) {
 #   x: List with elements to cross-reference.
 #   presence: Logical indicating whether to check for presence (TRUE) or
 #             absence (FALSE) of the values being cross-referenced.
-#              Default is TRUE.
+#             Default is TRUE.
 #   value: Logical (see CrossCheck)
 #
 # Returns:
@@ -113,22 +106,38 @@ MultiCC <- function(x, presence = TRUE, value = TRUE) {
     stop("Argument x is one-dimensional")
   }
   if (isTRUE(value)) {
-    a <- plyr::llply(x, function(a) {
-                     plyr::llply(x, CrossCheck, y=a, presence=presence,
-                                 value=TRUE)
-                     }
-                     )
-    return (a)
+    list <- plyr::llply(x,
+                        function(a) {
+                         plyr::llply(x, 
+                                     CrossCheck, 
+                                     y = a, 
+                                     presence = presence,
+                                     value=TRUE
+                                     )
+                        }
+                        )
+    return (list)
   } else {
-    a <- plyr::llply(x, function(a) { 
-                     plyr::llply(x, CrossCheck, y=a, presence=presence,
-                                 value=FALSE)
-                     }
+    indices <- plyr::llply(x,
+                           function(a) { 
+                             plyr::llply(x,
+                                         CrossCheck, 
+                                         y = a,
+                                         presence = presence,
+                                         value = FALSE
+                                         )
+                           }
+                           )
+    lengths <- plyr::laply(simplify2array(indices), length)
+    matrix <- matrix(data = lengths,
+                     nrow = length(x),
+                     ncol = length(x),
+                     byrow = FALSE,
+                     dimnames=list(x = names(x),
+                                   y = names(x)
+                                   )
                      )
-    b <- plyr::laply(simplify2array(a), length)
-    c <- matrix(data=b, nrow=length(x), ncol=length(x),byrow=FALSE,
-                dimnames=list(x=names(x), y=names(x)))
-    return (c)
+    return (matrix)
   }
 }
 
@@ -141,9 +150,9 @@ GapFill <- function(x, y, by, fill) {
 #   x: Dataframe with columns to be gap-filled
 #   y: Dataframe with data to use for gap filling. Must contain columns with
 #      names matching the columns in x which are to be gap-filled.
-#   by: Character vector of length 1 giving the column name used to match x
-#       to y. Both dataframes must contain a column with this name.
-#   fill: Character vector with the column names in x that should be gap-filled
+#   by: Character vector of length 1 giving the column name of the column
+#       used to match x to y. Both dataframes must contain a column with this name.
+#   fill: Character vector with the column names in x that should be gap-filled.
 #
 # Returns:
 #   Dataframe x where the selected columns are gap-filled
@@ -153,7 +162,7 @@ GapFill <- function(x, y, by, fill) {
   if (!is.data.frame(y)) {
     stop("argument 'y' must be a dataframe")
   }
-  if (! (is.character(by) && length(by) == 1)) {
+  if (!(is.character(by) && length(by) == 1)) {
     stop("argument 'by' must be a character vector of length 1")
   }
   if (!is.character(fill)) {
@@ -164,19 +173,22 @@ GapFill <- function(x, y, by, fill) {
   # Robustness against cases where the 'by' column is a factor with differing
   # levels between dataframes:
   if (is.factor(x[, x.by])) {
-    x[, x.by] <- as.character(x[, x.by])
+    x[, x.by] %<>% as.character()
   }
   if (is.factor(y[, y.by])) {
-    y[, y.by] <- as.character(y[, y.by])
+    y[, y.by] %<>% as.character()
   }
-  filled <- lapply(fill, function(name) {
-                   missing <- x[, x.by][which(is.na(x[, name]))]
-                   indices <- as.numeric(lapply(missing, function(x) {
-                                            which(y[, y.by] == x)
-                                            }
-                                     )      )
-                   x[, name][which(is.na(x[, name]))] <- y[, name][indices]
-                   return (x[, name])
+  filled <- lapply(fill, 
+                   function(name) {
+                     missing <- x[, x.by][which(is.na(x[, name]))]
+                     indices <- as.numeric(lapply(missing, 
+                                                  function(x) {
+                                                    which(y[, y.by] == x)
+                                                  }
+                                                  )      
+                                           )
+                     x[, name][which(is.na(x[, name]))] <- y[, name][indices]
+                     return (x[, name])
                    }
                    )
   filled <- data.frame(simplify2array(filled))

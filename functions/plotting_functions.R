@@ -15,7 +15,9 @@
 # MultiScatter
 
 
-source(file="functions/base.functions.R")
+library(magrittr)
+
+source(file="functions/base_functions.R")
 
 
 Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
@@ -42,53 +44,63 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
   if (!IsOneDimensional(y)) {
     stop("argument y is not one-dimensional") 
   }
-  data <- data.frame(x=x, y=y)
+  data <- data.frame(x = x, y = y)
   if (length(which(complete.cases(data))) != length(data[, 1])) {
-    data <- data[complete.cases(data), ]
-    warning("Omitted observations with missing values")
+    data %<>% .[complete.cases(.), ]
+    warning("Omitted pairwise observations with missing values")
   }
  # set margins to be nicely narrow
- par(mar=c(4.1, 4.1, .5, .5))
+ par(mar = c(4.1, 4.1, .5, .5))
  # Initiate plot, but do not plot values yet
- plot(y ~ x, data=data, type="n", 
-      ylim= if (min(y) < 0) {
-              c(1.02 * min(y), 1.02 * max(y))
-            } else {      
-              c(0, 1.02 * max(y))
-            }
-      , xlab= if (!is.null(xlab)) {
-                xlab
-              } else {
-                if (length(names(x)) > 0) {
-                  names(x)
-                } else {
-                  "x"
-                }
-              }
-      , ylab= if (!is.null(ylab)) {
-                ylab
-              } else {
-                if (length(names(y)) > 0) {
-                  names(y)
-                } else {
-                  "y"
-                }
-              }
+ plot(y ~ x, 
+      data = data, 
+      type = "n", 
+      ylim = if (min(y) < 0) {
+               c(1.02 * min(y), 1.02 * max(y))
+             } else {      
+               c(0, 1.02 * max(y))
+             } ,
+      xlab = if (!is.null(xlab)) {
+               xlab
+             } else {
+               if (length(names(x)) > 0) {
+                 names(x)
+               } else {
+                 "x"
+               }
+             } ,
+      ylab = if (!is.null(ylab)) {
+               ylab
+             } else {
+               if (length(names(y)) > 0) {
+                 names(y)
+               } else {
+                 "y"
+               }
+             }
       )
   # Set background color for plotting region. Color is very light grey.
-  rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
-       col=rgb(220, 220, 220, max=255)
+  rect(par("usr")[1], 
+       par("usr")[3], 
+       par("usr")[2], 
+       par("usr")[4],
+       col=rgb(220, 220, 220, max = 255)
        )
   # Add gridlines and zero lines. Grid color is grey.
   if (isTRUE(grid)) {
-    grid(nx=NULL, ny=NULL, lty=1, lwd=1, col=rgb(150, 150, 150, max=255))
-    abline(h=0, lty=2, col="black")
-    abline(v=0, lty=2, col="black")
+    grid(nx = NULL, 
+         ny = NULL, 
+         lty = 1, 
+         lwd = 1, 
+         col = rgb(150, 150, 150, max = 255)
+         )
+    abline(h = 0, lty = 2, col = "black")
+    abline(v = 0, lty = 2, col = "black")
   }
   # Plot points
-  points(y ~ x, data=data, pch=pch, cex=1.0, col=col, bg="transparent")
+  points(y ~ x, data = data, pch = pch, cex = 1.0, col = col, bg = "transparent")
   # Draw a clean box around the plotting region
-  box(lty=1, col="black")
+  box(lty = 1, col = "black")
 }
 # TODO: add formula notation option.
 # to check for formula, use inherits(object, "formula") which returns TRUE or
@@ -105,9 +117,10 @@ GraphPDF <- function(expr, file, ...) {
 #
 # Returns:
 #   Creates a PDF file with the given filename, containing the graph.
-  pdf(file=file, ...)
+  pdf(file = file, ...)
   eval.parent(substitute(expr))
   on.exit(dev.off())
+  invisible(expr)
 }
 
 
@@ -121,14 +134,18 @@ GraphSVG <- function(expr, file, ...) {
 #
 # Returns:
 #   Creates an svg file with the given filename, containing the graph.
-  svg(file=file, ...)
+  svg(file = file, ...)
   eval.parent(substitute(expr))
   on.exit(dev.off())
+  invisible(expr)
 }
 
 
-MultiScatter <- function(x, y, x.name="x", y.name="y", title=NULL, ...) {
-# Produce a neatly formatted multi-frame graph. IN DEVELOPMENT
+MultiScatter <- function(x, y, x.name = "x", y.name = "y", title = NULL, ...) {
+# Produce a neatly formatted multi-frame graph.
+# TODO: finish this. Currently it produces two frames side by side,
+# The left frame a scatterplot with 1:1 line,
+# The right frame a simple residuals plot
 #
 # Args:
 #   x: vector with x-axis values. Can be a list or dataframe of length 1.
@@ -143,31 +160,48 @@ MultiScatter <- function(x, y, x.name="x", y.name="y", title=NULL, ...) {
 #        will apply to all frames.
 
 # Output:
-#   A graph with 2 frames and a common title:
-  par(mar=c(0.5, 0.5, 0.5, 0.5))
-  layout(matrix(c(1, 2, 1, 3), ncol=2), heights=c(1, 9))
+#   A graph with 2 frames and a common title.
+  par(mar = c(0.5, 0.5, 0.5, 0.5))
+  layout(mat = matrix(data = c(1, 2, 1, 3),
+                      ncol = 2),
+         heights = c(1, 9)
+         )
   plot.new()
   # add title:
-  text(x=0.5, y=0.5, labels=title, cex=1.7)
+  text(x = 0.5, y = 0.5, labels = title, cex = 1.7)
   # return par to default:
-  par(mar=c(5, 4, 4, 2) + 0.1)
+  par(mar = c(5, 4, 4, 2) + 0.1)
   # First plot: x vs y
-  Scatterplot(x=x, y=y, xlab=x.name, ylab=y.name, ...)
+  Scatterplot(x = x, y = y, xlab = x.name, ylab = y.name, ...)
   # Add frame label in top left:
-  text(x=par("usr")[1], y=par("usr")[4], 
-       labels="A", cex=2, adj=c(-0.5, 1.5))
+  text(x = par("usr")[1], 
+       y = par("usr")[4], 
+       labels = "A",
+       cex = 2,
+       adj = c(-0.5, 1.5)
+       )
   # Add 1:1 line for reference:
-  lines(x=c(-1000, 1000), y=c(-1000, 1000))
+  lines(x = c(par("usr")[1], par("usr")[2]), 
+        y = c(par("usr")[1], par("usr")[2])
+        )
   # Second plot: a simple kind of residuals plot, which is visually easier
   # to interpret.
-  Scatterplot(x=x, y=(y-x), xlab=x.name, ylab=paste0("(", y.name, " - ",
-                                                     x.name, ")"), ...)
+  Scatterplot(x = x, 
+              y = (y - x),
+              xlab = x.name,
+              ylab = paste0("(", y.name, " - ", x.name, ")"),
+              ...
+              )
   # Add frame label in top right:
-  text(x=par("usr")[2], y=par("usr")[4], 
-       labels="B", cex=2, adj=c(1.2, 1.5))
+  text(x = par("usr")[2],
+       y = par("usr")[4], 
+       labels = "B",
+       cex = 2,
+       adj = c(1.2, 1.5)
+       )
   # Add solid horizontal line for comparison:
-  abline(h=0, lty=1, col="black")
+  abline(h = 0, lty = 1, col = "black")
   # return par to default:
-  par(mfrow=c(1, 1))
+  par(mfrow = c(1, 1))
 }
 

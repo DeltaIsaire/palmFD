@@ -137,3 +137,59 @@ The next thing to do is comparing the outputs of these five gap-filling attempts
 
 At the end of the day I have some neat combined boxplots, comparing for each
 trait the estimated values for each of the five methods. 
+
+## Monday November 26, 2018
+This morning I quickly finished making comparison graphs, mostly scatterplots comparing gap-filling method two (standard BHPMF) with the four other methods, for each trait. Subsequently I met up with my daily supervisor again to discuss gap-filling methods. 
+
+Some observations:
+For our purposes, boxplots really aren't that informative. Maybe histograms would be better. Then again, we should just move on.
+For the comparisons, it looks like there is no strong bias for any of the five methods, i.e. the results make sense, variation is symmetric, et cetera.
+
+There was one strange outlier value in method three. Let's investigate:
+```
+# Original data:
+> traits[which(traits$species == "Nypa_fruticans"), ]
+            species genus stem.height blade.length fruit.length
+1954 Nypa_fruticans  Nypa           0         10.2         11.5
+# Input to method three:
+> trait.matrix[which(rownames(trait.matrix) == "Nypa_fruticans"), ]
+ stem.height blade.length fruit.length 
+      0.0001      10.2000      11.5000
+> hierarchy.matrix[which(hierarchy.matrix[, 2] == "Nypa"), ]
+         species            genus            tribe        subfamily 
+"Nypa_fruticans"           "Nypa"      "Nypoideae"      "Nypoideae"
+> hierarchy.matrix[which(hierarchy.matrix[, 3] == "Nypoideae"), ]
+         species            genus            tribe        subfamily 
+"Nypa_fruticans"           "Nypa"      "Nypoideae"      "Nypoideae" 
+> hierarchy.matrix[which(hierarchy.matrix[, 4] == "Nypoideae"), ]
+         species            genus            tribe        subfamily 
+"Nypa_fruticans"           "Nypa"      "Nypoideae"      "Nypoideae" 
+# Result of method three:
+> filled.three[which(filled.three$species == "Nypa_fruticans"), ]
+            species genus stem.height blade.length fruit.length
+1697 Nypa_fruticans  Nypa     -0.0017     -47.1934      11.5002
+> test.std[which(test.std$species == "Nypa_fruticans"), ]
+            species genus stem.height blade.length fruit.length
+1697 Nypa_fruticans  Nypa      0.0955      19.3328       0.0966
+```
+That estimated blade length value is weird. The uncertainty (stdev) in that blade length estimate is also huge. From the input, we can see it is the only species in its genus, tribe and subfamily, interestingly enough.
+
+
+
+There are three things I should look into now:
+1) Explicitly compare BHPMF estimates for 'known' values with those known values.
+2) To get the fullest coverage, we can combine BHPMF with genus-means. There are two ways to do that: taking genus means from the original 'known' values, or taking genus means from the known + BHMPMF estimated values. These two methods will have to be compared.
+3) Compare the use of 1 dummy trait with using 5 dummy traits, to assess how using dummies influences the output.
+And also, if there is time, you can divide the data into training and test subsets (95% vs 5% of data points), to assess how accurate the gap-filling methods are.
+
+Aside from gap-filling, there is writing to consider. As inspired by a Science mag article my assessor linked us (DOI: 10.1126/science.353.6300.718), I'm going to spend the first hour of my working days on the writing. Starting tomorrow morning.
+
+Update:
+I finished 1). Turns out the BHPMF estimates for 'observed' values can differ substantially from those observed values. Moreover, there is an asymmetrical trend: the higher the observed trait value, the lower the estimated trait value tends to be. All three traits show this pattern, but it is most pronounced for stem height.
+
+Update: I finished 3). It looks like adding dummy variables does not introduce bias in the trait value estimates. But does this workaround provide accurate results for those species where BHPMF normally does not work? It seems so. Gap-filling using BHPMF with a dummy trait is a serious option to consider. 
+
+## Wednesday November 28, 2018
+It's maintenance day: I am reviewing my code formatting and comment structure and checking if my scripts and stuff need to be reorganized. I have taken some tips from the Tidyverse style guide (https://style.tidyverse.org), and I'm rewriting my code to use piping operators from package magrittr. Once again I wonder why the master's course in data analysis never took a few days to teach the students how to actually code properly in R. Piping makes code way easier to read, and actually makes coding easier and less confusing as well.
+
+
