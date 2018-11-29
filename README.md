@@ -15,26 +15,17 @@ cd <directory>
 git clone https://github.com/DeltaIsaire/palmFD.git
 ```
 
-Third, you have to manually add the following subdirectories in the root directory of the project (i.e. the same place this readme is located):
-```
-data/
-output/
-graphs/
-```
-The scripts will only work if these directories are present.
-These folders (and their contents) are not part of the repository because they contain the data (raw or processed) used for this project, which are not publicly available at this time.
-
-Finally, you have to make sure the data/ directory contains the required datasets.
+Third, you have to manually add the 'data/' directory, including the datafiles, into the root directory of the project (i.e. the same place this readme is located). Without the data, the scripts have nothing to work with. The data files are not part of the repository because they are not publicly available at this time.
 
 ## Prerequisites
 
-The code of this project is written for R statistical software (R Core Team, 2018).
-See https://www.R-project.org/ for more information and installation instructions. This project was written for R version 3.4.4.
+The code of this project is written for R statistical software version 3.4.4 (R Core Team, 2018).
+See https://www.R-project.org/ for more information and installation instructions. 
 
 In addition, the following R packages are required:
 ```
 plyr
-ape
+magrittr
 BHPMF
 ```
 
@@ -46,7 +37,7 @@ thus providing a one-click way to re-generate all output. To run it, launch R an
 setwd("/home/delta/R_Projects/palm_FD")
 ```
 
-Then you can run the script 00_run_all.R to execute all the code at once:
+Then you can run the script to execute all the code at once:
 ```
 source(file="00_run_all.R")
 ```

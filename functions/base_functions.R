@@ -43,6 +43,7 @@ IsOneDimensional <- function(x) {
 CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
 # For each value in x, check if it is present or absent in y, then return
 # the subset of x values that were present/absent, or their indices.
+# TODO: try instead Reduce(intersect, (list()))
 # 
 # Args:
 #   x: Vector whose values should be cross-referenced with the values in y

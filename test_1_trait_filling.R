@@ -64,7 +64,7 @@ library(magrittr)
 library(plyr)
 library(BHPMF)
 
-source(file="functions/base_functions.R")
+source(file = "functions/base_functions.R")
 
 # Use verbose BHPMF?
 verbose = FALSE
@@ -393,4 +393,6 @@ missing.BHPMF.test <- "none"
 trial <- "five"
 TestBHPMF(trial)
 ParseBHPMF(trial)
+
+cat("Done.", "\n")
 

@@ -192,4 +192,9 @@ Update: I finished 3). It looks like adding dummy variables does not introduce b
 ## Wednesday November 28, 2018
 It's maintenance day: I am reviewing my code formatting and comment structure and checking if my scripts and stuff need to be reorganized. I have taken some tips from the Tidyverse style guide (https://style.tidyverse.org), and I'm rewriting my code to use piping operators from package magrittr. Once again I wonder why the master's course in data analysis never took a few days to teach the students how to actually code properly in R. Piping makes code way easier to read, and actually makes coding easier and less confusing as well.
 
+Current situation:
+Different gap-filling methods are implemented in test_1_trait_filling.R;
+and these are compared in test_2_trait_filling_comparison.R.
+The main trait filling script is where the best/chosen trait filling method will be implemented. Consider that script a placeholder for the moment.
+
 

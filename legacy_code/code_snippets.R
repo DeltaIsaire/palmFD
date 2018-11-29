@@ -79,4 +79,7 @@ dir.create("output/BHPMF_preprocessing_test")
 #           rmse.plot.test.data=FALSE, verbose=TRUE)
 
 
-
+# Find out how many species are not shared between filled trait matrices:
+MultiCC(list(mean  = traits.mean$species,
+             BHPMF = traits.BHPMF$species),
+        presence=FALSE, value=FALSE)
