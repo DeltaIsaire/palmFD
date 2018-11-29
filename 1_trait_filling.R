@@ -6,12 +6,13 @@
 # (stem height, blade length, fruit length) are extracted from the trait
 # dataset, and missing values in these three variables are filled using
 # estimates based on (1) Genus-level means and (2) BHPMF.
+#
 # Input files:
 #   data/palms_in_tdwg3.csv
 #   data/PalmTraits_10.csv
-#   data/TREE.nex
 # Generated output files:
 #   output/palm_traits.csv
+#   output/palm_hierarchy.csv
 #   output/palm_traits_genus_mean.csv
 #   output/genus_mean_missing.csv
 #   output/BHPMF_preprocessing (directory containing many files)
@@ -28,9 +29,9 @@ library(BHPMF)
 source(file="functions/base_functions.R")
 
 
-# -------------------
-# Prepare traits data
-# -------------------
+# ------------------
+# Prepare trait data
+# ------------------
 cat("Preparing trait data...", "\n")
 palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
 # Long-list Data frame with two columns:
@@ -38,7 +39,11 @@ palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
 #	2. SpecName - Species name
 trait.data <- 
   read.csv(file = "data/PalmTraits_10.csv") %>%
-  .[order(.$SpecName), ]  # Ensure alphabetical ordering by species
+  .[order(.$SpecName), ]
+trait.data$SpecName %<>% sub(pattern = " ",
+                             replacement = "_",
+                             x = .
+                             )
 # Data frame with 31 columns:
 #	1. SpecName - binomial species name [sorted alphabetically]
 #	2. accGenus - only the genus name
@@ -48,49 +53,50 @@ trait.data <-
 #	6-30 - information on 25 traits
 #	31. extra reference notes
 
-
-# Compare the list of palm species of each dataset
-# ------------------------------------------------
 # Do the datasets agree on which palm species exist?
-
-# Ensure that each variable uses underscores instead of spaces.
 species <- list(palm.dist  = levels(palm.dist$SpecName),
-                trait.data = sub(pattern = " ",
-                                 replacement = "_",
-                                 x = trait.data$SpecName
-                                 ) 
+                trait.data = trait.data$SpecName 
                 )
 present.list <- MultiCC(species, presence=TRUE, value=TRUE)
-# palm.dist and trait.data should be the same.
-# But, for the sake of robust code:
 species.agreed <- sort(present.list$palm.dist$trait.data)
 
-# Subset palm traits dataset to the three selected traits
-# -------------------------------------------------------
-palm.traits <- data.frame(species      = sub(pattern = " ",
-                                             replacement = "_",
-                                             x = trait.data$SpecName
-                                             ),
+# Subset palm traits dataset
+palm.traits <- data.frame(species      = trait.data$SpecName,
                           genus        = trait.data$accGenus,
                           stem.height  = trait.data$MaxStemHeight_m,
                           blade.length = trait.data$Max_Blade_Length_m,
                           fruit.length = trait.data$AverageFruitLength_cm
                           )
+# stem.height = maximum stem height in meters.
+# blade.length = maximum blade length in meters.
+# fruit.length = average fruit length in centimeters.
+# Genus is included because we need it to calculate genus mean trait values
 palm.traits %<>% .[CrossCheck(x = palm.traits$species, 
                               y = species.agreed,
                               presence=TRUE,
                               value=FALSE
                               ),
                    ]
-# stem.height = maximum stem height in meters.
-# blade.length = maximum blade length in meters.
-# fruit.length = average fruit length in centimeters.
-# Genus is included because we need it to calculate genus mean trait values
+# Note: there should be no missing species, so this subset is for posterity.
 write.csv(palm.traits, 
           file = "output/palm_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )
+
+# Extract hierarchical taxonomic data, which is needed for BHPMF
+# # columns should be from low-level to high-level
+palm.hierarchy <-   data.frame(species   = trait.data$SpecName,
+                               genus     = trait.data$accGenus,
+                               tribe     = trait.data$PalmTribe,
+                               subfamily = trait.data$PalmSubfamily
+                               )
+write.csv(palm.hierarchy,
+          file = "output/palm_hierarchy.csv",
+          eol="\r\n",
+          row.names = FALSE)
+
+
 
 
 # ---------------------------------------
@@ -135,14 +141,10 @@ cat("Gap-filling with BHPMF... (this may take a while)", "\n")
 trait.matrix <- 
   palm.traits[, c("stem.height", "blade.length", "fruit.length")] %>%
   as.matrix()
-rownames(trait.matrix) <- sub(pattern = " ",
-                              replacement = "_",
-                              x = trait.data$SpecName)
+rownames(trait.matrix) <- trait.data$SpecName
 # columns of the hierarchy matrix should be from low-level to high-level:
 hierarchy.matrix <-
-  data.frame(species   = sub(pattern = " ",
-                             replacement = "_",
-                             x = trait.data$SpecName),
+  data.frame(species   = trait.data$SpecName,
              genus     = trait.data$accGenus,
              tribe     = trait.data$PalmTribe,
              subfamily = trait.data$PalmSubfamily

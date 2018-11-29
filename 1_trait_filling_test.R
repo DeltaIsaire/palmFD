@@ -2,305 +2,395 @@
 # Palm FD project: trait_filling test code
 ##########################################
 #
-# This is a companion file listing the R code used to verify the code used for
-# trait filling, and to explore/verify inputs and outputs.
-# The code in this file is non-essential and provided only for reference and
-# bug-fixing purposes.
-# BE CAREFUL RUNNING THIS ENTIRE SCRIPT ALL AT ONCE. This is primarily a
-# reference file, not necessarily a working script. Also this script
-# calls BHPMF::GapFilling multiple times, so total runtime is significant.
-# Input files:
-#   none.
-# Generated output files:
-#   output/TEST.BHPMF.mean.txt
-#   output/TEST.BHPMF.std.txt
-#   output/TEST.BHPMF_filled_3.csv
-#   output/TEST.BHPMF_filled_4.csv
-#   output/TEST.BHPMF_filled_5.csv
-#   output/TEST.BHPMF_filled_6.csv
-
-
-source(file="1_trait_filling.R")
-
-
-# ------------------------------------------------
-# Compare the list of palm species of each dataset
-# ------------------------------------------------
-# 2. cross-check the three lists of species
-missing.table <- MultiCC(species, presence=FALSE, value=FALSE)
-missing.list <- MultiCC(species, presence=FALSE, value=TRUE)
-# palm.dist and trait.data are the same, but palm.tree differs from the others.
-
-# Test to check that this is true:
-new.species <- list(palm.dist = present.list$palm.dist$palm.tree,
-                    palm.tree = present.list$palm.tree$palm.dist)
-MultiCC(new.species, presence=FALSE, value=FALSE)
-# Yup, nothing missing.
-
-
-# ---------------------------------
-# Gap-fill trait matrix using BHPMF
-# Initial tests
-# ---------------------------------
-# To speed up code development or bug-testing you can run BHPMF with a test
-# dataset:
-test.trait.matrix <- trait.matrix[1:100, ]
-test.hierarchy.matrix <- hierarchy.matrix[1:100, ]
-
-# It is good to test how BHPMF works with different input trait matrices,
-# Especially because the function doesn't like it when a species has NA
-# for all provided traits.
-
-# standard three trait matrix, including all-3 NAs, with substituted zero values;
-# and associated hierarchy matrix:
-trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
-                                          "fruit.length")
-                                      ]
-                          )
-rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
-
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
-                                         tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
-                              )
-
-# Optional subsetting to cases without all NAs:
-# First extract these cases to a seperate dataframe:
-to.remove <- which(rowSums(is.na(trait.matrix)) == ncol(trait.matrix))
-BHPMF.missing <- palm.traits[to.remove, ]
-# Then remove them from the matrices:
-trait.matrix <- trait.matrix[-to.remove, ]
-hierarchy.matrix <- hierarchy.matrix[-to.remove, ]
-rm(to.remove)
-# Result: BHPMF works.
-
-# Optional: add a 4th dummy trait with the same value (1) for all species.
-# This could be another way to deal with all NA species.
-trait.matrix <- as.matrix(data.frame(trait.matrix,
-                                     dummy=rep(1, times=length(trait.matrix[, 1]))
-                          )          )
-# Result: BHPMF works, even including species with NA for the three real traits.
-# TODO: However, we have to check the results for accuracy.
-
-# Optional: remove all but the first column from the trait matrix:
-trait.matrix <- as.matrix(trait.matrix[, "stem.height"])
-# Result: gives the same error "there are observations with all features missing"
-
-
-# BHPMF GapFilling function call, with subset for quick processing
-# and verbose=TRUE.
-# Remember to always clear the preprocessing directory before use:
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
-# Function disabled to make the script work
-#GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-#           prediction.level=4, used.num.hierarchy.levels=3,
-#           mean.gap.filled.output.path="output/TEST.BHPMF.mean.txt",
-#           std.gap.filled.output.path="output/TEST.BHPMF.std.txt",
-#           tmp.dir="output/BHPMF_preprocessing_test", 
-#           rmse.plot.test.data=FALSE, verbose=TRUE)
-
-
-# ---------------------------------
-# Gap-fill trait matrix using BHPMF
-# Advanced testing
-# ---------------------------------
+# This script generates a number of test scenarios of gap-filling,
+# to help with finding the best way to gap-fill the palm traits matrix.
+# Consider this the playground, while the main script is only the final
+# implementation.
+# WARNING: the runtime of this script is long, because it uses BHPMF
+# multiple times. 
+#
+# TESTS: Gap-filling trait matrix
+# -------------------------------
 # We begin with the base unimputed trait matrix, which has a single 'oberved'
 # trait value for each species, with gaps (NAs).
-# The main script generates:
-# 1. Matrix gap-filled using genus means.
-# 2. Matrix gap-filled using BHPMF with our three traits of interest, extracting
-#    from the BHPMF output only the estimates for the gaps in the original matrix.
-# Here, we generate:
-# 3. Matrix gap-filled using BHPMF with our three traits of interest,
-#    using the full output of BHPMF (including estimates of 'observed' trait data)
-# 4. Same as #2, but including a fourth dummy trait, with all values = 1
-# 5. Same as #2, but including the following additional traits:
+
+# Then, we consider the following gap-filling scenario's:
+
+# - Gap-filling using genus means
+# - Gap-filling with BHPMF, using different inputs:
+# 1. Using our three traits of interest, extracting from the BHPMF output only
+#    the estimates for the gaps in the original matrix.
+# 2. Using our three traits of interest, extracting from the BHPMF output all
+#    estimates, including those for 'observed' trait data.
+# 3. Same as #1, but including a fourth dummy trait with all values = 1,
+#    which circumvents the issue that BHPMF does not work for species
+#    with missing values for all traits.
+# 4. Same as #1, but including the following additional traits:
 #    MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
 #    AverageFruitWidth_cm
+# 5. Same as #3, but with 10 such dummy traits instead of just one.
 #
-# 6. Same as #4, but with 10 such dummy traits intead of just one.
+# Input files:
+#   data/palms_in_tdwg3.csv
+#   data/PalmTraits_10.csv
+# Generated output files:
+#   output/palm_traits.csv
+#   output/palm_hierarchy.csv
+#   output/traits_filled_genus_mean.csv
+#   output/missing_genus_mean.csv
+#   output/test_BHPMF_one_mean.txt
+#   output/test_BHPMF_one_std.txt
+#   output/traits_filled_BHPMF_one.csv
+#   output/missing_BHPMF_one.csv
+#   output/test_BHPMF_two_mean.txt
+#   output/test_BHPMF_two_std.txt
+#   output/traits_filled_BHPMF_two.csv
+#   output/missing_BHPMF_two.csv
+#   output/test_BHPMF_three_mean.txt
+#   output/test_BHPMF_three_std.txt
+#   output/traits_filled_BHPMF_three.csv
+#   output/missing_BHPMF_three.csv
+#   output/test_BHPMF_four_mean.txt
+#   output/test_BHPMF_four_std.txt
+#   output/traits_filled_BHPMF_four.csv
+#   output/missing_BHPMF_four.csv
+#   output/test_BHPMF_five_mean.txt
+#   output/test_BHPMF_five_std.txt
+#   output/traits_filled_BHPMF_five.csv
+#   output/missing_BHPMF_five.csv
 
-# In all the following, the BHPMF preprocessing directory is
-# output/BHPMF_preprocessing_test
-# And the output files are named according to
-# TEST.BHPMF.mean.number.txt
-# TEST.BHPMF.std.number.txt
-# Where 'number' is the number of the test;
-# And the resulting gap-filled matrix is saved as
-# TEST.BHPMF_filled_number.csv
 
-# 3. Gap-filling using the full output of BHPMF.
-# This is largely the same code as used in the main script
-trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
-                                          "fruit.length")
-                                      ]
+library(magrittr)
+library(plyr)
+library(BHPMF)
+
+source(file="functions/base_functions.R")
+
+# Use verbose BHPMF?
+verbose = FALSE
+
+# ------------------
+# Prepare trait data
+# ------------------
+cat("Preparing trait data...", "\n")
+palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
+# Long-list Data frame with two columns:
+#	1. Area_code_L3 - 3-letter code for each botanical country
+#	2. SpecName - Species name
+
+trait.data <- 
+  read.csv(file = "data/PalmTraits_10.csv") %>%
+  .[order(.$SpecName), ]
+trait.data$SpecName %<>% sub(pattern = " ",
+                             replacement = "_",
+                             x = .
+                             )
+# Data frame with 31 columns:
+#	1. SpecName - binomial species name [sorted alphabetically]
+#	2. accGenus - only the genus name
+#	3. accSpecies - only the species name
+#	4. PalmTribe
+#	5. PalmSubfamily
+#	6-30 - information on 25 traits
+#	31. extra reference notes
+
+# Do the datasets agree on which palm species exist?
+species <- list(palm.dist  = levels(palm.dist$SpecName),
+                trait.data = trait.data$SpecName 
+                )
+present.list <- MultiCC(species, presence=TRUE, value=TRUE)
+species.agreed <- sort(present.list$palm.dist$trait.data)
+
+# Subset palm traits dataset
+palm.traits <- data.frame(species      = trait.data$SpecName,
+                          genus        = trait.data$accGenus,
+                          stem.height  = trait.data$MaxStemHeight_m,
+                          blade.length = trait.data$Max_Blade_Length_m,
+                          fruit.length = trait.data$AverageFruitLength_cm
                           )
-rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
-                                         tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
-                              )
-to.remove <- which(rowSums(is.na(trait.matrix)) == ncol(trait.matrix))
-BHPMF.missing <- palm.traits[to.remove, ]
-trait.matrix <- trait.matrix[-to.remove, ]
-hierarchy.matrix <- hierarchy.matrix[-to.remove, ]
-rm(to.remove)
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
-GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-           prediction.level=4, used.num.hierarchy.levels=3,
-           mean.gap.filled.output.path="output/TEST_BHPMF.mean.3.txt",
-           std.gap.filled.output.path="output/TEST_BHPMF.std.3.txt",
-           tmp.dir="output/BHPMF_preprocessing_test", 
-           rmse.plot.test.data=FALSE, verbose=TRUE)
-test.mean.BHPMF <- read.table(file="output/TEST_BHPMF.mean.3.txt",
-                              header=TRUE, sep="	")
-test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                              genus   = as.character(hierarchy.matrix[, 2]),
-                              test.mean.BHPMF)
-write.csv(test.mean.BHPMF, file="output/TEST.BHPMF_filled_3.csv",
-          eol="\r\n", row.names=FALSE)
-test.std <- read.table(file='output/TEST_BHPMF.std.3.txt', header=TRUE, sep='')
-test.std <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                       genus   = as.character(hierarchy.matrix[, 2]),
-                       test.std)
+# stem.height = maximum stem height in meters.
+# blade.length = maximum blade length in meters.
+# fruit.length = average fruit length in centimeters.
+# Genus is included because we need it to calculate genus mean trait values
+palm.traits %<>% .[CrossCheck(x = palm.traits$species, 
+                              y = species.agreed,
+                              presence=TRUE,
+                              value=FALSE
+                              ),
+                   ]
+# Note: there should be no missing species, so this subset is for posterity.
+write.csv(palm.traits, 
+          file = "output/palm_traits.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
 
-# 4. Same as #2, but including a fourth dummy trait, with all values = 1
-# This is largely the same code as used in the main script
-trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
-                                          "fruit.length")
-                                      ]
-                          )
-rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
-                                         tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
-                              )
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
-trait.matrix <- as.matrix(data.frame(trait.matrix,
-                                     dummy=rep(1, times=length(trait.matrix[, 1]))
-                          )          )
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
-GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-           prediction.level=4, used.num.hierarchy.levels=3,
-           mean.gap.filled.output.path="output/TEST_BHPMF.mean.4.txt",
-           std.gap.filled.output.path="output/TEST_BHPMF.std.4.txt",
-           tmp.dir="output/BHPMF_preprocessing_test", 
-           rmse.plot.test.data=FALSE, verbose=TRUE)
-test.mean.BHPMF <- read.table(file="output/TEST_BHPMF.mean.4.txt",
-                              header=TRUE, sep="	")
-test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                              genus   = as.character(hierarchy.matrix[, 2]),
-                              test.mean.BHPMF)
-test.filled.BHPMF <- GapFill(palm.traits, test.mean.BHPMF, by="species",
-                               fill=c("stem.height", "blade.length",
-                                      "fruit.length")
-                              )
-test.filled.BHPMF <- test.filled.BHPMF[complete.cases(test.filled.BHPMF), ]
-write.csv(test.filled.BHPMF, file="output/TEST.BHPMF_filled_4.csv",
-          eol="\r\n", row.names=FALSE)
+# Extract hierarchical taxonomic data, which is needed for BHPMF
+# # columns should be from low-level to high-level
+palm.hierarchy <-   data.frame(species   = trait.data$SpecName,
+                               genus     = trait.data$accGenus,
+                               tribe     = trait.data$PalmTribe,
+                               subfamily = trait.data$PalmSubfamily
+                               )
+write.csv(palm.hierarchy,
+          file = "output/palm_hierarchy.csv",
+          eol="\r\n",
+          row.names = FALSE)
 
 
-# 5. Same as #2, but including the following additional traits:
-#    MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
-#    AverageFruitWidth_cm
-# This is largely the same code as used in the main script
-trait.matrix <- as.matrix(cbind(palm.traits[, c("stem.height", "blade.length",
-                                                "fruit.length")],
-                                trait.data[, c("MaxStemDia_cm", "MaxLeafNumber",
-                                               "Max_Rachis_Length_m",
-                                               "Max_Petiole_length_m",
-                                               "AverageFruitWidth_cm")]
-                          )     )
-rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
-                                         tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
+# Gap-filling with genus means
+# ----------------------------
+cat("Gap-filling with genus means...", "\n")
+genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
+traits.filled.mean <- GapFill(palm.traits,
+                              genus.means,
+                              by = "genus",
+                              fill = c("stem.height",
+                                       "blade.length",
+                                       "fruit.length"
+                                       )
                               )
-to.remove <- which(rowSums(is.na(trait.matrix)) == ncol(trait.matrix))
-BHPMF.missing <- palm.traits[to.remove, ]
-trait.matrix <- trait.matrix[-to.remove, ]
-hierarchy.matrix <- hierarchy.matrix[-to.remove, ]
-rm(to.remove)
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
-trait.matrix[, "MaxStemDia_cm"][which(trait.matrix[, "MaxStemDia_cm"] == 0)] <-
-  0.0001
-trait.matrix[, "Max_Petiole_length_m"][which(trait.matrix[, "Max_Petiole_length_m"]
-  == 0)] <- 0.0001
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
-GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-           prediction.level=4, used.num.hierarchy.levels=3,
-           mean.gap.filled.output.path="output/TEST_BHPMF.mean.5.txt",
-           std.gap.filled.output.path="output/TEST_BHPMF.std.5.txt",
-           tmp.dir="output/BHPMF_preprocessing_test", 
-           rmse.plot.test.data=FALSE, verbose=TRUE)
-test.mean.BHPMF <- read.table(file="output/TEST_BHPMF.mean.5.txt",
-                              header=TRUE, sep="	")
-test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                              genus   = as.character(hierarchy.matrix[, 2]),
-                              test.mean.BHPMF)
-test.filled.BHPMF <- GapFill(palm.traits, test.mean.BHPMF, by="species",
-                               fill=c("stem.height", "blade.length",
-                                      "fruit.length")
-                              )
-test.filled.BHPMF <- test.filled.BHPMF[complete.cases(test.filled.BHPMF), ]
-write.csv(test.filled.BHPMF, file="output/TEST.BHPMF_filled_5.csv",
-          eol="\r\n", row.names=FALSE)
+# Beware NAs for genus means where all species of the genus have NA for the
+# same trait.
+# Solution: delete all cases where genus-mean filling is not possible.
+genus.mean.missing <- 
+  traits.filled.mean %>%
+  .[!complete.cases(.), ]
+traits.filled.mean %<>% .[complete.cases(.), ]
+write.csv(traits.filled.mean,
+          file = "output/traits_filled_genus_mean.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+write.csv(genus.mean.missing, 
+          file = "output/missing_genus_mean.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
 
-# 6. Same as #4, but with 10 such dummy traits intead of just one.
-# This is largely the same code as used in the main script
-trait.matrix <- as.matrix(palm.traits[, c("stem.height", "blade.length",
-                                          "fruit.length")
-                                      ]
-                          )
-rownames(trait.matrix) <- sub(pattern=" ", replacement="_", x=trait.data$SpecName)
-hierarchy.matrix <- as.matrix(data.frame(species   = sub(pattern=" ",
-                                                         replacement="_",
-                                                         x=trait.data$SpecName),
-                                         genus     = trait.data$accGenus,
-                                         tribe     = trait.data$PalmTribe,
-                                         subfamily = trait.data$PalmSubfamily)
-                              )
-trait.matrix[, "stem.height"][which(trait.matrix[, "stem.height"] == 0)] <- 0.0001
-for (i in 1:10) {
-trait.matrix <- as.matrix(data.frame(trait.matrix,
-                                     dummy=rep(1, times=length(trait.matrix[, 1]))
-                          )          )
+# Prepare shared input for BHPMF runs
+# -----------------------------------
+cat("Preparing data for BHPMF...", "\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+trait.matrix <- 
+  palm.traits[, c("stem.height", "blade.length", "fruit.length")] %>%
+  as.matrix()
+rownames(trait.matrix) <- trait.data$SpecName
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- as.matrix(palm.hierarchy)
+
+TestBHPMF <- function(trial) {
+# Standard function for BHPMF tests, to run BHPMF.
+# Trial: character vector of length 1 giving the name of the trial,
+#        e.g. "one".
+  # BHPMF wants a preprocessing directory, where it saves pre-processed files.
+  # To avoid errors or erronous output when re-running the code, this directory
+  # needs to be emptied.
+  cat("Running BHPMF trial", trial, "\n")
+  unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+  dir.create("output/BHPMF_preprocessing_test")
+  GapFilling(X = test.matrix,
+           hierarchy.info = test.hierarchy,
+           prediction.level = 4,
+           used.num.hierarchy.levels = 3,
+           mean.gap.filled.output.path = paste0("output/test_BHPMF_",
+                                                trial,
+                                                "_mean.txt"
+                                                ),
+           std.gap.filled.output.path = paste0("output/test_BHPMF_",
+                                               trial,
+                                               "_std.txt"
+                                               ),
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=verbose
+           )
 }
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
-GapFilling(X=trait.matrix, hierarchy.info=hierarchy.matrix,
-           prediction.level=4, used.num.hierarchy.levels=3,
-           mean.gap.filled.output.path="output/TEST_BHPMF.mean.6.txt",
-           std.gap.filled.output.path="output/TEST_BHPMF.std.6.txt",
-           tmp.dir="output/BHPMF_preprocessing_test", 
-           rmse.plot.test.data=FALSE, verbose=TRUE)
-test.mean.BHPMF <- read.table(file="output/TEST_BHPMF.mean.6.txt",
-                              header=TRUE, sep="	")
-test.mean.BHPMF <- data.frame(species = as.character(hierarchy.matrix[, 1]),
-                              genus   = as.character(hierarchy.matrix[, 2]),
-                              test.mean.BHPMF)
-test.filled.BHPMF <- GapFill(palm.traits, test.mean.BHPMF, by="species",
-                               fill=c("stem.height", "blade.length",
-                                      "fruit.length")
-                              )
-test.filled.BHPMF <- test.filled.BHPMF[complete.cases(test.filled.BHPMF), ]
-write.csv(test.filled.BHPMF, file="output/TEST.BHPMF_filled_6.csv",
-          eol="\r\n", row.names=FALSE)
+
+ParseBHPMF <- function(trial) {
+# Standard function for parsing BHPMF output. Gapfills the trait matrix
+# only for unobserved (missing) trait values.
+# Trial: character vector of length 1 giving the name of the trial,
+#        e.g. "one".
+  traits.filled.BHPMF.test <-
+    read.table(file = paste0("output/test_BHPMF_",
+                             trial,
+                             "_mean.txt"
+                             ),
+               header = TRUE,
+               sep = "	"
+               ) %>%
+    data.frame(species = as.character(test.hierarchy[, 1]),
+               genus   = as.character(test.hierarchy[, 2]),
+               .
+               ) %>%
+    GapFill(palm.traits,
+            .,
+            by = "species",
+            fill = c("stem.height", "blade.length", "fruit.length")
+            ) %>%
+    { .[complete.cases(.), ] }
+  
+  write.csv(traits.filled.BHPMF.test,
+            file = paste0("output/traits_filled_BHPMF_",
+                          trial,
+                          ".csv"
+                          ),
+            eol="\r\n",
+            row.names=FALSE
+            )
+  write.csv(missing.BHPMF.test,
+            file = paste0("output/missing_BHPMF_",
+                          trial,
+                          ".csv"
+                          ),
+            eol="\r\n",
+            row.names=FALSE
+            )
+}
+
+# 1. Gap-filling with BHPMF: only estimates for missing values
+# ------------------------------------------------------------
+cat("Gap-filling with BHPMF...", "\n")
+cat("(1) Using only estimates for missing values", "\n")
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+test.matrix <- trait.matrix[-to.remove, ]
+test.hierarchy <- hierarchy.matrix[-to.remove, ]
+missing.BHPMF.test <- palm.traits[to.remove, ]
+rm(to.remove)
+
+trial <- "one"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
+# 2. Gap-filling with BHPMF: using all estimates
+# ----------------------------------------------
+cat("(2) Using estimates for all trait values", "\n")
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+test.matrix <- trait.matrix[-to.remove, ]
+test.hierarchy <- hierarchy.matrix[-to.remove, ]
+missing.BHPMF.test <- palm.traits[to.remove, ]
+rm(to.remove)
+
+trial <- "two"
+TestBHPMF(trial)
+# Not using ParseBHPMF() because here we take all estimates.
+traits.filled.BHPMF.test <-
+  read.table(file = paste0("output/test_BHPMF_",
+                           trial,
+                           "_mean.txt"
+                           ),
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(test.hierarchy[, 1]),
+             genus   = as.character(test.hierarchy[, 2]),
+             .
+             ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.BHPMF.test,
+          file = paste0("output/traits_filled_BHPMF_",
+                        trial,
+                        ".csv"
+                        ),
+          eol="\r\n",
+          row.names=FALSE
+          )
+write.csv(missing.BHPMF.test,
+          file = paste0("output/missing_BHPMF_",
+                        trial,
+                        ".csv"
+                        ),
+          eol="\r\n",
+          row.names=FALSE
+          )
+
+# 3. Gap-filling with BHPMF: including 1 dummy trait
+# --------------------------------------------------
+cat("Gap-filling with BHPMF...", "\n")
+cat("(3) including 1 dummy trait", "\n")
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+test.matrix <-
+  trait.matrix %>%
+  data.frame(.,
+             dummy = rep(1, times = length(.[, 1]))
+             ) %>%
+  as.matrix()
+test.hierarchy <- hierarchy.matrix
+missing.BHPMF.test <- "none"
+
+trial <- "three"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
+# 4. Gap-filling with BHPMF: including more traits
+# ------------------------------------------------
+cat("Gap-filling with BHPMF...", "\n")
+cat("(4) including additional palm traits", "\n")
+test.matrix <- 
+  cbind(trait.matrix,
+        trait.data[, c("MaxStemDia_cm",
+                       "MaxLeafNumber",
+                       "Max_Rachis_Length_m",
+                       "Max_Petiole_length_m",
+                       "AverageFruitWidth_cm"
+                       )
+                   ]
+        ) %>%
+  as.matrix()
+
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  test.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+test.matrix %<>% .[-to.remove, ]
+test.hierarchy %<>% .[-to.remove, ]
+missing.BHPMF.test <- palm.traits[to.remove, ]
+rm(to.remove)
+
+trial <- "four"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
+# 5. Gap-filling with BHPMF: including 10 dummy traits
+# ----------------------------------------------------
+cat("Gap-filling with BHPMF...", "\n")
+cat("(5) including 10 dummy traits", "\n")
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+test.matrix <-
+  trait.matrix %>%
+  data.frame(.,
+             dummy.0 = rep(1, times = length(.[, 1])),
+             dummy.1 = rep(1, times = length(.[, 1])),
+             dummy.2 = rep(1, times = length(.[, 1])),
+             dummy.3 = rep(1, times = length(.[, 1])),
+             dummy.4 = rep(1, times = length(.[, 1])),
+             dummy.5 = rep(1, times = length(.[, 1])),
+             dummy.6 = rep(1, times = length(.[, 1])),
+             dummy.7 = rep(1, times = length(.[, 1])),
+             dummy.8 = rep(1, times = length(.[, 1])),
+             dummy.9 = rep(1, times = length(.[, 1]))
+             ) %>%
+  as.matrix()
+
+test.hierarchy <- hierarchy.matrix
+missing.BHPMF.test <- "none"
+
+trial <- "five"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
