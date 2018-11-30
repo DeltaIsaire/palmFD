@@ -27,67 +27,87 @@ source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
 
 
-# ---------------------------------------------------
-# Comparing genus means with standard BHPMF (trial 1)
-# ---------------------------------------------------
-cat("Comparing genus-mean with BHPMF:", "\n")
-cat("Preparing data...", "\n")
-palm.traits <- read.csv(file = "output/palm.traits.csv")
-filled.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
-filled.BHPMF <- read.csv(file = "output/traits_filled_BHPMF_one.csv")
-
-# The different methods had to exclude different species, so first we must
-# subset the filled trait matrices to the list of shared species.
-shared.species <- CrossCheck(filled.mean$species,
-                             filled.BHPMF$species,
-                             presence = TRUE,
-                             value = TRUE
-                             )
-filled.mean %<>% .[CrossCheck(.$species,
-                              shared.species,
-                              presence = TRUE,
-                              value = FALSE
-                              ),
-                    ]
-filled.BHPMF %<>% .[CrossCheck(.$species,
-                               shared.species,
-                               presence = TRUE,
-                               value = FALSE
-                               ),
-                     ]
-# Next, we need for each trait the subset of values that were estimated
-# (filled in), because that's what we should compare.
-Temp <- function(trait) {
-# trait: character vector of length 1 giving the trait column name
-  missing <- which(is.na(palm.traits[, trait]))
-  species <- CrossCheck(palm.traits[missing, "species"],
-                        shared.species,
-                        presence = TRUE,
-                        value = TRUE
-                        )
-  genus.mean <- CrossCheck(filled.mean$species,
-                           species,
-                           presence = TRUE,
-                           value = FALSE
-                           )
-  BHPMF <- CrossCheck(filled.BHPMF$species,
-                      species,
-                      presence = TRUE,
-                      value = FALSE
-                      )
-  data.frame(species = species,
-             genus.mean = filled.mean[, trait][genus.mean],
-             BHPMF = filled.BHPMF[, trait][BHPMF]
-             )
-}
-height.estimates <- Temp("stem.height")
-blade.estimates <- Temp("blade.length")
-fruit.estimates <- Temp("fruit.length")
-
-
-# Scatterplots of gap-filled trait values
 # ---------------------------------------
-cat("Creating scatterplots...", "\n")
+# Data preparation: filled trait matrices
+# ---------------------------------------
+cat("Comparing trait-filling methods:\n")
+cat("Preparing data...\n")
+# Trait filling begins with the unimputed trait matrix, which has for each
+# species a single 'observed' value for each trait, with gaps (NAs).
+palm.traits <- read.csv(file = "output/palm.traits.csv")
+# Subsequently we have filled this trait matrix in the following ways:
+#   genus means
+filled.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
+#   BHPMF, in different ways
+filled.BHPMF.one <- read.csv(file = "output/traits_filled_BHPMF_one.csv")
+filled.BHPMF.two <- read.csv(file = "output/traits_filled_BHPMF_two.csv")
+filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
+filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
+filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
+all.filled <- list(original = palm.traits,
+                   mean = filled.mean,
+                   b.one = filled.BHPMF.one,
+                   b.two = filled.BHPMF.two,
+                   b.three = filled.BHPMF.three,
+                   b.four = filled.BHPMF.four,
+                   b.five = filled.BHPMF.five
+                   )
+filled.names <- names(all.filled)
+
+# First, extract the number of species retained in each method:
+lengths <- ldply(all.filled,
+                 function (x) { length(x[, 1]) }
+                 )
+names(lengths) <- c("data", "species.count")
+
+# Second, the different methods had to exclude different species, so subset
+# the trait matrices to the list of shared species.
+species.list <- llply(all.filled, function(x) { x[, "species"] } )
+shared.species <- 
+  MultiCheck(species.list) %>%
+  as.character()
+all.filled <- lapply(all.filled,
+                     function(x) {
+                       indices <- CrossCheck(x = x[, "species"],
+                                             y = shared.species,
+                                             value = FALSE
+                                             )
+                       x[indices, ]
+                     }
+                     )
+# Third, we need for each trait the subset of values that were estimated
+# (filled in), because that's most interesting to compare.
+trait.names <- c("stem.height", "blade.length", "fruit.length")
+all.estimates <- llply(as.list(trait.names),
+                       function(trait) { 
+                         missing <- which(is.na(palm.traits[, trait]))
+                         species <- CrossCheck(x = palm.traits[missing, "species"],
+                                               y = shared.species
+                                               )
+                         estimates <- llply(all.filled,
+                                            function(df) {
+                                              indices <- CrossCheck(x = df$species,
+                                                                    y = species,
+                                                                    value = FALSE
+                                                                    )
+                                              df[indices, trait]
+                                            }
+                                            )
+                         data.frame(species = species,
+                         estimates %>%
+                         simplify2array() %>%
+                         as.data.frame()
+                         )
+                       }
+                       )
+names(all.estimates) <- paste0(trait.names, ".estimates")
+
+
+# Comparing genus means with standard BHPMF (trial 1):
+# Scatterplots of gap-filled trait values
+# ----------------------------------------------------
+cat("(1) Comparing genus-mean with BHPMF:\n")
+cat("Creating scatterplots...\n")
 # Scatterplots of BHPMF trait estimates ~ genus mean estimates.
 Temp <- function(data, title) {
 # data: dataframe with the estimates for each trait
@@ -120,15 +140,14 @@ GraphSVG(Temp(fruit.estimates,
          width = 12,
          height = 4
          )
-
-cat("Done.", "\n")
+cat("Done.\n")
 
 
 # -----------------------------------
 # Comparing all gap-filling scenarios
 # -----------------------------------
-cat("Comparing all gap-filling scenarios:", "\n")
-cat("Preparing data...", "\n")
+cat("(2) Comparing all gap-filling scenarios:\n")
+cat("Preparing data...\n")
 # Trait filling begins with the unimputed trait matrix, which has for each
 # species a single 'observed' value for each trait, with gaps (NAs).
 # Subsequently we have filled this trait matrix in the following ways:
@@ -140,9 +159,6 @@ filled.BHPMF.two <- read.csv(file = "output/traits_filled_BHPMF_two.csv")
 filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
 filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
 filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
-
-# The different methods had to exclude different species, so first we must
-# subset the filled trait matrices to the list of shared species.
 all.filled <- list(palm.traits,
                    filled.mean,
                    filled.BHPMF.one,
@@ -151,16 +167,22 @@ all.filled <- list(palm.traits,
                    filled.BHPMF.four,
                    filled.BHPMF.five
                    )
-all.names <- c("original", "mean", "one", "two", "three", "four", "five")
+filled.names <- c("original", "mean", "one", "two", "three", "four", "five")
 
-# Completeness
-# ------------
-# Barplot of the number of species retained in each method.
+# First, extract the number of species retained in each method:
 lengths <- ldply(all.filled,
                  function (x) { length(x[, 1]) }
                  )
-rownames(lengths) <- all.names
+rownames(lengths) <- filled..names
 names(lengths) <- "species.count"
+# Next, we need for each trait the subset of values that were estimated
+# (filled in), because that's what we should compare.
+
+
+# Completeness
+# ------------
+cat("Creating barplot of completeness...\n")
+# Barplot of the number of species retained in each method.
 GraphSVG(barplot(lengths[, 1],
                  names.arg = rownames(lengths),
                  ylab = "species count"
@@ -170,4 +192,5 @@ GraphSVG(barplot(lengths[, 1],
          height = 4
          )
 
-
+# The different methods had to exclude different species, so first we must
+# subset the filled trait matrices to the list of shared species.

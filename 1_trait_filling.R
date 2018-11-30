@@ -21,7 +21,7 @@
 #   output/palm_traits_BHPMF.csv
 #   output/BHPMF_missing.csv
 
-
+cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
 library(BHPMF)
@@ -32,7 +32,7 @@ source(file="functions/base_functions.R")
 # ------------------
 # Prepare trait data
 # ------------------
-cat("Preparing trait data...", "\n")
+cat("Preparing trait data...\n")
 palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
 # Long-list Data frame with two columns:
 #	1. Area_code_L3 - 3-letter code for each botanical country
@@ -54,35 +54,40 @@ trait.data$SpecName %<>% sub(pattern = " ",
 #	31. extra reference notes
 
 # Do the datasets agree on which palm species exist?
-species <- list(palm.dist  = levels(palm.dist$SpecName),
-                trait.data = trait.data$SpecName 
-                )
-present.list <- MultiCC(species, presence=TRUE, value=TRUE)
-species.agreed <- sort(present.list$palm.dist$trait.data)
+species.list <- list(palm.dist  = levels(palm.dist$SpecName),
+                     trait.data = trait.data$SpecName 
+                     )
+species.shared <-
+  MultiCheck(species.list, presence=TRUE, value=TRUE, unique = TRUE) %>%
+  sort()
 
 # Subset palm traits dataset
-palm.traits <- data.frame(species      = trait.data$SpecName,
-                          genus        = trait.data$accGenus,
-                          stem.height  = trait.data$MaxStemHeight_m,
-                          blade.length = trait.data$Max_Blade_Length_m,
-                          fruit.length = trait.data$AverageFruitLength_cm
-                          )
+palm.traits <- 
+  data.frame(species      = trait.data$SpecName,
+             genus        = trait.data$accGenus,
+             stem.height  = trait.data$MaxStemHeight_m,
+             blade.length = trait.data$Max_Blade_Length_m,
+             fruit.length = trait.data$AverageFruitLength_cm
+             ) %>%
+  .[CrossCheck(x = .$species,
+               y = species.shared,
+               presence = TRUE,
+               value = FALSE,
+               unique = TRUE
+               ),
+    ]
 # stem.height = maximum stem height in meters.
 # blade.length = maximum blade length in meters.
 # fruit.length = average fruit length in centimeters.
 # Genus is included because we need it to calculate genus mean trait values
-palm.traits %<>% .[CrossCheck(x = palm.traits$species, 
-                              y = species.agreed,
-                              presence=TRUE,
-                              value=FALSE
-                              ),
-                   ]
-# Note: there should be no missing species, so this subset is for posterity.
+# Note: there should be no missing species, so the extra subset is for posterity.
 write.csv(palm.traits, 
           file = "output/palm_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )
+# This will be useful:
+trait.names <- c("stem.height", "blade.length", "fruit.length")
 
 # Extract hierarchical taxonomic data, which is needed for BHPMF
 # # columns should be from low-level to high-level
@@ -97,20 +102,15 @@ write.csv(palm.hierarchy,
           row.names = FALSE)
 
 
-
-
 # ---------------------------------------
 # Gap-fill trait matrix using genus means
 # ---------------------------------------
-cat("Gap-filling with genus means...", "\n")
+cat("Gap-filling with genus means...\n")
 genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
 traits.filled.mean <- GapFill(palm.traits,
                               genus.means,
                               by = "genus",
-                              fill = c("stem.height",
-                                       "blade.length",
-                                       "fruit.length"
-                                       )
+                              fill = trait.names
                               )
 # Beware NAs for genus means where all species of the genus have NA for the
 # same trait.
@@ -120,12 +120,12 @@ genus.mean.missing <-
   .[!complete.cases(.), ]
 traits.filled.mean %<>% .[complete.cases(.), ]
 write.csv(traits.filled.mean,
-          file = "output/palm_traits_genus_mean.csv",
+          file = "output/traits_filled_genus_mean.csv",
           eol="\r\n",
           row.names=FALSE
           )
 write.csv(genus.mean.missing, 
-          file = "output/genus_mean_missing.csv",
+          file = "output/missing_genus_mean.csv",
           eol="\r\n",
           row.names=FALSE
           )
@@ -134,34 +134,31 @@ write.csv(genus.mean.missing,
 # ---------------------------------
 # Gap-fill trait matrix using BHPMF
 # ---------------------------------
-cat("Gap-filling with BHPMF... (this may take a while)", "\n")
-# First assemble the prerequisites data matrices.
+cat("Gap-filling with BHPMF:\n")
+cat("Preparing data...\n")
 # Source dataframes are sorted by species name, so rows will correspond
 # automatically.
 trait.matrix <- 
-  palm.traits[, c("stem.height", "blade.length", "fruit.length")] %>%
+  palm.traits[, trait.names] %>%
   as.matrix()
 rownames(trait.matrix) <- trait.data$SpecName
-# columns of the hierarchy matrix should be from low-level to high-level:
-hierarchy.matrix <-
-  data.frame(species   = trait.data$SpecName,
-             genus     = trait.data$accGenus,
-             tribe     = trait.data$PalmTribe,
-             subfamily = trait.data$PalmSubfamily
-             ) %>%
-  as.matrix()
-# BHPMF does not want observations with NA for all trait values,
-# So we have to remove those from both matrices.
-to.remove <- 
-  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
-BHPMF.missing <- palm.traits[to.remove, ]
-trait.matrix %<>% .[-to.remove, ]
-hierarchy.matrix %<>% .[-to.remove, ]
-rm(to.remove)
 # BHPMF is unable to handle observed trait values of exactly 0.
 # These do occur in our dataset, for stem height.
 # Solution: set these values to something close to 0
 trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- as.matrix(palm.hierarchy)
+
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+test.matrix <- trait.matrix[-to.remove, ]
+test.hierarchy <- hierarchy.matrix[-to.remove, ]
+missing.BHPMF.test <- palm.traits[to.remove, ]
+rm(to.remove)
+
+cat("Running BHPMF... (this may take a moment)\n")
 # BHPMF wants a preprocessing directory, where it saves pre-processed files.
 # To avoid errors or erronous output when re-running the code, this directory
 # needs to be emptied.
@@ -204,7 +201,7 @@ write.csv(BHPMF.missing,
           row.names=FALSE
           )
 
-cat("Done.", "\n")
+cat("Done.\n")
 
 # TODO:we use the taxonomic data from the trait dataset.
 # Will we do nothing with the phylogenetic tree?

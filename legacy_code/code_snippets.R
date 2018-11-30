@@ -83,3 +83,106 @@ dir.create("output/BHPMF_preprocessing_test")
 MultiCC(list(mean  = traits.mean$species,
              BHPMF = traits.BHPMF$species),
         presence=FALSE, value=FALSE)
+
+
+
+CrossCheck <- function(x, y, presence = TRUE, value = TRUE) {
+# For each value in x, check if it is present or absent in y, then return
+# the subset of x values that were present/absent, or their indices.
+# TODO: try instead Reduce(intersect, (list()))
+# 
+# Args:
+#   x: Vector whose values should be cross-referenced with the values in y
+#   y: Vector against which values in x are compared
+#   presence: Logical indicating whether to check for presence (TRUE) or
+#             absence (FALSE) of the values of x in y. Default is TRUE.
+#   value: Logical indicating whether to return the values of x (TRUE) which
+#          are present/absent in y, or their index in x (FALSE). Default is TRUE.
+#
+# Returns:
+#  Vector of the same type as x containing the subset of x present/absent in y,
+#  or an integer vector with the indices of x whose values are present/absent
+#  in y.
+  if (!IsOneDimensional(x)) {
+    stop("argument x is not one-dimensional")
+  }
+  if (!IsOneDimensional(y)) {
+    stop("argument y is not one-dimensional")
+  }
+  if (is.factor(x)) {
+    x %<>% as.character()
+  }
+  if (is.factor(y)) {
+    y %<>% as.character()
+  }
+  checklist <- lapply(x, function(x) { which(x == y) } )
+  if (isTRUE(presence)) {
+    present <- lapply(checklist, function(x) { length(which(!is.na(x))) } )
+    if (isTRUE(value)) {
+      return (x[which(present >= 1)])
+    } else {
+      return (which(present >= 1))
+    }
+  } else {
+    absent <- lapply(checklist, function(x) { which(length(x) == 0) } )
+    if (isTRUE(value)) {
+      return (x[which(absent >= 1)])
+    } else {
+      return (which(absent >= 1))
+    }
+  }
+}
+
+MultiCC <- function(x, presence = TRUE, value = TRUE) {
+# Wrapper function for CrossCheck. Takes a list and cross-references all
+# elements of the list with each other.
+#
+# Args:
+#   x: List with elements to cross-reference.
+#   presence: Logical indicating whether to check for presence (TRUE) or
+#             absence (FALSE) of the values being cross-referenced.
+#             Default is TRUE.
+#   value: Logical (see CrossCheck)
+#
+# Returns:
+#   When value = TRUE, returns a list of the values present/absent in each
+#   pairwise comparison. When value = FALSE, returns a matrix listing the
+#   number of values missing in each pairwise comparison.
+  if (IsOneDimensional(x)) {
+    stop("Argument x is one-dimensional")
+  }
+  if (isTRUE(value)) {
+    list <- plyr::llply(x,
+                        function(a) {
+                         plyr::llply(x, 
+                                     CrossCheck, 
+                                     y = a, 
+                                     presence = presence,
+                                     value=TRUE
+                                     )
+                        }
+                        )
+    return (list)
+  } else {
+    indices <- plyr::llply(x,
+                           function(a) { 
+                             plyr::llply(x,
+                                         CrossCheck, 
+                                         y = a,
+                                         presence = presence,
+                                         value = FALSE
+                                         )
+                           }
+                           )
+    lengths <- plyr::laply(simplify2array(indices), length)
+    matrix <- matrix(data = lengths,
+                     nrow = length(x),
+                     ncol = length(x),
+                     byrow = FALSE,
+                     dimnames=list(x = names(x),
+                                   y = names(x)
+                                   )
+                     )
+    return (matrix)
+  }
+}
