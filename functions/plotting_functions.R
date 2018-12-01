@@ -13,6 +13,8 @@
 # GraphPDF
 # graphSVG
 # MultiScatter
+# BarPlot
+# Histogram
 
 
 library(magrittr)
@@ -203,5 +205,113 @@ MultiScatter <- function(x, y, x.name = "x", y.name = "y", title = NULL, ...) {
   abline(h = 0, lty = 1, col = "black")
   # return par to default:
   par(mfrow = c(1, 1))
+}
+
+
+BarPlot <- function(heights, names = NULL, ylab = NULL, height.labels = TRUE) {
+# Wrapper function for barplot(), to conveniently produce decent-quality
+# barplots.
+#
+# Args:
+#   heights: Vector of heights for the bars
+#   names: Optional vector of names for each bar, which will be plotted along
+#          the x-axis
+#   ylab; vector of length 1 containing y-axis label
+#   height.labels: logical indicating whether to plot the values of heights
+#                  as text labels above each bar. Default is TRUE.
+#
+# Output:
+# Creates a barplot.
+  if (!IsOneDimensional(heights)) {
+    stop("Argument 'heights' is not one-dimensional")
+  }
+  if (isTRUE(height.labels)) {
+    x.vals <- barplot(heights)
+  }
+  # set margins to be nicely narrow
+  par(mar = c(4.1, 4.1, .5, .5))
+  barplot(height = heights, 
+          names.arg = names,
+          ylim = c(0, 1.1 * max(heights)),
+          ylab = ylab
+          )
+  if (isTRUE(height.labels)) {
+    text(x = x.vals,
+         y = heights,
+         pos = 3,
+         labels = heights
+         )
+  }
+}
+
+
+Histogram <- function(x, set.mar = TRUE, main = NULL, 
+                      col = rgb(220, 220, 220, max = 255), ...) {
+# Wrapper function for hist(), to easily produce a decent quality histogram.
+#
+# Args:
+#   x: A numeric vector containing values to be tallied and plotted.
+#   set.mar: logical indicating whether to set plot margins (using 'par(mar)')
+#            to be nicely narrow, i.e. 'par(mar = c(4.1, 4.1, .5, .5))'
+#   main: character vector of length 1 giving plot title. Default is not title.
+#   col: color for histogram bars fill.
+#   ... : additional arguments passed to hist()
+#
+# Output:
+# A histogram plot
+  if (!IsOneDimensional(x)) {
+    stop("Argument 'x' is not one-dimensional")
+  }
+  if (!is.numeric(x)) {
+    stop("Argument 'x' is not numeric")
+  }
+  if (isTRUE(set.mar)) {
+    par(mar = c(4.1, 4.1, .5, .5))
+  }
+  hist(x = x,
+       breaks = sqrt(length(x)),
+       main = NULL,
+       col = rgb(220, 220, 220, max = 255),  # very light grey
+       ...
+       )
+}
+
+
+MultiHist <- function(data, id, xlab) {
+# Wrapper function for Histogram(). Takes multi-dimensional input, creats
+# a histogram for each dimension, and plots these histograms stacked
+# vertically.
+#
+# Args:
+#   data: Array where each column is a numeric vector to make a histogram of.
+#   id: Character vector giving id labels for each column in the data.
+#       These are used in y-axis labels
+#   xlab: Character vector of length 1 giving x-axis label
+  if (is.matrix(data)) {
+    data %<>% as.data.frame()
+  }
+  dims <- 
+    seq_along(data)[-1] %>%
+    sort(., decreasing = TRUE)
+  xlim <-
+    range(data) %>%
+    round()
+  par(mfrow = c(dims[1],
+                1),
+      mar = c(.5, 4.1, .5, .5)
+      )
+  for (i in dims) {
+    Histogram(data[[i]],
+              set.mar = FALSE,
+              xlim = xlim,
+              xaxt = "n",
+              ylab = paste0("Freq. (", id[i], ")")
+              )
+  }
+  Histogram(data[[1]],
+            xlim = xlim,
+            xlab = xlab,
+            ylab = paste0("Freq. (", id[1], ")")
+            )
 }
 

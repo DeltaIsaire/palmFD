@@ -14,10 +14,8 @@
 #   output/traits_filled_BHPMF_four.csv
 #   output/traits_filled_BHPMF_five.csv
 # Generated output files:
-#   graphs/test_estimates_mean_BHPMF_height.svg
-#   graphs/test_estimates_mean_BHPMF_blade.svg
-#   graphs/test_estimates_mean_BHPMF_fruit.svg
-#   graphs/test_estimates_completeness.svg
+#   graphs/test_estimates_species_counts.svg
+
 
 
 library(magrittr)
@@ -55,10 +53,10 @@ all.filled <- list(original = palm.traits,
 filled.names <- names(all.filled)
 
 # First, extract the number of species retained in each method:
-lengths <- ldply(all.filled,
+species.counts <- ldply(all.filled,
                  function (x) { length(x[, 1]) }
                  )
-names(lengths) <- c("data", "species.count")
+names(species.counts) <- c("data", "species.count")
 
 # Second, the different methods had to exclude different species, so subset
 # the trait matrices to the list of shared species.
@@ -103,94 +101,37 @@ all.estimates <- llply(as.list(trait.names),
 names(all.estimates) <- paste0(trait.names, ".estimates")
 
 
-# Comparing genus means with standard BHPMF (trial 1):
-# Scatterplots of gap-filled trait values
-# ----------------------------------------------------
-cat("(1) Comparing genus-mean with BHPMF:\n")
-cat("Creating scatterplots...\n")
-# Scatterplots of BHPMF trait estimates ~ genus mean estimates.
-Temp <- function(data, title) {
-# data: dataframe with the estimates for each trait
-# title: title for the overall graph. Should include the trait name.
-  MultiScatter(x = data[, "genus.mean"],
-               y = data[, "BHPMF"],
-               x.name = "Genus Mean",
-               y.name = "BHPMF",
-               title = title
-               )
-}
-GraphSVG(Temp(height.estimates,
-              title = "Estimated stem height (m)"
-              ),
-         file = "graphs/test_estimates_mean_BHPMF_height.svg",
-         width = 12,
-         height = 4
-         )
-GraphSVG(Temp(blade.estimates,
-              title = "Estimated blade length (m)"
-              ),
-         file = "graphs/test_estimates_mean_BHPMF_blade.svg",
-         width = 12,
-         height = 4
-         )
-GraphSVG(Temp(fruit.estimates,
-              title = "Estimated fruit length (cm)"
-              ),
-         file = "graphs/test_estimates_mean_BHPMF_fruit.svg",
-         width = 12,
-         height = 4
-         )
-cat("Done.\n")
-
-
 # -----------------------------------
 # Comparing all gap-filling scenarios
 # -----------------------------------
-cat("(2) Comparing all gap-filling scenarios:\n")
-cat("Preparing data...\n")
-# Trait filling begins with the unimputed trait matrix, which has for each
-# species a single 'observed' value for each trait, with gaps (NAs).
-# Subsequently we have filled this trait matrix in the following ways:
-#   genus means
-filled.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
-#   BHPMF, in different ways
-filled.BHPMF.one <- read.csv(file = "output/traits_filled_BHPMF_one.csv")
-filled.BHPMF.two <- read.csv(file = "output/traits_filled_BHPMF_two.csv")
-filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
-filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
-filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
-all.filled <- list(palm.traits,
-                   filled.mean,
-                   filled.BHPMF.one,
-                   filled.BHPMF.two,
-                   filled.BHPMF.three,
-                   filled.BHPMF.four,
-                   filled.BHPMF.five
-                   )
-filled.names <- c("original", "mean", "one", "two", "three", "four", "five")
-
-# First, extract the number of species retained in each method:
-lengths <- ldply(all.filled,
-                 function (x) { length(x[, 1]) }
-                 )
-rownames(lengths) <- filled..names
-names(lengths) <- "species.count"
-# Next, we need for each trait the subset of values that were estimated
-# (filled in), because that's what we should compare.
-
-
-# Completeness
-# ------------
-cat("Creating barplot of completeness...\n")
+cat("Comparing all gap-filling scenarios:\n")
+cat("(1) Creating barplot of species counts...\n")
 # Barplot of the number of species retained in each method.
-GraphSVG(barplot(lengths[, 1],
-                 names.arg = rownames(lengths),
-                 ylab = "species count"
+GraphSVG(BarPlot(species.counts[, 2],
+                 names = species.counts[, 1],
+                 ylab = "Species count",
                  ),
-         file = "graphs/test_estimates_completeness.svg",
+         file = "graphs/test_estimates_species_counts.svg",
          width = 6,
          height = 4
          )
 
-# The different methods had to exclude different species, so first we must
-# subset the filled trait matrices to the list of shared species.
+# Histograms of estimated trait values
+# ------------------------------------
+cat("(2) Creating histograms of estimated trait values...\n")
+# For each trait, a stacked histogram of the trait value estimates for each method
+ids <- names(all.estimates[[1]])[-c(1, 2)]
+for (i in seq_along(all.estimates)) {
+  GraphSVG(MultiHist(all.estimates[[i]][, ids],
+                     id = ids,
+                     xlab = paste("Estimated", trait.names[i])
+                     ),
+           file = paste0("graphs/test_estimates_distributions_",
+                         trait.names[i],
+                         ".svg"
+                         ),
+           width = 6,
+           height = 1 * max(seq_along(all.estimates[[i]]))
+           )
+}
+
