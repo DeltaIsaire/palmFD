@@ -13,12 +13,12 @@
 # Generated output files:
 #   output/palm_traits.csv
 #   output/palm_hierarchy.csv
-#   output/palm_traits_genus_mean.csv
-#   output/genus_mean_missing.csv
+#   output/traits_filled_genus_mean.csv
+#   output/missing_genus_mean.csv
 #   output/BHPMF_preprocessing (directory containing many files)
 #   output/BHPMF_mean.txt
 #   output/BHPMF_std.txt
-#   output/palm_traits_BHPMF.csv
+#   output/traits_filled_BHPMF.csv
 #   output/BHPMF_missing.csv
 
 cat("Loading required packages and functions...\n")
@@ -153,10 +153,9 @@ hierarchy.matrix <- as.matrix(palm.hierarchy)
 # So we have to remove those from both matrices.
 to.remove <- 
   trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
-test.matrix <- trait.matrix[-to.remove, ]
-test.hierarchy <- hierarchy.matrix[-to.remove, ]
-missing.BHPMF.test <- palm.traits[to.remove, ]
-rm(to.remove)
+trait.matrix %<>% .[-to.remove, ]
+hierarchy.matrix %<>% .[-to.remove, ]
+BHPMF.missing <- palm.traits[to.remove, ]
 
 cat("Running BHPMF... (this may take a moment)\n")
 # BHPMF wants a preprocessing directory, where it saves pre-processed files.
@@ -191,12 +190,12 @@ traits.filled.BHPMF <-
   { .[complete.cases(.), ] }
 
 write.csv(traits.filled.BHPMF,
-          file = "output/palm_traits_BHPMF.csv",
+          file = "output/traits_filled_BHPMF.csv",
           eol="\r\n",
           row.names=FALSE
           )
 write.csv(BHPMF.missing,
-          file = "output/BHPMF_missing.csv",
+          file = "output/missing_BHPMF.csv",
           eol="\r\n",
           row.names=FALSE
           )

@@ -2,9 +2,9 @@
 # Palm Functional Diversity Project
 ###################################
 #
-# This script executes all MAIN code scripts in sensible order,
-# thus providing a one-click way to re-generate all MAIN output.
-# This script does NOT run the TEST scripts, only the scripts for the MAIN
+# This script executes all TEST code scripts in sensible order,
+# thus providing a one-click way to re-generate all TEST output.
+# This script does NOT run the MAIN scripts, only the scripts for the TEST
 # analysis.
 
 # SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT.
@@ -36,8 +36,11 @@ if (!dir.exists("graphs/")) {
   dir.create("graphs/")
 }
 
-cat("Gap-filling palm traits matrix:\n")
-source(file = "1_trait_filling.R")
+cat("Generating gap-filling scenarios:\n")
+source(file = "test_1_trait_filling.R")
 
-cat("Finished running all main scripts.\n")
+cat("Comparing trait-filling methods:\n")
+source(file = "test_2_trait_filling_comparison.R")
+
+cat("Finished running all test scripts.\n")
 

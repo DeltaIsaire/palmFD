@@ -392,5 +392,5 @@ trial <- "five"
 TestBHPMF(trial)
 ParseBHPMF(trial)
 
-cat("Done."\n")
+cat("Done.\n")
 

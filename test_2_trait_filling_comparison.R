@@ -30,11 +30,10 @@ source(file = "functions/plotting_functions.R")
 # ---------------------------------------
 # Data preparation: filled trait matrices
 # ---------------------------------------
-cat("Comparing trait-filling methods:\n")
 cat("Preparing data...\n")
 # Trait filling begins with the unimputed trait matrix, which has for each
 # species a single 'observed' value for each trait, with gaps (NAs).
-palm.traits <- read.csv(file = "output/palm.traits.csv")
+palm.traits <- read.csv(file = "output/palm_traits.csv")
 # Subsequently we have filled this trait matrix in the following ways:
 #   genus means
 filled.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
@@ -217,7 +216,7 @@ for (i in seq_along(observed.estimates)) {
 
 # BHPMF: Effect of adding dummy traits
 # ------------------------------------
-cat("(5) Assessing effect of adding dummy trais...\n")
+cat("(5) Assessing effect of adding dummy traits...\n")
 # in BHPMF.three we added one dummy trait.
 # in BHPMF.five we added ten dummy traits.
 # Including a dummy allows inclusion in BHPMF of species with NA for all
@@ -244,4 +243,6 @@ for (df in seq_along(all.estimates)) {
              height = 4
              )
 }
+
+cat("Done.\n")
 
