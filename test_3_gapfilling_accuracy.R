@@ -273,4 +273,146 @@ write.csv(traits.filled.dummy.BHPMF,
           row.names=FALSE
           )
 
+
+# -----------------------------
+# Parsing gap-filled trait data
+# -----------------------------
+cat("Parsing gap-filled trait matrices...\n")
+all.filled <- list(original = complete.traits,
+                   mean = traits.filled.mean,
+                   std.BHPMF = traits.filled.std.BHPMF,
+                   dummy.BHPMF = traits.filled.dummy.BHPMF
+                   )
+filled.names <- names(all.filled)
+
+# For each trait, get the subset of values that were estimated
+all.estimates <- llply(as.list(trait.names),
+                       function(trait) { 
+                         missing <- which(is.na(sparse.traits[, trait]))
+                         species <- sparse.traits[missing, "species"]
+                         estimates <- llply(all.filled,
+                                            function(df) {
+                                              indices <- CrossCheck(x = df$species,
+                                                                    y = species,
+                                                                    value = FALSE
+                                                                    )
+                                              df[indices, trait]
+                                            }
+                                            )
+                         data.frame(species = species,
+                         estimates %>%
+                         simplify2array() %>%
+                         as.data.frame()
+                         )
+                       }
+                       )
+names(all.estimates) <- paste0(trait.names, ".estimates")
+
+# For each trait, calculate the differences between estimates and original value
+all.differences <- 
+  llply(all.estimates,
+        function(df) {
+          data.frame(species = df$species,
+                     mean = df$mean - df$original,
+                     std.BHPMF = df$std.BHPMF - df$original,
+                     dummy.BHPMF = df$dummy.BHPMF - df$original
+                     )
+        }
+        )
+names(all.differences) <- paste0(trait.names, ".differences")
+
+
+# ------------------------------
+# Analysing gap-filling accuracy
+# ------------------------------
+cat("Analysing accuracy of gap-filling...\n")
+
+# First: for each trait, a table of mean and st.dev for all cases
+all.means <- llply(all.estimates, numcolwise(mean))
+all.sds <- llply(all.estimates, numcolwise(sd))
+estimates.stats <- llply(as.list(seq_along(all.estimates)),
+                         function(i) {
+                           data.frame(id = colnames(all.means[[i]]),
+                                      mean = as.numeric(all.means[[i]]),
+                                      st.dev = as.numeric(all.sds[[i]])
+                                      )
+                         }
+                         )
+names(estimates.stats) <- paste0(trait.names, ".estimates")
+
+# As above, statistics for the differences:
+diff.means <- llply(all.differences, numcolwise(mean))
+diff.sds <- llply(all.differences, numcolwise(sd))
+differences.stats <- llply(as.list(seq_along(all.differences)),
+                         function(i) {
+                           data.frame(id = colnames(diff.means[[i]]),
+                                      mean = as.numeric(diff.means[[i]]),
+                                      st.dev = as.numeric(diff.sds[[i]])
+                                      )
+                         }
+                         )
+names(differences.stats) <- paste0(trait.names, ".differences")
+
+
+# ANOVA of trait estimates
+# ------------------------
+# We can use ANOVA to test if the estimate means differ.
+# To do anova, we have to transform the data to long-list format.
+transformed.estimates <-
+  llply(all.estimates,
+        function(df) {
+          data.frame(trait.value = c(df$original,
+                                     df$mean,
+                                     df$std.BHPMF,
+                                     df$dummy.BHPMF
+                                     ),
+                     filling.method = c(rep("original", dim(df)[1]),
+                                        rep("genus.mean", dim(df)[1]),
+                                        rep("std.BHPMF", dim(df)[1]),
+                                        rep("dummy.BHPMF", dim(df)[1])
+                                        )
+                     )
+        }
+        )
+names(transformed.estimates) <- paste0(trait.names, ".estimates")
+
+# Do ANOVA: trait.value ~ filling.method
+anova.estimates <- llply(transformed.estimates,
+                   function(df) {
+                     aov(trait.value ~ filling.method, data = df)
+                   }
+                   )
+names(anova.estimates) <- paste0(trait.names, ".anova")
+# inspect results with summary(), e.g. summary(anova.estimates[[1]])
+
+# ANOVA of estimatedifferences
+# ----------------------------
+# We can use ANOVA to test if the difference means differ.
+# To do anova, we have to transform the data to long-list format.
+transformed.differences <-
+  llply(all.differences,
+        function(df) {
+          data.frame(estimate.diff = c(df$mean,
+                                     df$std.BHPMF,
+                                     df$dummy.BHPMF
+                                     ),
+                     filling.method = c(rep("genus.mean", dim(df)[1]),
+                                        rep("std.BHPMF", dim(df)[1]),
+                                        rep("dummy.BHPMF", dim(df)[1])
+                                        )
+                     )
+        }
+        )
+names(transformed.differences) <- paste0(trait.names, ".differences")
+
+# Do ANOVA: estimate.diff ~ filling.method
+anova.differences <- llply(transformed.estimates,
+                   function(df) {
+                     aov(trait.value ~ filling.method, data = df)
+                   }
+                   )
+names(anova.differences) <- paste0(trait.names, ".anova")
+# inspect results with summary(), e.g. summary(anova.differences[[1]])
+# OBSERVATION: THESE ANOVA RESULTS ARE *EXACTLY* THE SAME AS FOR THE ESTIMATES.
+
 cat("Done.\n")
