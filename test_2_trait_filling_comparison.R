@@ -15,9 +15,11 @@
 #   output/traits_filled_BHPMF_five.csv
 # Generated output files:
 #   graphs/test_estimates_species_counts.svg
+#   graphs/ <several graphs comparing trait estimates.
+#            Filenames all start with 'test_estimates_'>
 
 
-
+cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
 
@@ -133,5 +135,113 @@ for (i in seq_along(all.estimates)) {
            width = 6,
            height = 1 * max(seq_along(all.estimates[[i]]))
            )
+}
+
+# Scatterplots of estimated trait values
+# --------------------------------------
+cat("(3) Creating scatterplots comparing trait estimates...\n")
+# For each trait, compare standard BHPMF (BHPMF.one) to all other estimates.
+y.names <-
+  names(all.estimates[[1]]) %>%
+  .[!. %in% c("species", "original", "b.one")]
+for (df in seq_along(all.estimates)) {
+  for (y in y.names) {
+    GraphSVG(MultiScatter(all.estimates[[df]][, "b.one"],
+                          all.estimates[[df]][, y],
+                          x.name = paste("Est.",
+                                         trait.names[df],
+                                         "(BHPMF.one)"
+                                         ),
+                          y.name = paste0("Est. ",
+                                          trait.names[df],
+                                          " (",
+                                          y,
+                                          ")"
+                                          )
+                          ),
+             file=paste0("graphs/test_estimates_scatter_",
+                         trait.names[df],
+                         "_b.one_vs_",
+                         y,
+                         ".svg"
+                         ),
+             width = 12,
+             height = 4
+             )
+  }
+}
+
+# BHPMF: estimates vs observed
+# --------------------------------------
+cat("(4) Plotting observed traits vs BHPMF estimates...\n")
+# BHPMF also output estimates for 'observed' trait values.
+# How accurate are these?
+# For each trait, plot 'observed' values vs estimates from filled.BHPMF.two.
+# First prepare the data:
+observed.estimates <- 
+  llply(as.list(trait.names),
+        function(trait) {
+          observed <- palm.traits[!is.na(palm.traits[, trait]),
+                                  c("species", trait)
+                                  ]
+          estimate <- 
+            CrossCheck(filled.BHPMF.two$species,
+                       observed$species,
+                       value = FALSE
+                       ) %>%
+            filled.BHPMF.two[., trait]
+          data.frame(observed, estimate = estimate)
+        }
+        )
+names(observed.estimates) <- trait.names
+# Then make Scatterplots:
+for (i in seq_along(observed.estimates)) {
+  df <- observed.estimates[[i]]
+  GraphSVG(MultiScatter(x = df[, 2],
+                        y = df[, 3],
+                        x.name = paste("Observed",
+                                       names(df)[2]
+                                       ),
+                        y.name = paste("Estimated",
+                                       names(df)[2]
+                                       )
+                        ),
+           file = paste0("graphs/test_estimates_original_vs_estimated_",
+                         names(df)[2],
+                         ".svg"
+                         ),
+           width = 12,
+           height = 4
+           )
+}
+
+# BHPMF: Effect of adding dummy traits
+# ------------------------------------
+cat("(5) Assessing effect of adding dummy trais...\n")
+# in BHPMF.three we added one dummy trait.
+# in BHPMF.five we added ten dummy traits.
+# Including a dummy allows inclusion in BHPMF of species with NA for all
+# real traits. But does the dummy variable distort estimates?
+# Scatterplots made above already compare b.three and b.five to b.one.
+# Here, we first compare b.three to b.five, for each trait:
+for (df in seq_along(all.estimates)) {
+  GraphSVG(MultiScatter(all.estimates[[df]][, "b.three"],
+                        all.estimates[[df]][, "b.five"],
+                        x.name = paste("Est.",
+                                       trait.names[df],
+                                       "(BHPMF.three)"
+                                       ),
+                        y.name = paste("Est. ",
+                                       trait.names[df],
+                                       "BHPMF.five"
+                                       )
+                        ),
+             file=paste0("graphs/test_estimates_scatter_",
+                         trait.names[df],
+                         "_b.three_vs_b.five.svg"
+                         ),
+             width = 12,
+             height = 4
+             )
 }
 
