@@ -12,6 +12,14 @@
 # Input files:
 #   output/palm_traits.csv
 # Generated output files:
+#   output/test_sparse_traits.csv
+#   output/test_sparse_filled_genus_mean.csv
+#   output/test_sparse_std_BHPMF_mean.txt
+#   output/test_sparse_std_BHPMF_std.txt
+#   output/test_sparse_filled_std_BHPMF.csv
+#   output/test_sparse_dummy_BHPMF_mean.txt
+#   output/test_sparse_dummy_BHPMF_std.txt
+#   output/test_sparse_filled_dummy_BHPMF.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -115,3 +123,154 @@ write.csv(sparse.traits,
           row.names=FALSE
           )
 
+
+# -----------------------------------
+# Gap-filling the sparse trait matrix
+# -----------------------------------
+trait.names <- c("stem.height", "blade.length", "fruit.length")
+
+# Gap-filling with genus means
+# ----------------------------
+cat("Gap-filling with genus means...\n")
+genus.means <- ddply(sparse.traits, "genus", numcolwise(mean, na.rm=TRUE))
+traits.filled.mean <- GapFill(sparse.traits,
+                              genus.means,
+                              by = "genus",
+                              fill = trait.names
+                              )
+write.csv(traits.filled.mean,
+          file = "output/test_sparse_filled_genus_mean.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
+# Gap-filling with standard BHPMF
+# -------------------------------
+cat("Gap-filling with standard BHPMF:\n")
+cat("Preparing data...\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+trait.matrix <- 
+  sparse.traits[, trait.names] %>%
+  as.matrix()
+rownames(trait.matrix) <- sparse.traits$species
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- 
+  read.csv(file = "output/palm_hierarchy.csv") %>%
+  .[CrossCheck(.$species,
+               sparse.traits$species,
+               presence = TRUE,
+               value = FALSE
+               ),
+    ] %>%
+  as.matrix()
+cat("Running BHPMF... (this may take a moment)\n")
+# BHPMF wants a preprocessing directory, where it saves pre-processed files.
+# To avoid errors or erronous output when re-running the code, this directory
+# needs to be emptied.
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = trait.matrix,
+           hierarchy.info = hierarchy.matrix,
+           prediction.level = 4,
+           used.num.hierarchy.levels = 3,
+           mean.gap.filled.output.path = "output/test_sparse_std_BHPMF_mean.txt",
+           std.gap.filled.output.path = "output/test_sparse_std_BHPMF_std.txt",
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=FALSE
+           )
+traits.filled.std.BHPMF <-
+  read.table(file = "output/test_sparse_std_BHPMF_mean.txt",
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(hierarchy.matrix[, 1]),
+             genus   = as.character(hierarchy.matrix[, 2]),
+             .
+             ) %>%
+  GapFill(sparse.traits,
+          .,
+          by = "species",
+          fill = trait.names
+          ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.std.BHPMF,
+          file = "output/test_sparse_filled_std_BHPMF.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
+# Gap-filling with dummy BHPMF
+# -------------------------------
+cat("Gap-filling with dummy BHPMF:\n")
+cat("Preparing data...\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+trait.matrix <- 
+  sparse.traits[, trait.names] %>%
+  as.matrix()
+rownames(trait.matrix) <- sparse.traits$species
+trait.matrix %<>%
+  data.frame(.,
+             dummy = rep(1, times = length(.[, 1]))
+             ) %>%
+  as.matrix()
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- 
+  read.csv(file = "output/palm_hierarchy.csv") %>%
+  .[CrossCheck(.$species,
+               sparse.traits$species,
+               presence = TRUE,
+               value = FALSE
+               ),
+    ] %>%
+  as.matrix()
+cat("Running BHPMF... (this may take a moment)\n")
+# BHPMF wants a preprocessing directory, where it saves pre-processed files.
+# To avoid errors or erronous output when re-running the code, this directory
+# needs to be emptied.
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = trait.matrix,
+           hierarchy.info = hierarchy.matrix,
+           prediction.level = 4,
+           used.num.hierarchy.levels = 3,
+           mean.gap.filled.output.path = "output/test_sparse_dummy_BHPMF_mean.txt",
+           std.gap.filled.output.path = "output/test_sparse_dummy_BHPMF_std.txt",
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=FALSE
+           )
+traits.filled.dummy.BHPMF <-
+  read.table(file = "output/test_sparse_dummy_BHPMF_mean.txt",
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(hierarchy.matrix[, 1]),
+             genus   = as.character(hierarchy.matrix[, 2]),
+             .
+             ) %>%
+  GapFill(sparse.traits,
+          .,
+          by = "species",
+          fill = trait.names
+          ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.dummy.BHPMF,
+          file = "output/test_sparse_filled_dummy_BHPMF.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
+cat("Done.\n")
