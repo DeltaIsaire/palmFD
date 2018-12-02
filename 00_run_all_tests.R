@@ -42,5 +42,8 @@ source(file = "test_1_trait_filling.R")
 cat("Comparing trait-filling methods:\n")
 source(file = "test_2_trait_filling_comparison.R")
 
+cat("Testing accuracy of gap-filling:\n")
+source(file = "test_3_gapfilling_accuracy.R")
+
 cat("Finished running all test scripts.\n")
 
