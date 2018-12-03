@@ -269,7 +269,7 @@ Histogram <- function(x, set.mar = TRUE, main = NULL,
     par(mar = c(4.1, 4.1, .5, .5))
   }
   hist(x = x,
-       breaks = sqrt(length(x)),
+       breaks = round(sqrt(length(x))),
        main = NULL,
        col = rgb(220, 220, 220, max = 255),  # very light grey
        ...

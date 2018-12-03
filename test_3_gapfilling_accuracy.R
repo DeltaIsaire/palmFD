@@ -20,6 +20,7 @@
 #   output/test_sparse_dummy_BHPMF_mean.txt
 #   output/test_sparse_dummy_BHPMF_std.txt
 #   output/test_sparse_filled_dummy_BHPMF.csv
+#   graphs/test_sparse_scatter_ <a bunch of graphs starting with this name>
 
 
 cat("Loading required packages and functions...\n")
@@ -37,28 +38,16 @@ source(file = "functions/plotting_functions.R")
 cat("Preparing data...\n")
 # Load palm traits data and subset to complete cases:
 palm.traits <- read.csv(file = "output/palm_traits.csv")
+trait.names <- c("stem.height", "blade.length", "fruit.length")
 complete.traits <- palm.traits[complete.cases(palm.traits), ]
 # calculate combined sparsity:
 sparsity <- 1 - (dim(complete.traits)[1] / dim(palm.traits)[1])
+# calculate overall proportion of missing values
+gap.count <- length(which(is.na(palm.traits[, trait.names])))
+gap.proportion <- gap.count / length((as.matrix(palm.traits[, trait.names])))
 
 # Create sparse test matrix
 # -------------------------
-# First, remove genera with only 1 member. A gap in the trait data of such
-# genera means estimating a genus mean is not possible.
-genera <-
-  ddply(complete.traits, "genus", nrow) %>%
-  .[!.[, 2] <= 1, ] %>%
-  .[, 1] %>%
-  as.character()
-complete.traits <-
-  CrossCheck(complete.traits$genus,
-             genera,
-             presence = TRUE,
-             value = FALSE,
-             unique = FALSE
-             ) %>%
-  complete.traits[., ]
-
 # BHPMF does not like species with NA for all traits.
 # So for each species, randomly select 1 trait value that is always present.
 to.keep <-
@@ -87,8 +76,14 @@ for (i in 1:dim(to.sparse)[1]) {
   values[val.ind] <- as.numeric(complete.traits[i, to.sparse[i, ]])
 }
 #   2. substitute some of the values in this vector with NA
+# The amount of NAs to add is gap.proportion * the number of trait values
+# in 'complete.traits'
+new.gap.count <-
+  complete.traits[, trait.names] %>%
+  as.matrix() %>%
+  length()
 gaps <-
-  runif(n = round(sparsity * length(values)),
+  runif(n = 1.3 * round(gap.proportion * new.gap.count),
         min = 1,
         max = length(values)
         ) %>%
@@ -117,6 +112,13 @@ if (!success) {
   sparse.traits[indices, ] <- complete.traits[indices, ]
 }
 
+# New sparsity and gaps:
+new.sparsity <- 1 - (dim(sparse.traits)[1] / dim(complete.traits)[1])
+# This will be 0 by construction.
+new.gap.count <- length(which(is.na(sparse.traits[, trait.names])))
+new.gap.proportion <- 
+  new.gap.count / length((as.matrix(complete.traits[, trait.names])))
+
 write.csv(sparse.traits,
           file = "output/test_sparse_traits.csv",
           eol="\r\n",
@@ -127,7 +129,6 @@ write.csv(sparse.traits,
 # -----------------------------------
 # Gap-filling the sparse trait matrix
 # -----------------------------------
-trait.names <- c("stem.height", "blade.length", "fruit.length")
 
 # Gap-filling with genus means
 # ----------------------------
@@ -415,4 +416,85 @@ names(anova.differences) <- paste0(trait.names, ".anova")
 # inspect results with summary(), e.g. summary(anova.differences[[1]])
 # OBSERVATION: THESE ANOVA RESULTS ARE *EXACTLY* THE SAME AS FOR THE ESTIMATES.
 
+# Scatterplots comparing estimated with original values
+# -----------------------------------------------------
+# For each trait, a MultiScatter of estimated ~ original, for all methods
+y.names <-
+  names(all.estimates[[1]]) %>%
+  .[!. %in% c("species", "original")]
+for (df in seq_along(all.estimates)) {
+  for (y in y.names) {
+    GraphSVG(MultiScatter(all.estimates[[df]][, "original"],
+                          all.estimates[[df]][, y],
+                          x.name = paste("Original",
+                                         trait.names[df]
+                                         ),
+                          y.name = paste0("Est. ",
+                                          trait.names[df],
+                                          " (",
+                                          y,
+                                          ")"
+                                          )
+                          ),
+             file=paste0("graphs/test_sparse_scatter_",
+                         trait.names[df],
+                         "_original_vs_",
+                         y,
+                         ".svg"
+                         ),
+             width = 12,
+             height = 4
+             )
+  }
+}
+
+# Scatterplots of standard BHPMF vs dummy BHPMF estimates
+# -------------------------------------------------------
+for (df in seq_along(all.estimates)) {
+  GraphSVG(MultiScatter(all.estimates[[df]][, "std.BHPMF"],
+                        all.estimates[[df]][, "dummy.BHPMF"],
+                        x.name = paste("Est.",
+                                       trait.names[df],
+                                       "std.BHPMF"
+                                       ),
+                        y.name = paste("Est. ",
+                                       trait.names[df],
+                                       "dummy.BHPMF"
+                                       )
+                        ),
+             file=paste0("graphs/test_sparse_scatter_",
+                         trait.names[df],
+                         "_std.BHPMF_vs_dummy.BHPMF.svg"
+                         ),
+             width = 12,
+             height = 4
+             )
+}
+
+# Scatterplots of genus mean vs standard BHPMF estimates
+# ------------------------------------------------------
+for (df in seq_along(all.estimates)) {
+  GraphSVG(MultiScatter(all.estimates[[df]][, "mean"],
+                        all.estimates[[df]][, "std.BHPMF"],
+                        x.name = paste("Est.",
+                                       trait.names[df],
+                                       "mean"
+                                       ),
+                        y.name = paste("Est. ",
+                                       trait.names[df],
+                                       "std.BHPMF"
+                                       )
+                        ),
+             file=paste0("graphs/test_sparse_scatter_",
+                         trait.names[df],
+                         "_genus_mean_vs_std.BHPMF.svg"
+                         ),
+             width = 12,
+             height = 4
+             )
+}
+
 cat("Done.\n")
+
+# TODO: compare uncertainties of BHPMF, i.e. the st.dev outputs.
+# TODO: compare accuracy of estimates for species with NA for all real traits.

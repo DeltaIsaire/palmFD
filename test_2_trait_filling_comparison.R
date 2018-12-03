@@ -171,7 +171,7 @@ for (df in seq_along(all.estimates)) {
 }
 
 # BHPMF: estimates vs observed
-# --------------------------------------
+# ----------------------------
 cat("(4) Plotting observed traits vs BHPMF estimates...\n")
 # BHPMF also output estimates for 'observed' trait values.
 # How accurate are these?

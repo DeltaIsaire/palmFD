@@ -186,3 +186,21 @@ MultiCC <- function(x, presence = TRUE, value = TRUE) {
     return (matrix)
   }
 }
+
+
+# First, remove genera with only 1 member. A gap in the trait data of such
+# genera means estimating a genus mean is not possible.
+genera <-
+  ddply(complete.traits, "genus", nrow) %>%
+  .[!.[, 2] <= 1, ] %>%
+  .[, 1] %>%
+  as.character()
+complete.traits <-
+  CrossCheck(complete.traits$genus,
+             genera,
+             presence = TRUE,
+             value = FALSE,
+             unique = FALSE
+             ) %>%
+  complete.traits[., ]
+
