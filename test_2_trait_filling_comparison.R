@@ -13,6 +13,7 @@
 #   output/traits_filled_BHPMF_three.csv
 #   output/traits_filled_BHPMF_four.csv
 #   output/traits_filled_BHPMF_five.csv
+#   output/traits_filled_BHPMF_six.csv
 # Generated output files:
 #   graphs/test_estimates_species_counts.svg
 #   graphs/ <several graphs comparing trait estimates.
@@ -43,13 +44,15 @@ filled.BHPMF.two <- read.csv(file = "output/traits_filled_BHPMF_two.csv")
 filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
 filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
 filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
+filled.BHPMF.six <- read.csv(file = "output/traits_filled_BHPMF_six.csv")
 all.filled <- list(original = palm.traits,
                    mean = filled.mean,
                    b.one = filled.BHPMF.one,
                    b.two = filled.BHPMF.two,
                    b.three = filled.BHPMF.three,
                    b.four = filled.BHPMF.four,
-                   b.five = filled.BHPMF.five
+                   b.five = filled.BHPMF.five,
+                   b.six = filled.BHPMF.six
                    )
 filled.names <- names(all.filled)
 
@@ -77,28 +80,29 @@ all.filled <- lapply(all.filled,
 # Third, we need for each trait the subset of values that were estimated
 # (filled in), because that's most interesting to compare.
 trait.names <- c("stem.height", "blade.length", "fruit.length")
-all.estimates <- llply(as.list(trait.names),
-                       function(trait) { 
-                         missing <- which(is.na(palm.traits[, trait]))
-                         species <- CrossCheck(x = palm.traits[missing, "species"],
-                                               y = shared.species
-                                               )
-                         estimates <- llply(all.filled,
-                                            function(df) {
-                                              indices <- CrossCheck(x = df$species,
-                                                                    y = species,
-                                                                    value = FALSE
-                                                                    )
-                                              df[indices, trait]
-                                            }
-                                            )
-                         data.frame(species = species,
-                         estimates %>%
-                         simplify2array() %>%
-                         as.data.frame()
-                         )
-                       }
-                       )
+all.estimates <- 
+  llply(as.list(trait.names),
+        function(trait) { 
+          missing <- which(is.na(palm.traits[, trait]))
+          species <- CrossCheck(x = palm.traits[missing, "species"],
+                                y = shared.species
+                                )
+          estimates <- llply(all.filled,
+                             function(df) {
+                               indices <- CrossCheck(x = df$species,
+                                                     y = species,
+                                                     value = FALSE
+                                                     )
+                               df[indices, trait]
+                             }
+                             )
+          data.frame(species = species,
+          estimates %>%
+          simplify2array() %>%
+          as.data.frame()
+          )
+        }
+        )
 names(all.estimates) <- paste0(trait.names, ".estimates")
 
 
@@ -113,7 +117,7 @@ GraphSVG(BarPlot(species.counts[, 2],
                  ylab = "Species count",
                  ),
          file = "graphs/test_estimates_species_counts.svg",
-         width = 6,
+         width = 7,
          height = 4
          )
 

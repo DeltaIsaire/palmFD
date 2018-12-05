@@ -197,4 +197,14 @@ Different gap-filling methods are implemented in test_1_trait_filling.R;
 and these are compared in test_2_trait_filling_comparison.R.
 The main trait filling script is where the best/chosen trait filling method will be implemented. Consider that script a placeholder for the moment.
 
+## Wednesday December 5, 2018
+Maintenance day became maintenance week. I ended up reading "The R Inferno" by Patrick Burns, which is a very well-written guide to avoiding common mistakes in R. There's a lot of basic things in there that an R coder should be aware of. So anyway, I completely revised all my code.
+
+Subsequently I finished comparing gapfilling methods, and additionally assessed the accuracy of gapfilling via the use of an artificially sparse subset of our trait data. All the significant details and main outcomes are reported in the update document trait_filling_comparison.docx.
+
+Yesterday was the interim assessment of my project. Things are going pretty well, actually. We discussed my trait-filling comparisons. One of the main outcomes of that discussion was to try BHPMF, with 'growthform' added as an extra hierarchy level in between genus and species. I have implemented this today. (The other outcome is that I can be more vocal / quicker to ask questions to my supervisor. Independence is great, but don't hesitate to get dependent!).
+
+For 54 species, there is no unambiguous growth form information, so I had to classify their growthform as NA, and remove these species from the BHPMF input data. Between NAs for growthform and NAs for all three trait values, the ultimate input matrix for this BHPMF trial had 2204 species (out of 2557).
+
+But, surprise: the trait matrix gap-filled with this output has 2238 species! A mistake? No, I checked. It looks like magic, but it's not. What happens is that many of the species with NA for growthform actually have 100% complete trait information. So, while their traits could not be estimated, there was no need to estimate those traits either! Sometimes you're lucky.
 

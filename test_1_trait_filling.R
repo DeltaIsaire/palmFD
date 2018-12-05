@@ -159,7 +159,8 @@ traits.filled.mean <- GapFill(palm.traits,
 genus.mean.missing <- 
   traits.filled.mean %>%
   .[!complete.cases(.), ]
-traits.filled.mean %<>% .[complete.cases(.), ]
+traits.filled.mean %<>% 
+  .[complete.cases(.), ]
 write.csv(traits.filled.mean,
           file = "output/traits_filled_genus_mean.csv",
           eol="\r\n",
@@ -264,7 +265,8 @@ cat("(1) Using only estimates for missing values\n")
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
 to.remove <- 
-  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+  trait.matrix %>%
+  { which(rowSums(is.na(.)) == ncol(.)) }
 test.matrix <- trait.matrix[-to.remove, ]
 test.hierarchy <- hierarchy.matrix[-to.remove, ]
 missing.BHPMF.test <- palm.traits[to.remove, ]
@@ -280,7 +282,8 @@ cat("(2) Using estimates for all trait values\n")
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
 to.remove <- 
-  trait.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+  trait.matrix %>%
+  { which(rowSums(is.na(.)) == ncol(.)) }
 test.matrix <- trait.matrix[-to.remove, ]
 test.hierarchy <- hierarchy.matrix[-to.remove, ]
 missing.BHPMF.test <- palm.traits[to.remove, ]
@@ -356,7 +359,8 @@ test.matrix <-
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
 to.remove <- 
-  test.matrix %>% { which(rowSums(is.na(.)) == ncol(.)) }
+  test.matrix %>%
+  { which(rowSums(is.na(.)) == ncol(.)) }
 test.matrix %<>% .[-to.remove, ]
 test.hierarchy %<>% .[-to.remove, ]
 missing.BHPMF.test <- palm.traits[to.remove, ]
@@ -434,7 +438,9 @@ hierarchy.matrix <-
 to.remove <- 
   trait.matrix %>% 
   { which(rowSums(is.na(.)) == ncol(.)) }
-to.remove %<>% c(., which(is.na(hierarchy.matrix[, 2])))
+to.remove %<>% 
+  c(., which(is.na(hierarchy.matrix[, 2]))) %>%
+  unique()
 test.matrix <- trait.matrix[-to.remove, ]
 test.hierarchy <- hierarchy.matrix[-to.remove, ]
 missing.BHPMF.test <- palm.traits[to.remove, ]
