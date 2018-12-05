@@ -6,7 +6,7 @@
 # to help with finding the best way to gap-fill the palm traits matrix.
 # Consider this the playground, while the main script is only the final
 # implementation.
-# WARNING: the runtime of this script is long, because it uses BHPMF
+# WARNING: the runtime of this script is long, because it runs BHPMF
 # multiple times. 
 #
 # TESTS: Gap-filling trait matrix
@@ -29,6 +29,8 @@
 #    MaxStemDia_cm, MaxLeafNumber, Max_Rachis_Length_m, Max_Petiole_length_m,
 #    AverageFruitWidth_cm
 # 5. Same as #3, but with 10 such dummy traits instead of just one.
+# 6. Same as #1, but with an extra hierarchy level between genus and species
+#    corresponding to growth form: acaulescent / freestanding / climbing
 #
 # Input files:
 #   data/palms_in_tdwg3.csv
@@ -257,7 +259,7 @@ ParseBHPMF <- function(trial) {
 
 # 1. Gap-filling with BHPMF: only estimates for missing values
 # ------------------------------------------------------------
-cat("Gap-filling with BHPMF...\n")
+cat("Gap-filling with BHPMF... (this may take a while)\n")
 cat("(1) Using only estimates for missing values\n")
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
@@ -392,5 +394,73 @@ trial <- "five"
 TestBHPMF(trial)
 ParseBHPMF(trial)
 
-cat("Done.\n")
+# 6. Gap-filling with BHPMF: Including growthform in hierarchy
+# ------------------------------------------------------------
+cat("(6) including growthform as hierarchy level\n")
+# Construct categorical variable of growthform and add it to the hierarchy
+growthform <- numeric(length = length(trait.data$SpecName))
+growthform[which(trait.data$Climbing == 1)] <- "climbing"
+growthform[which(trait.data$Acaulescence == 1)] <- "acaulescent"
+growthform[which(trait.data$Errect == 1)] <- "freestanding"
+growthform[which(growthform == 0)] <- NA
+# Decisions decisions: can we code the '2's as "ambiguous"? Probably not.
+# For now they are NA.
+# Not done yet: BHPMF demands that lower hierarchy levels are unique to their
+# parent. So 'growthform' must be recoded to 'growthform.genus' for each genus.
+# Easiest to re-construct the matrix and recode at the same time:
+hierarchy.matrix <- data.frame(species = palm.hierarchy$species,
+                               growthform = growthform,
+                               palm.hierarchy[, -1]
+                               )
+hierarchy.matrix$growthform %<>% as.character()  # friggin' factors :rolleyes:
+hierarchy.matrix <- 
+  ddply(hierarchy.matrix,
+        "genus",
+        function(subset) {
+          genus <- as.character(subset$genus[1])
+          for (i in 1:length(subset$growthform)) {
+            if (!is.na(subset$growthform[i])) {
+              subset$growthform[i] %<>% paste0(., ".", genus)
+            }
+          }
+          subset
+        }
+        ) %>%
+  as.matrix()
 
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+# Additionally, remove remaining species with NA for growthform.
+to.remove <- 
+  trait.matrix %>% 
+  { which(rowSums(is.na(.)) == ncol(.)) }
+to.remove %<>% c(., which(is.na(hierarchy.matrix[, 2])))
+test.matrix <- trait.matrix[-to.remove, ]
+test.hierarchy <- hierarchy.matrix[-to.remove, ]
+missing.BHPMF.test <- palm.traits[to.remove, ]
+rm(to.remove)
+
+trial <- "six"
+# Not using TestBHPMF() because we use a different hierarchy
+cat("Running BHPMF trial", trial, "\n")
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = test.matrix,
+           hierarchy.info = test.hierarchy,
+           prediction.level = 5,
+           used.num.hierarchy.levels = 4,
+           mean.gap.filled.output.path = paste0("output/test_BHPMF_",
+                                                trial,
+                                                "_mean.txt"
+                                                ),
+           std.gap.filled.output.path = paste0("output/test_BHPMF_",
+                                               trial,
+                                               "_std.txt"
+                                               ),
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=verbose
+           )
+ParseBHPMF(trial)
+
+cat("Done.\n")
