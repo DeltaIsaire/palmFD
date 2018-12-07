@@ -11,6 +11,7 @@
 #
 # Input files:
 #   output/palm_traits.csv
+#   data/PalmTraits_10.csv
 # Generated output files:
 #   output/test_sparse_traits.csv
 #   output/test_sparse_filled_genus_mean.csv
@@ -35,7 +36,7 @@ source(file = "functions/plotting_functions.R")
 # -----------------------------------
 # Data preparation: Test trait matrix
 # -----------------------------------
-cat("Preparing data...\n")
+cat("Preparing data: creating artificially sparse trait matrix...\n")
 # Load palm traits data and subset to complete cases:
 palm.traits <- read.csv(file = "output/palm_traits.csv")
 trait.names <- c("stem.height", "blade.length", "fruit.length")
@@ -129,10 +130,11 @@ write.csv(sparse.traits,
 # -----------------------------------
 # Gap-filling the sparse trait matrix
 # -----------------------------------
+cat("Gap-filling the sparse test matrix:\n")
 
 # Gap-filling with genus means
 # ----------------------------
-cat("Gap-filling with genus means...\n")
+cat("(1) with genus means...\n")
 genus.means <- ddply(sparse.traits, "genus", numcolwise(mean, na.rm=TRUE))
 traits.filled.mean <- GapFill(sparse.traits,
                               genus.means,
@@ -147,7 +149,7 @@ write.csv(traits.filled.mean,
 
 # Gap-filling with standard BHPMF
 # -------------------------------
-cat("Gap-filling with standard BHPMF:\n")
+cat("(2) with standard BHPMF:\n")
 cat("Preparing data...\n")
 # Source dataframes are sorted by species name, so rows will correspond
 # automatically.
@@ -209,7 +211,7 @@ write.csv(traits.filled.std.BHPMF,
 
 # Gap-filling with dummy BHPMF
 # -------------------------------
-cat("Gap-filling with dummy BHPMF:\n")
+cat("(3) with dummy BHPMF:\n")
 cat("Preparing data...\n")
 # Source dataframes are sorted by species name, so rows will correspond
 # automatically.
@@ -274,6 +276,109 @@ write.csv(traits.filled.dummy.BHPMF,
           row.names=FALSE
           )
 
+# Gap-filling with growthform BHPMF
+# ---------------------------------
+cat("(4) with growthform BHPMF:\n")
+cat("Preparing data...\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+trait.matrix <- 
+  sparse.traits[, trait.names] %>%
+  as.matrix()
+rownames(trait.matrix) <- sparse.traits$species
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+# Construct hierarchy matrix with growthform:
+trait.data <- 
+  read.csv(file = "data/PalmTraits_10.csv") %>%
+  .[order(.$SpecName), ]
+trait.data$SpecName %<>% sub(pattern = " ",
+                             replacement = "_",
+                             x = .
+                             )
+growthform <- numeric(length = length(trait.data$SpecName))
+growthform[which(trait.data$Climbing == 1)] <- "climbing"
+growthform[which(trait.data$Acaulescence == 1)] <- "acaulescent"
+growthform[which(trait.data$Errect == 1)] <- "freestanding"
+growthform[which(growthform == 0)] <- NA
+
+hierarchy.matrix <- 
+  read.csv(file = "output/palm_hierarchy.csv") %>%
+  { data.frame(species = .$species,
+             growthform = growthform,
+             .[, -1]
+             )
+  }
+hierarchy.matrix$growthform %<>% as.character()  # friggin' factors :rolleyes:
+hierarchy.matrix <- 
+  ddply(hierarchy.matrix,
+        "genus",
+        function(subset) {
+          genus <- as.character(subset$genus[1])
+          for (i in 1:length(subset$growthform)) {
+            if (!is.na(subset$growthform[i])) {
+              subset$growthform[i] %<>% paste0(., ".", genus)
+            }
+          }
+          subset
+        }
+        ) %>%
+  .[CrossCheck(.$species,
+               sparse.traits$species,
+               presence = TRUE,
+               value = FALSE
+               ),
+    ] %>%
+  as.matrix()
+# Remove species with NA for growthform.
+to.remove <- which(is.na(hierarchy.matrix[, 2]))
+trait.matrix %<>% .[-to.remove, ]
+hierarchy.matrix %<>% . [-to.remove, ]
+rm(to.remove)
+
+cat("Running BHPMF... (this may take a moment)\n")
+# BHPMF wants a preprocessing directory, where it saves pre-processed files.
+# To avoid errors or erronous output when re-running the code, this directory
+# needs to be emptied.
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = trait.matrix,
+           hierarchy.info = hierarchy.matrix,
+           prediction.level = 5,
+           used.num.hierarchy.levels = 4,
+           mean.gap.filled.output.path = 
+             "output/test_sparse_growthform_BHPMF_mean.txt",
+           std.gap.filled.output.path =
+             "output/test_sparse_growthform_BHPMF_std.txt",
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=FALSE
+           )
+traits.filled.growthform.BHPMF <-
+  read.table(file = "output/test_sparse_growthform_BHPMF_mean.txt",
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(hierarchy.matrix[, 1]),
+             genus   = as.character(hierarchy.matrix[, 2]),
+             .
+             ) %>%
+  GapFill(sparse.traits,
+          .,
+          by = "species",
+          fill = trait.names
+          ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.growthform.BHPMF,
+          file = "output/test_sparse_filled_growthform_BHPMF.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
 
 # -----------------------------
 # Parsing gap-filled trait data
@@ -282,9 +387,30 @@ cat("Parsing gap-filled trait matrices...\n")
 all.filled <- list(original = complete.traits,
                    mean = traits.filled.mean,
                    std.BHPMF = traits.filled.std.BHPMF,
-                   dummy.BHPMF = traits.filled.dummy.BHPMF
+                   dummy.BHPMF = traits.filled.dummy.BHPMF,
+                   growthform.BHPMF = traits.filled.growthform.BHPMF
                    )
 filled.names <- names(all.filled)
+# growthform.BHPMF is incomplete (contains info for fewer species).
+# For an honest comparison, we must subset the other dataframes to these
+# same species
+all.filled <- llply(all.filled,
+                    function(df) {
+                      indices <- CrossCheck(x = df$species,
+                                            y = all.filled[[5]]$species,
+                                            presence = TRUE,
+                                            value = FALSE
+                                            )
+                      df[indices, ]
+                    }
+                    )
+# And don't forget to also subset sparse.traits:
+indices <- CrossCheck(x = sparse.traits$species,
+                      y = all.filled[[5]]$species,
+                      presence = TRUE,
+                      value = FALSE
+                      )
+sparse.traits %<>% .[indices, ]
 
 # For each trait, get the subset of values that were estimated
 all.estimates <- llply(as.list(trait.names),
@@ -301,9 +427,9 @@ all.estimates <- llply(as.list(trait.names),
                                             }
                                             )
                          data.frame(species = species,
-                         estimates %>%
-                         simplify2array() %>%
-                         as.data.frame()
+                                    estimates %>%
+                                    simplify2array() %>%
+                                    as.data.frame()
                          )
                        }
                        )
@@ -316,7 +442,8 @@ all.differences <-
           data.frame(species = df$species,
                      mean = df$mean - df$original,
                      std.BHPMF = df$std.BHPMF - df$original,
-                     dummy.BHPMF = df$dummy.BHPMF - df$original
+                     dummy.BHPMF = df$dummy.BHPMF - df$original,
+                     growthform.BHPMF = df$growthform.BHPMF - df$original
                      )
         }
         )
@@ -365,12 +492,14 @@ transformed.estimates <-
           data.frame(trait.value = c(df$original,
                                      df$mean,
                                      df$std.BHPMF,
-                                     df$dummy.BHPMF
+                                     df$dummy.BHPMF,
+                                     df$growthform.BHPMF
                                      ),
                      filling.method = c(rep("original", dim(df)[1]),
                                         rep("genus.mean", dim(df)[1]),
                                         rep("std.BHPMF", dim(df)[1]),
-                                        rep("dummy.BHPMF", dim(df)[1])
+                                        rep("dummy.BHPMF", dim(df)[1]),
+                                        rep("growthform.BHPMF", dim(df)[1])
                                         )
                      )
         }
@@ -386,8 +515,8 @@ anova.estimates <- llply(transformed.estimates,
 names(anova.estimates) <- paste0(trait.names, ".anova")
 # inspect results with summary(), e.g. summary(anova.estimates[[1]])
 
-# ANOVA of estimatedifferences
-# ----------------------------
+# ANOVA of estimate differences
+# -----------------------------
 # We can use ANOVA to test if the difference means differ.
 # To do anova, we have to transform the data to long-list format.
 transformed.differences <-
@@ -395,11 +524,13 @@ transformed.differences <-
         function(df) {
           data.frame(estimate.diff = c(df$mean,
                                      df$std.BHPMF,
-                                     df$dummy.BHPMF
+                                     df$dummy.BHPMF,
+                                     df$growthform.BHPMF
                                      ),
                      filling.method = c(rep("genus.mean", dim(df)[1]),
                                         rep("std.BHPMF", dim(df)[1]),
-                                        rep("dummy.BHPMF", dim(df)[1])
+                                        rep("dummy.BHPMF", dim(df)[1]),
+                                        rep("growthform.BHPMF", dim(df)[1])
                                         )
                      )
         }
@@ -493,6 +624,74 @@ for (df in seq_along(all.estimates)) {
              height = 4
              )
 }
+
+# Scatterplots of standard BHPMF vs growthform BHPMF estimates
+# ------------------------------------------------------------
+for (df in seq_along(all.estimates)) {
+  GraphSVG(MultiScatter(all.estimates[[df]][, "std.BHPMF"],
+                        all.estimates[[df]][, "growthform.BHPMF"],
+                        x.name = paste("Est.",
+                                       trait.names[df],
+                                       "std.BHPMF"
+                                       ),
+                        y.name = paste("Est. ",
+                                       trait.names[df],
+                                       "growthform.BHPMF"
+                                       )
+                        ),
+             file=paste0("graphs/test_sparse_scatter_",
+                         trait.names[df],
+                         "_std.BHPMF_vs_growthform.BHPMF.svg"
+                         ),
+             width = 12,
+             height = 4
+             )
+}
+
+# Scatterplots of original vs estimates for BHPMF: standard + growthform
+# ----------------------------------------------------------------------
+# For each trait, plot the original values vs the estimates from standard BHPMF
+# and growthform BHPMF. 
+OneScatter <- function(index) {
+  Scatterplot(x = all.estimates[[index]][, "original"],
+              y = all.estimates[[index]][, "std.BHPMF"],
+              xlab = paste("Original",
+                           trait.names[index]
+                           ),
+              ylab = paste("Estimated",
+                           trait.names[index]
+                           ),
+              pch = 17
+              )
+    points(x = all.estimates[[index]][, "original"],
+           y = all.estimates[[index]][, "growthform.BHPMF"],
+           col = "red",
+           pch = 19
+           )
+  # Add 1:1 line for reference:
+  lines(x = c(par("usr")[1], par("usr")[2]), 
+        y = c(par("usr")[1], par("usr")[2])
+        )
+  # legend
+  legend("bottomright",
+         legend = c("Standard BHPMF", "Growthform BHPMF"),
+         col = c("black", "red"),
+         pch = c(17, 19),
+         bg = "white"
+         )
+}
+
+for (i in seq_along(all.estimates)) {
+  GraphSVG(OneScatter(i),
+           file = paste0("graphs/test_sparse_scatter_",
+                         trait.names[i],
+                         "_original_vs_std_and_growthform_BHPMF.svg"
+                         ),
+           width = 6,
+           height = 4
+           )
+}
+
 
 cat("Done.\n")
 

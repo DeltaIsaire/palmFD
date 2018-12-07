@@ -204,3 +204,43 @@ complete.traits <-
              ) %>%
   complete.traits[., ]
 
+
+
+
+# In other words, a combined plot with 6 frames in 3
+# columns, where each column is a trait and each row a method.
+SixScatter <- function() {
+  par(mfrow = c(2, 3))
+  for (df in seq_along(all.estimates)) {
+    Scatterplot(x = all.estimates[[df]][, "original"],
+                y = all.estimates[[df]][, "std.BHPMF"],
+                xlab = paste("Original",
+                             trait.names[df]
+                             ),
+                ylab = paste("Est.",
+                             trait.names[df],
+                             "(standard BHPMF)"
+                             )
+                )
+    # Add 1:1 line for reference:
+    lines(x = c(par("usr")[1], par("usr")[2]), 
+          y = c(par("usr")[1], par("usr")[2])
+          )
+  }
+  for (df in seq_along(all.estimates)) {
+    Scatterplot(x = all.estimates[[df]][, "original"],
+                y = all.estimates[[df]][, "growthform.BHPMF"],
+                xlab = paste("Original",
+                             trait.names[df]
+                             ),
+                ylab = paste("Est.",
+                             trait.names[df],
+                             "(growthform BHPMF)"
+                             )
+                )
+    # Add 1:1 line for reference:
+    lines(x = c(par("usr")[1], par("usr")[2]), 
+          y = c(par("usr")[1], par("usr")[2])
+          )
+  }
+}
