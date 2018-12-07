@@ -31,6 +31,11 @@
 # 5. Same as #3, but with 10 such dummy traits instead of just one.
 # 6. Same as #1, but with an extra hierarchy level between genus and species
 #    corresponding to growth form: acaulescent / freestanding / climbing
+# 7. Same as 4. but including the following additional binary traits, coded
+#    with values 0 / 100: Climbing, Acaulescence, Errect, UnderstoryCanopy,
+#    StemSolitary, StemArmed, LeavesArmed, FruitSizeBinary.
+#    Actually we're going to do 7a: all these traits, and 7b: only the three
+#    original traits + the three categorical growthform traits.
 #
 # Input files:
 #   data/palms_in_tdwg3.csv
@@ -362,7 +367,7 @@ to.remove <-
   test.matrix %>%
   { which(rowSums(is.na(.)) == ncol(.)) }
 test.matrix %<>% .[-to.remove, ]
-test.hierarchy %<>% .[-to.remove, ]
+test.hierarchy <- hierarchy.matrix[-to.remove, ]
 missing.BHPMF.test <- palm.traits[to.remove, ]
 rm(to.remove)
 
@@ -468,5 +473,85 @@ GapFilling(X = test.matrix,
            verbose=verbose
            )
 ParseBHPMF(trial)
+
+# 7. Gap-filling with BHPMF: including even more traits
+# ------------------------------------------------
+cat("(7) including binary palm traits\n")
+# Extract and clean trait data. Binary traits should get values 1 (for 0)
+# and 100 (for 1).
+extra.traits <- trait.data[, c("MaxStemDia_cm",
+                               "MaxLeafNumber",
+                               "Max_Rachis_Length_m",
+                               "Max_Petiole_length_m",
+                               "AverageFruitWidth_cm",
+                               "Climbing",
+                               "Acaulescence",
+                               "Errect",
+                               "UnderstoreyCanopy",
+                               "StemSolitary",
+                               "StemArmed",
+                               "LeavesArmed",
+                               "FruitSizeBinary"
+                               )
+                           ]
+extra.traits$UnderstoreyCanopy %<>% as.character()
+extra.traits$FruitSizeBinary %<>% as.character()
+
+extra.traits$UnderstoreyCanopy %<>%
+  { ifelse(. == "canopy", 1, ifelse(. == "understorey", 0, NA)) }
+extra.traits$FruitSizeBinary %<>%
+  { ifelse(. == "large", 1, ifelse(. == "small", 0, NA)) }
+
+for (i in 6:13) {
+  extra.traits[, i] %<>%
+    { ifelse(. == 1, 100, ifelse(. == 0, 1, NA)) }
+}
+
+test.matrix.all <- cbind(trait.matrix, as.matrix(extra.traits))
+
+test.matrix.growthform <- test.matrix.all[, c(1:3, 9:11)]
+
+cat("(7a) three continuous traits + three growthform binary traits\n")
+test.matrix <- test.matrix.growthform
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  test.matrix %>%
+  { which(rowSums(is.na(.)) == ncol(.)) }
+if (!length(to.remove) == 0) {
+  test.matrix %<>% .[-to.remove, ]
+  test.hierarchy <- hierarchy.matrix[-to.remove, ]
+  missing.BHPMF.test <- palm.traits[to.remove, ]
+} else {
+  test.hierarchy <- as.matrix(palm.hierarchy)
+  missing.BHPMF.test <- 1
+}
+rm(to.remove)
+
+trial <- "seven.a"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
+cat("(7b) all usable traits\n")
+test.matrix <- test.matrix.all
+# BHPMF does not want observations with NA for all trait values,
+# So we have to remove those from both matrices.
+to.remove <- 
+  test.matrix %>%
+  { which(rowSums(is.na(.)) == ncol(.)) }
+if (!length(to.remove) == 0) {
+  test.matrix %<>% .[-to.remove, ]
+  test.hierarchy <- hierarchy.matrix[-to.remove, ]
+  missing.BHPMF.test <- palm.traits[to.remove, ]
+} else {
+  test.hierarchy <- as.matrix(palm.hierarchy)
+  missing.BHPMF.test <- 1
+}
+rm(to.remove)
+
+trial <- "seven.a"
+TestBHPMF(trial)
+ParseBHPMF(trial)
+
 
 cat("Done.\n")

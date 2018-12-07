@@ -208,3 +208,24 @@ For 54 species, there is no unambiguous growth form information, so I had to cla
 
 But, surprise: the trait matrix gap-filled with this output has 2238 species! A mistake? No, I checked. It looks like magic, but it's not. What happens is that many of the species with NA for growthform actually have 100% complete trait information. So, while their traits could not be estimated, there was no need to estimate those traits either! Sometimes you're lucky.
 
+Subsequently I include the 'growthform BHPMF' method in the test traitfilling comparisons.
+Findings re accuracy:
+All the ANOVAs of the estimates are still not significant, so growthform BHPMF is as accurate as the other methods. 
+I made Scatterplots of standard BHPMF vs growthform BHPMF. It looks like the correlation is still very much there, but there is more residual variation (higher R^2, although I am eyeballing it rather than calculating R^2)
+
+A much more interesting accuracy comparison is the following:
+For each trait, plot the original values vs the estimates from standard BHPMF and growthform BHPMF. In other words, a combined plot with 6 frames in 3 columns, where each column is a trait and each row a method.
+
+Didn't finish it today, but it looks like growthform BHPMF isn't that much better.
+
+## Friday December 7, 2018
+Growthform BHPMF is not all that different from standard BHPMF, so I wouldn't call it better. 
+
+There are two things we could try. First would be including even more trait information in BHPMF: one of my supervisors suggested we can get away with using binary categorical trait variables.
+
+The second option would be assessing the estimate uncertainty (BHPMF outputs standard deviations for each estimate) and selecting only those estimates with a reasonably low uncertainty.
+
+It seems to me that the latter is most likely to improve accuracy. But maybe we can use the combination of both. Let's go for the complete overkill and include all traits as can possibly be included, and then look at the uncertainties.
+
+Update: my daily supervisor said not to look at the uncertainties but focus on including the categorical growthform traits. So I am focusing on two new BHPMF methods now: 7a with the 3 main traits + 3 binary growthform traits, and 7b which includes all usable traits, continuous and binary. Results will be reported in word doc format as before.
+
