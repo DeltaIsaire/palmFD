@@ -561,10 +561,13 @@ write.csv(traits.filled.binary.BHPMF,
 # -----------------------------
 cat("Parsing gap-filled trait matrices...\n")
 all.filled <- list(original = complete.traits,
+#                   sparse = sparse.traits,
                    mean = traits.filled.mean,
                    std.BHPMF = traits.filled.std.BHPMF,
                    dummy.BHPMF = traits.filled.dummy.BHPMF,
-                   growthform.BHPMF = traits.filled.growthform.BHPMF
+                   growthform.BHPMF = traits.filled.growthform.BHPMF,
+                   binary.BHPMF = traits.filled.binary.BHPMF,
+                   all.traits.BHPMF = traits.filled.all.traits.BHPMF
                    )
 filled.names <- names(all.filled)
 # growthform.BHPMF is incomplete (contains info for fewer species).
@@ -619,7 +622,9 @@ all.differences <-
                      mean = df$mean - df$original,
                      std.BHPMF = df$std.BHPMF - df$original,
                      dummy.BHPMF = df$dummy.BHPMF - df$original,
-                     growthform.BHPMF = df$growthform.BHPMF - df$original
+                     growthform.BHPMF = df$growthform.BHPMF - df$original,
+                     binary.BHPMF = df$binary.BHPMF - df$original,
+                     all.traits.BHPMF = df$all.traits.BHPMF - df$original
                      )
         }
         )
@@ -669,13 +674,17 @@ transformed.estimates <-
                                      df$mean,
                                      df$std.BHPMF,
                                      df$dummy.BHPMF,
-                                     df$growthform.BHPMF
+                                     df$growthform.BHPMF,
+                                     df$binary.BHPMF,
+                                     df$all.traits.BHPMF
                                      ),
                      filling.method = c(rep("original", dim(df)[1]),
                                         rep("genus.mean", dim(df)[1]),
                                         rep("std.BHPMF", dim(df)[1]),
                                         rep("dummy.BHPMF", dim(df)[1]),
-                                        rep("growthform.BHPMF", dim(df)[1])
+                                        rep("growthform.BHPMF", dim(df)[1]),
+                                        rep("binary.BHPMF", dim(df)[1]),
+                                        rep("all.traits.BHPMF", dim(df)[1])
                                         )
                      )
         }
@@ -701,12 +710,16 @@ transformed.differences <-
           data.frame(estimate.diff = c(df$mean,
                                      df$std.BHPMF,
                                      df$dummy.BHPMF,
-                                     df$growthform.BHPMF
+                                     df$growthform.BHPMF,
+                                     df$binary.BHPMF,
+                                     df$all.traits.BHPMF
                                      ),
                      filling.method = c(rep("genus.mean", dim(df)[1]),
                                         rep("std.BHPMF", dim(df)[1]),
                                         rep("dummy.BHPMF", dim(df)[1]),
-                                        rep("growthform.BHPMF", dim(df)[1])
+                                        rep("growthform.BHPMF", dim(df)[1]),
+                                        rep("binary.BHPMF", dim(df)[1]),
+                                        rep("all.traits.BHPMF", dim(df)[1])
                                         )
                      )
         }
@@ -828,7 +841,7 @@ for (df in seq_along(all.estimates)) {
 # ----------------------------------------------------------------------
 # For each trait, plot the original values vs the estimates from standard BHPMF
 # and growthform BHPMF. 
-OneScatter <- function(index) {
+OneScatterGrowthform <- function(index) {
   Scatterplot(x = all.estimates[[index]][, "original"],
               y = all.estimates[[index]][, "std.BHPMF"],
               xlab = paste("Original",
@@ -858,7 +871,7 @@ OneScatter <- function(index) {
 }
 
 for (i in seq_along(all.estimates)) {
-  GraphSVG(OneScatter(i),
+  GraphSVG(OneScatterGrowthform(i),
            file = paste0("graphs/test_sparse_scatter_",
                          trait.names[i],
                          "_original_vs_std_and_growthform_BHPMF.svg"
@@ -868,8 +881,67 @@ for (i in seq_along(all.estimates)) {
            )
 }
 
+# Scatterplots of original vs estimates for BHPMF: standard + binary
+# ------------------------------------------------------------------
+# For each trait, plot the original values vs the estimates from standard BHPMF
+# and growthform BHPMF. 
+OneScatterBinary <- function(index) {
+  Scatterplot(x = all.estimates[[index]][, "original"],
+              y = all.estimates[[index]][, "std.BHPMF"],
+              xlab = paste("Original",
+                           trait.names[index]
+                           ),
+              ylab = paste("Estimated",
+                           trait.names[index]
+                           ),
+              pch = 17
+              )
+    points(x = all.estimates[[index]][, "original"],
+           y = all.estimates[[index]][, "binary.BHPMF"],
+           col = "red",
+           pch = 19
+           )
+  # Add 1:1 line for reference:
+  lines(x = c(par("usr")[1], par("usr")[2]), 
+        y = c(par("usr")[1], par("usr")[2])
+        )
+  # legend
+  legend("bottomright",
+         legend = c("Standard BHPMF", "Binary BHPMF"),
+         col = c("black", "red"),
+         pch = c(17, 19),
+         bg = "white"
+         )
+}
+
+for (i in seq_along(all.estimates)) {
+  GraphSVG(OneScatterBinary(i),
+           file = paste0("graphs/test_sparse_scatter_",
+                         trait.names[i],
+                         "_original_vs_std_and_binary_BHPMF.svg"
+                         ),
+           width = 6,
+           height = 4
+           )
+}
 
 cat("Done.\n")
+
+# Combined 2x3 plot of standard BHPMF vs growthform and binary, for all traits
+SixScatter <- function() {
+  par(mfrow = c(3, 2))
+  for (i in seq_along(all.estimates)) {
+    OneScatterGrowthform(i)
+    OneScatterBinary(i)
+  }
+}
+GraphSVG(SixScatter(),
+         file = "graphs/test_sparse_scatter_std_vs_growthform_binary_BHPMF.svg",
+         width = 8,
+         height = 8
+         )
+
+
 
 # TODO: compare uncertainties of BHPMF, i.e. the st.dev outputs.
 # TODO: compare accuracy of estimates for species with NA for all real traits.
