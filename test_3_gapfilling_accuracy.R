@@ -21,6 +21,9 @@
 #   output/test_sparse_dummy_BHPMF_mean.txt
 #   output/test_sparse_dummy_BHPMF_std.txt
 #   output/test_sparse_filled_dummy_BHPMF.csv
+#   output/test_sparse_filled_growthform_BHPMF.csv
+#   output/test_sparse_filled_All_Traits_BHPMF.csv
+#   output/test_sparse_filled_Binary_BHPMF.csv
 #   graphs/test_sparse_scatter_ <a bunch of graphs starting with this name>
 
 
@@ -378,6 +381,179 @@ write.csv(traits.filled.growthform.BHPMF,
           eol="\r\n",
           row.names=FALSE
           )
+
+# Gap-filling with All Traits BHPMF
+# ---------------------------------
+cat("(5) with All Traits BHPMF:\n")
+cat("Preparing data...\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+# Extract and clean trait data. Binary traits should get values 1 (for 0)
+# and 100 (for 1).
+extra.traits <- trait.data[, c("MaxStemDia_cm",
+                               "MaxLeafNumber",
+                               "Max_Rachis_Length_m",
+                               "Max_Petiole_length_m",
+                               "AverageFruitWidth_cm",
+                               "Climbing",
+                               "Acaulescence",
+                               "Errect",
+                               "UnderstoreyCanopy",
+                               "StemSolitary",
+                               "StemArmed",
+                               "LeavesArmed",
+                               "FruitSizeBinary"
+                               )
+                           ]
+extra.traits$UnderstoreyCanopy %<>% as.character()
+extra.traits$FruitSizeBinary %<>% as.character()
+
+extra.traits$UnderstoreyCanopy %<>%
+  { ifelse(. == "canopy", 1, ifelse(. == "understorey", 0, NA)) }
+extra.traits$FruitSizeBinary %<>%
+  { ifelse(. == "large", 1, ifelse(. == "small", 0, NA)) }
+
+for (i in 6:13) {
+  extra.traits[, i] %<>%
+    { ifelse(. == 1, 100, ifelse(. == 0, 1, NA)) }
+}
+
+# Merge extra.traits with sparse.traits.
+indices <- CrossCheck(x = sparse.traits$species,
+                      y = trait.data$SpecName,
+                      presence = TRUE,
+                      value = FALSE
+                      )
+extra.traits %<>% .[indices, ]
+
+trait.matrix <-
+  cbind(sparse.traits[, trait.names],
+        extra.traits
+        ) %>%
+  as.matrix()
+rownames(trait.matrix) <- sparse.traits$species
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- 
+  read.csv(file = "output/palm_hierarchy.csv") %>%
+  .[CrossCheck(.$species,
+               sparse.traits$species,
+               presence = TRUE,
+               value = FALSE
+               ),
+    ] %>%
+  as.matrix()
+cat("Running BHPMF... (this may take a moment)\n")
+# BHPMF wants a preprocessing directory, where it saves pre-processed files.
+# To avoid errors or erronous output when re-running the code, this directory
+# needs to be emptied.
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = trait.matrix,
+           hierarchy.info = hierarchy.matrix,
+           prediction.level = 4,
+           used.num.hierarchy.levels = 3,
+           mean.gap.filled.output.path = 
+  "output/test_sparse_All_Traits_BHPMF_mean.txt",
+           std.gap.filled.output.path = 
+  "output/test_sparse_All_Traits_BHPMF_std.txt",
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=FALSE
+           )
+traits.filled.all.traits.BHPMF <-
+  read.table(file = "output/test_sparse_All_Traits_BHPMF_mean.txt",
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(hierarchy.matrix[, 1]),
+             genus   = as.character(hierarchy.matrix[, 2]),
+             .
+             ) %>%
+  GapFill(sparse.traits,
+          .,
+          by = "species",
+          fill = trait.names
+          ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.all.traits.BHPMF,
+          file = "output/test_sparse_filled_All_Traits_BHPMF.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
+# Gap-filling with Binary BHPMF
+# -----------------------------
+cat("(6) with Binary BHPMF:\n")
+cat("Preparing data...\n")
+# Source dataframes are sorted by species name, so rows will correspond
+# automatically.
+# Extract and clean trait data. Binary traits should get values 1 (for 0)
+# and 100 (for 1).
+trait.matrix <-
+  cbind(sparse.traits[, trait.names],
+        extra.traits[, 6:8]
+        ) %>%
+  as.matrix()
+rownames(trait.matrix) <- sparse.traits$species
+# BHPMF is unable to handle observed trait values of exactly 0.
+# These do occur in our dataset, for stem height.
+# Solution: set these values to something close to 0
+trait.matrix[which(trait.matrix == 0)] <- 0.0001
+
+hierarchy.matrix <- 
+  read.csv(file = "output/palm_hierarchy.csv") %>%
+  .[CrossCheck(.$species,
+               sparse.traits$species,
+               presence = TRUE,
+               value = FALSE
+               ),
+    ] %>%
+  as.matrix()
+cat("Running BHPMF... (this may take a moment)\n")
+# BHPMF wants a preprocessing directory, where it saves pre-processed files.
+# To avoid errors or erronous output when re-running the code, this directory
+# needs to be emptied.
+unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/BHPMF_preprocessing_test")
+GapFilling(X = trait.matrix,
+           hierarchy.info = hierarchy.matrix,
+           prediction.level = 4,
+           used.num.hierarchy.levels = 3,
+           mean.gap.filled.output.path = 
+  "output/test_sparse_Binary_BHPMF_mean.txt",
+           std.gap.filled.output.path = 
+  "output/test_sparse_Binary_BHPMF_std.txt",
+           tmp.dir = "output/BHPMF_preprocessing_test", 
+           rmse.plot.test.data=FALSE,
+           verbose=FALSE
+           )
+traits.filled.binary.BHPMF <-
+  read.table(file = "output/test_sparse_Binary_BHPMF_mean.txt",
+             header = TRUE,
+             sep = "	"
+             ) %>%
+  data.frame(species = as.character(hierarchy.matrix[, 1]),
+             genus   = as.character(hierarchy.matrix[, 2]),
+             .
+             ) %>%
+  GapFill(sparse.traits,
+          .,
+          by = "species",
+          fill = trait.names
+          ) %>%
+  { .[complete.cases(.), ] }
+
+write.csv(traits.filled.binary.BHPMF,
+          file = "output/test_sparse_filled_Binary_BHPMF.csv",
+          eol="\r\n",
+          row.names=FALSE
+          )
+
 
 
 # -----------------------------

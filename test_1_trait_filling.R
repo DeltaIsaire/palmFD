@@ -65,6 +65,18 @@
 #   output/test_BHPMF_five_std.txt
 #   output/traits_filled_BHPMF_five.csv
 #   output/missing_BHPMF_five.csv
+#   output/test_BHPMF_six_mean.txt
+#   output/test_BHPMF_six_std.txt
+#   output/traits_filled_BHPMF_six.csv
+#   output/missing_BHPMF_six.csv
+#   output/test_BHPMF_seven.a_mean.txt
+#   output/test_BHPMF_seven.a_std.txt
+#   output/traits_filled_BHPMF_seven.a.csv
+#   output/missing_BHPMF_seven.a.csv
+#   output/test_BHPMF_seven.b_mean.txt
+#   output/test_BHPMF_seven.b_std.txt
+#   output/traits_filled_BHPMF_seven.b.csv
+#   output/missing_BHPMF_seven.b.csv
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -549,7 +561,7 @@ if (!length(to.remove) == 0) {
 }
 rm(to.remove)
 
-trial <- "seven.a"
+trial <- "seven.b"
 TestBHPMF(trial)
 ParseBHPMF(trial)
 

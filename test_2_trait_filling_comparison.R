@@ -14,6 +14,8 @@
 #   output/traits_filled_BHPMF_four.csv
 #   output/traits_filled_BHPMF_five.csv
 #   output/traits_filled_BHPMF_six.csv
+#   output/traits_filled_BHPMF_seven.a.csv
+#   output/traits_filled_BHPMF_seven.b.csv
 # Generated output files:
 #   graphs/test_estimates_species_counts.svg
 #   graphs/ <several graphs comparing trait estimates.
@@ -45,6 +47,8 @@ filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
 filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
 filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
 filled.BHPMF.six <- read.csv(file = "output/traits_filled_BHPMF_six.csv")
+filled.BHPMF.seven.a <- read.csv(file = "output/traits_filled_BHPMF_seven.a.csv")
+filled.BHPMF.seven.b <- read.csv(file = "output/traits_filled_BHPMF_seven.b.csv")
 all.filled <- list(original = palm.traits,
                    mean = filled.mean,
                    b.one = filled.BHPMF.one,
@@ -52,7 +56,9 @@ all.filled <- list(original = palm.traits,
                    b.three = filled.BHPMF.three,
                    b.four = filled.BHPMF.four,
                    b.five = filled.BHPMF.five,
-                   b.six = filled.BHPMF.six
+                   b.six = filled.BHPMF.six,
+                   b.seven.a = filled.BHPMF.seven.a,
+                   b.seven.b = filled.BHPMF.seven.b
                    )
 filled.names <- names(all.filled)
 
