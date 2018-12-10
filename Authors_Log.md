@@ -56,7 +56,7 @@ Last week I finished the code for gap-filling with genus means.
 Today I will try to get BHPMF working properly. 
 
 Planning update:
-The official starting data is 22 October 2018. I actually started working on the project one week earlier, so the unofficial starting date is 15 October 2018.
+The official starting date is 22 October 2018. I actually started working on the project one week earlier, so the unofficial starting date is 15 October 2018.
 That makes today the beginning of week 6 (or officially, week 5). 
 According to the planning we made, the proposal should be finished by week 6, and week 7-10 are reserved for trait filling. I spent last week on trait filling already, so there is a bit of overlap.
 In conclusion, there's 2 weeks left for the proposal (re-structuring the introduction and finishing the method section), and 3 weeks for trait-filling.
@@ -228,4 +228,39 @@ The second option would be assessing the estimate uncertainty (BHPMF outputs sta
 It seems to me that the latter is most likely to improve accuracy. But maybe we can use the combination of both. Let's go for the complete overkill and include all traits as can possibly be included, and then look at the uncertainties.
 
 Update: my daily supervisor said not to look at the uncertainties but focus on including the categorical growthform traits. So I am focusing on two new BHPMF methods now: 7a with the 3 main traits + 3 binary growthform traits, and 7b which includes all usable traits, continuous and binary. Results will be reported in word doc format as before.
+Update: this was done.
+
+## Monday December 10, 2018
+Planning update: 
+The official starting date is 22 October 2018. I actually started working on the project one week earlier, so the unofficial starting date is 15 October 2018. That makes today the beginning of week 10. According to our initial planning, at the end of week ten we should have trait gap-filling finished, and have a finished research proposal.
+
+The last two weeks we have been mucking around with BHPMF. It really is time to wrap that up. Also, I need to sit down to finish my research proposal THIS WEEK. Finally, it is time to look forward towards FD calculation. Weeks 11-14 are for computing FD indices for palm communities at the level of botanical countries.
+
+This afternoon is the weekly discussion with my daily supervisor. We should talk about wrapping up BHPMF / gap-filling and then start looking at FD calculation. My main questions about FD are about the use of null models - how they work fundamentally and which ones we should try.
+
+Our FD shopping list:
+- FD calculation requires more species than traits (S > T) so we can only use palm communities wtih 4 or more species.
+- Trait data should be log-transformed to be more normal.
+- Trait data should SUBSEQUENTLY be standardized to mean 0 and unit variance (SD).
+- Consider comparing transformed vs un-transformed FD calculation.
+- We will calculate Functional Richness (FRic) and Functional Dispersion (FDisp). This can be done with R package FD, using function 'dbFD'.
+
+Function FD::dbFD requires the following input:
+	Data:
++ Argument x: Trait matrix (or dataframe) with traits and species labels. Can be a single trait. NAs are tolerated, but figure out how those are dealt with. >>> Without NAs it uses Euclidean distance matrix, with NAs it uses a Gower dissimilarity matrix. The former is probably preferred, but you could compare them.
+Given a single trait, dbFD will calculate FRic as the range; and FDisp will be calculated as normal.
++ Argument a: Presence/Absence matrix where rows are sites and species are columns.
+	Settings:
++ Argument stand.x: the dbFD function can automatically perform standardization.
++ be aware of argument corr
++ Argument calc.FRic: use TRUE cause we want this.
++ Argument m: probably use 'max'
++ stand.FRic: Should FRic be standardized to the global volume? This is a non-trivial question to debate. 
++ calc.CWM: Calculate community-weighted means of trait values? Can be useful.
++ calc.FDiv: set to TRUE cause we want this
+
+Comparing FDs between communities is where null models come into play. Something about species pools. For instance, 'consider observed values relative to those expected at random (Villéger et al 2008). You could sample randomly from the species pool the same number of species as are in the community (see Lamanna et al 2014). Sampling without replacement of course. 
+
+Also investigate single-trait diversity! Figure out how to do that. (range, variance, etc) The dbFD function could be used to return single-trait FD, if that's what you want. 
+
 
