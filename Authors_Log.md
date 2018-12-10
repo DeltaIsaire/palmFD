@@ -263,4 +263,24 @@ Comparing FDs between communities is where null models come into play. Something
 
 Also investigate single-trait diversity! Figure out how to do that. (range, variance, etc) The dbFD function could be used to return single-trait FD, if that's what you want. 
 
+Notes of meeting with daily supervisor:
+```
+Using Genus Means might be best, because BHPMF does not appear to be sufficiently reliable/accurate.
 
+i.i.d. can be a solution for dealing with gap-filling uncertainty.
+Issue with it:
+You cannot do model selection 1000 times, so summarize the input for those models:
+like the FD indices.
+>>> something something Z-scores
+First, get the code working properly without i.i.d. Then if there is time, you could think about doing it.
+
+Test inclusion/exclusion of missing species: run the entire analysis with (1) gap-filled trait data, and (2) with only the complete data (i.e. complete.cases(trait.matrix)). Maybe gapfilling is not necessary.
+
+TEST YOUR CODE:
+use artificial data to check if the genus-mean gap-filling code is working PROPERLY.
+```
+
+That last one is the rub. What we see in the gap-filling accuracy test with artificially sparse data, is a fairly consistent negative correlation between the original trait value and the estimated trait value. For genus means as well as BHPMF. This is weird, so we have to be absolutely 100% sure that our code is working properly.
+
+So the first thing for me to do, is verify my gap-filling code.
+One trick is to use an artificial dataset as input, where you know the structure of the data and can figure out a priori what the output of the gap-filling should look like.
