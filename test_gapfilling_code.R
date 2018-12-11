@@ -10,8 +10,10 @@ cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
 
+# Normally I do:
 # source(file = "functions/base_functions.R")
 # For the sake of portability, I'll just paste my GapFill() function here:
+
 GapFill <- function(x, y, by, fill) {
 # Fills missing values in the selected columns of x using the data provided
 # in y.
@@ -87,7 +89,8 @@ test.matrix <- data.frame(species = as.character(1:30),
                           genus = sort(rep(LETTERS[1:10], 3)),
                           trait = 1:30
                           )
-# Create artificial gaps for say 10 out of 30 values
+# Create artificial gaps for say 10 out of 30 values.
+# 1.3 is the magic number, to compensate for unique() excluding some indices.
 indices <- 
   runif(n = 10 * 1.3, min = 1, max = length(test.matrix$trait)) %>%
   round() %>%
@@ -106,7 +109,7 @@ means.complete <- ddply(test.matrix, "genus", numcolwise(mean, na.rm = TRUE))
 2 + 3 * 0:9
 # and they are.
 means.sparse <- ddply(test.matrix.sparse, "genus", numcolwise(mean, na.rm = TRUE))
-# The same could should work again. I checked: it does.
+# The same code should work again. I checked: it does.
 
 # Step 2. Verify gap-filling.
 # The code I have been using:
@@ -135,3 +138,4 @@ cat(test, "\n")
 # source("test_gapfilling_code.R")
 # The outcome doesn't change. 
 # MY CODE IS FINE.
+
