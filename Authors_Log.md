@@ -284,3 +284,12 @@ That last one is the rub. What we see in the gap-filling accuracy test with arti
 
 So the first thing for me to do, is verify my gap-filling code.
 One trick is to use an artificial dataset as input, where you know the structure of the data and can figure out a priori what the output of the gap-filling should look like.
+
+
+
+
+Questions about FD:
+- Standardize FRic to global volume?
+- Do single-trait FD with the dbFD function?
+- We should log10-transform traits. However, log(0) is undefined, so we cannot have stem height == 0. Because log10(1) = 0, is it OK to set all the stem.height values to unity? BETTER: convert to cm, then set it to 1 cm. 
+

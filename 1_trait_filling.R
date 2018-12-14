@@ -106,7 +106,7 @@ write.csv(palm.hierarchy,
 # Gap-fill trait matrix using genus means
 # ---------------------------------------
 cat("Gap-filling with genus means...\n")
-genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm=TRUE))
+genus.means <- ddply(palm.traits, "genus", numcolwise(mean, na.rm = TRUE))
 traits.filled.mean <- GapFill(palm.traits,
                               genus.means,
                               by = "genus",
@@ -161,7 +161,7 @@ cat("Running BHPMF... (this may take a moment)\n")
 # BHPMF wants a preprocessing directory, where it saves pre-processed files.
 # To avoid errors or erronous output when re-running the code, this directory
 # needs to be emptied.
-unlink("output/BHPMF_preprocessing", recursive=TRUE)
+unlink("output/BHPMF_preprocessing", recursive = TRUE)
 dir.create("output/BHPMF_preprocessing")
 GapFilling(X = trait.matrix,
            hierarchy.info = hierarchy.matrix,
@@ -170,8 +170,8 @@ GapFilling(X = trait.matrix,
            mean.gap.filled.output.path = "output/BHPMF_mean.txt",
            std.gap.filled.output.path = "output/BHPMF_std.txt",
            tmp.dir = "output/BHPMF_preprocessing", 
-           rmse.plot.test.data=FALSE,
-           verbose=FALSE
+           rmse.plot.test.data = FALSE,
+           verbose = FALSE
            )
 traits.filled.BHPMF <-
   read.table(file = "output/BHPMF_mean.txt",
