@@ -110,17 +110,17 @@ cat("Using trait dataset with",
 cat("Calculating Functional Diversity indices... (this may take a moment)\n")
 
 # Subset data to expedite testing. This stuff is computationally intensive.
-#pres.abs.matrix <- pres.abs.matrix[1:10, ]
-#orphaned.species <-
-#  which(colSums(pres.abs.matrix) == 0) %>%
-#  colnames(pres.abs.matrix)[.]
-#pres.abs.matrix %<>% .[, -which(colSums(.) == 0)]
-#indices <- CrossCheck(x = rownames(trait.matrix),
-#                      y = orphaned.species,
-#                      presence = TRUE,
-#                      value = FALSE
-#                      )
-#trait.matrix <- trait.matrix[-indices, ]
+pres.abs.matrix <- pres.abs.matrix[1:10, ]
+orphaned.species <-
+  which(colSums(pres.abs.matrix) == 0) %>%
+  colnames(pres.abs.matrix)[.]
+pres.abs.matrix %<>% .[, -which(colSums(.) == 0)]
+indices <- CrossCheck(x = rownames(trait.matrix),
+                      y = orphaned.species,
+                      presence = TRUE,
+                      value = FALSE
+                      )
+trait.matrix <- trait.matrix[-indices, ]
 
 # FD using all traits
 # -------------------
