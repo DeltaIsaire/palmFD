@@ -238,6 +238,29 @@ The last two weeks we have been mucking around with BHPMF. It really is time to 
 
 This afternoon is the weekly discussion with my daily supervisor. We should talk about wrapping up BHPMF / gap-filling and then start looking at FD calculation. My main questions about FD are about the use of null models - how they work fundamentally and which ones we should try.
 
+Notes of meeting with daily supervisor:
+```
+Using Genus Means might be best, because BHPMF does not appear to be sufficiently reliable/accurate. Or rather, I should say it isn't more accurate than genus means for our data.
+
+"i.i.d." can be a solution for dealing with gap-filling uncertainty.
+Issue with it:
+You cannot do model selection 1000 times, so summarize the input for those models:
+like the FD indices.
+>>> something something Z-scores
+First, get the code working properly without i.i.d. Then if there is time, you could think about doing it.
+
+Test inclusion/exclusion of missing species: run the entire analysis with (1) gap-filled trait data, and (2) with only the complete data (i.e. complete.cases(trait.matrix)). Maybe gapfilling is not necessary.
+
+TEST YOUR CODE:
+use artificial data to check if the genus-mean gap-filling code is working PROPERLY.
+```
+
+That last one is the rub. What we see in the gap-filling accuracy test with artificially sparse data, is a fairly consistent negative correlation between the original trait value and the estimated trait value. For genus means as well as BHPMF. This is weird, so we have to be absolutely 100% sure that our code is working properly.
+
+So the first thing for me to do, is verify my gap-filling code.
+One trick is to use an artificial dataset as input, where you know the structure of the data and can figure out a priori what the output of the gap-filling should look like.
+
+
 Our FD shopping list:
 - FD calculation requires more species than traits (S > T) so we can only use palm communities wtih 4 or more species.
 - Trait data should be log-transformed to be more normal.
@@ -263,33 +286,55 @@ Comparing FDs between communities is where null models come into play. Something
 
 Also investigate single-trait diversity! Figure out how to do that. (range, variance, etc) The dbFD function could be used to return single-trait FD, if that's what you want. 
 
-Notes of meeting with daily supervisor:
+## Monday, December 17, 2018
+Oh boy, I haven't been very good at keeping logs this week... Blame it on my scheduling freedom. Which totally fits my process btw, but it can make updates erratic. Good thing my memory is decent. And hey, at least I'm writing stuff down now.
+
+Last week following the meeting with my daily supervisor, I verified my gap-filling code (only for genus means, but BHPMF is 99% the same and I found the 'problem' so it's OK). There was no mistake in my coding. Everything was working as intended. The 'problem' then was a mismatch between our expectations and harsh reality. Tuesday I emailed my supervisor with a short report:
+
 ```
-Using Genus Means might be best, because BHPMF does not appear to be sufficiently reliable/accurate.
+Here is what I have found. The first script tests my genus-mean gapfilling code, which has no errors in it. Feel free to verify that.
+The second script reproduces the estimate error with artificial data and visualizes it.
 
-i.i.d. can be a solution for dealing with gap-filling uncertainty.
-Issue with it:
-You cannot do model selection 1000 times, so summarize the input for those models:
-like the FD indices.
->>> something something Z-scores
-First, get the code working properly without i.i.d. Then if there is time, you could think about doing it.
+The error we're seeing is the result of the estimates being skewed towards the mean of the data (with genus means the estimate IS the mean; but it happens with BHPMF as well). In the case of genus means:
+Estimate == genus mean
+When an original value is > the genus mean, the estimate is too low.
+When an original value is < the genus mean, the estimate is too high.
+In general, the error is (genus mean - x) where x is the original value.
+The higher the variance in the original data, the larger the error will be.
 
-Test inclusion/exclusion of missing species: run the entire analysis with (1) gap-filled trait data, and (2) with only the complete data (i.e. complete.cases(trait.matrix)). Maybe gapfilling is not necessary.
+The included graph visualizes original vs mean estimates for two genera.
+The original data are 100 samples per genus from a normal distribution, with random gaps added for 30% of values.
+For genus A: mean = 2, sd = 0.5. For genus B: mean = 4, sd = 2.
+The residuals plot (frame B) clearly shows that the error follows (mean - x) for each genus.
 
-TEST YOUR CODE:
-use artificial data to check if the genus-mean gap-filling code is working PROPERLY.
+Dealing with this error could be tricky. This i.i.d. you mentioned yesterday might help.
+```
+And the response:
+```
+Really really good work! Sorry for the slow response, I was a little busy yesterday.
+
+I had not thought about the fact the observed value itself IS correlated with the filled value. So that would mean that what we’re seeing is really multiple parallel straight lines with intercepts equal to the genus level means. Now you see the power of simulated data!
+
+If that’s the case, then the only way to gauge if the method is good is to make sure that the residuals at least are normally distributed (i.e., they are random with respect to their original fitted value).
+
+I really like to know if there are strong bimodalities are especially problematic for stem height in genera with multiple growth forms, and whether that has any impact on the data.
+
+But I think you should be comfortable going away with calculating the functional richness and dispersion metrics with the genus-level means.
 ```
 
-That last one is the rub. What we see in the gap-filling accuracy test with artificially sparse data, is a fairly consistent negative correlation between the original trait value and the estimated trait value. For genus means as well as BHPMF. This is weird, so we have to be absolutely 100% sure that our code is working properly.
-
-So the first thing for me to do, is verify my gap-filling code.
-One trick is to use an artificial dataset as input, where you know the structure of the data and can figure out a priori what the output of the gap-filling should look like.
-
-
-
+The rest of the week, I developed code for FD calculation using our genus-mean filled trait data. I also finished generating the first null model, using randomly sampled species from the same realm (New World, West Old World or East Old World). This development has sparked plenty of questions, which we can discuss in todays meeting with my daily supervisor.
 
 Questions about FD:
-- Standardize FRic to global volume?
-- Do single-trait FD with the dbFD function?
-- We should log10-transform traits. However, log(0) is undefined, so we cannot have stem height == 0. Because log10(1) = 0, is it OK to set all the stem.height values to unity? BETTER: convert to cm, then set it to 1 cm. 
+- Standardize FRic to global volume? One issue is that this makes generating null models a little tricky.
+- Do single-trait FD with the dbFD function? >>> I have done this, it works fine.
+- We should log10-transform traits. However, log(0) is undefined, so we cannot have stem height == 0. Because log10(1) = 0, is it OK to set all the stem.height values to unity? What I ended up doing was converting height and blade length to cm, and fruit length to mm, so that log-transformed values were >0. Then I set the -Inf values (the result of log10(0) to 0.
+- The advantage of complete and continuous trait data is that FD can be calculated using a Euclidean distance matrix. Theoretically however (as in, I haven't tried) it should be possible to use data with gaps in the trait matrix (but I suspect it won't work for species with NA for all traits). Is that something worth trying for comparison?
+- FRic is probably correlated with species richness. How bad is that and should we use residual FRic instead?
+- About the null model: n species sampled randomly from gene pool, where n is the richness in the botanical country. Should that procedure be repeated, say, 100 times for accuracy? Keep in mind function runtime is LONG.
 
+Residual questions about trait-filling:
+- When you say 'test normality of estimate residuals', can we do for all genera taken together, or should we do it for each genus individually? I promise to have a look at this, but this week I have focused on FD calculation.
+
+
+TODO (among other things):
+- Implement real FD calculation, using both filled and unfilled (complete-only?) data.

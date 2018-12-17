@@ -45,5 +45,11 @@ source(file = "test_2_trait_filling_comparison.R")
 cat("Testing accuracy of gap-filling:\n")
 source(file = "test_3_gapfilling_accuracy.R")
 
+cat("Calculating functional diversity indices:\n")
+source(file = "test_4_FD_indices.R")
+
+cat("Generating FD null model one:\n")
+source(file = "test_5_FD_null_model_one.R")
+
 cat("Finished running all test scripts.\n")
 

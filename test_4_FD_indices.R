@@ -8,8 +8,11 @@
 #   output/traits_filled_genus_mean.csv
 #   data/palms_in_tdwg3.csv
 # Generated output files:
+#   output/test_palm_trait_matrix_transformed.csv
+#   output/test_palm_tdwg3_pres_abs_matrix.csv
 #   output/test_fd.indices.csv
 #   output/test_fd.indices_single_traits.csv
+#   output/test_tdwg3_trait_means.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -64,7 +67,7 @@ indices <- CrossCheck(x = palm.dist$SpecName,
                       )
 palm.dist %<>% .[indices, ]
 # Verify: do species in trait.matrix and palm.dist match?
-if (!length(rownames(trait.matrix)) == length(unique(palm.dist$SpecName))) {
+if (!identical(length(rownames(trait.matrix)), length(unique(palm.dist$SpecName)))) {
   stop("trait.matrix and palm.dist have differing number of species")
 }
 dist.species <-
@@ -96,31 +99,45 @@ if (length(orphaned.species) > 0) {
                         )
   trait.matrix %<>% .[-indices, ]
 }
+
+# Save the prepared data
 cat("Using trait dataset with",
     dim(pres.abs.matrix)[2],
     "species occurring in",
     dim(pres.abs.matrix)[1],
     "botanical countries.\n"
     )
+write.csv(trait.matrix,
+          file = "output/test_palm_trait_matrix_transformed.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+write.csv(pres.abs.matrix,
+          file = "output/test_palm_tdwg3_pres_abs_matrix.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
 
 
 # --------------------------------
 # Calculating Functional Diversity
 # --------------------------------
-cat("Calculating Functional Diversity indices... (this may take a moment)\n")
+cat("Calculating Functional Diversity indices... (this may take a while)\n")
 
-# Subset data to expedite testing. This stuff is computationally intensive.
-pres.abs.matrix <- pres.abs.matrix[1:10, ]
-orphaned.species <-
-  which(colSums(pres.abs.matrix) == 0) %>%
-  colnames(pres.abs.matrix)[.]
-pres.abs.matrix %<>% .[, -which(colSums(.) == 0)]
-indices <- CrossCheck(x = rownames(trait.matrix),
-                      y = orphaned.species,
-                      presence = TRUE,
-                      value = FALSE
-                      )
-trait.matrix <- trait.matrix[-indices, ]
+# Code to subset data to expedite testing. This stuff is computationally intensive.
+if (FALSE) {
+  pres.abs.matrix <- pres.abs.matrix[1:10, ]
+  orphaned.species <-
+    which(colSums(pres.abs.matrix) == 0) %>%
+    colnames(pres.abs.matrix)[.]
+  pres.abs.matrix %<>% .[, -which(colSums(.) == 0)]
+  indices <- CrossCheck(x = rownames(trait.matrix),
+                        y = orphaned.species,
+                        presence = TRUE,
+                        value = FALSE
+                        )
+  trait.matrix <- trait.matrix[-indices, ]
+}
 
 # FD using all traits
 # -------------------
@@ -132,7 +149,7 @@ output.all <- dbFD(x = trait.matrix,
                    corr = "cailliez",  # Is this the best option?
                    calc.FRic = TRUE,
                    m = "max",
-                   stand.FRic = TRUE,  # Would this be useful to do?
+                   stand.FRic = FALSE,  # Would this be useful to do?
                    calc.CWM = TRUE,
                    calc.FDiv = FALSE,
                    messages = TRUE
@@ -153,7 +170,7 @@ output.all <- dbFD(x = trait.matrix,
 
 # FD for single traits
 # --------------------
-cat("(2) FD for single traits...\n")
+cat("(2) FD for single traits:\n")
 
 Temp <- function(trait) {
   cat(trait, "...\n")
@@ -168,7 +185,7 @@ Temp <- function(trait) {
                    corr = "cailliez",  # Is this the best option?
                    calc.FRic = TRUE,
                    m = "max",
-                   stand.FRic = TRUE,  # Would this be useful to do?
+                   stand.FRic = FALSE,  # Would this be useful to do?
                    calc.CWM = TRUE,
                    calc.FDiv = FALSE,
                    messages = TRUE
@@ -196,8 +213,8 @@ fd.indices <- data.frame(TDWG3 = names(output.all$nbsp),
                          )
 write.csv(fd.indices,
           file = "output/test_fd.indices.csv",
-          eol="\r\n",
-          row.names=FALSE
+          eol = "\r\n",
+          row.names = FALSE
           )
 
 # FD indices for single traits
@@ -211,8 +228,8 @@ single.fd <- data.frame(TDWG3       = names(output.all$nbsp),
                         )
 write.csv(single.fd,
           file = "output/test_fd.indices_single_traits.csv",
-          eol="\r\n",
-          row.names=FALSE
+          eol = "\r\n",
+          row.names = FALSE
           )
 
 # Community weighted mean trait values
@@ -221,8 +238,8 @@ write.csv(single.fd,
 community.means <- output.all$CWM
 write.csv(community.means,
           file = "output/test_tdwg3_trait_means.csv",
-          eol="\r\n",
-          row.names=FALSE
+          eol = "\r\n",
+          row.names = FALSE
           )
 
 cat("Done.\n")
