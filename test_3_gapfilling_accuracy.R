@@ -941,6 +941,55 @@ GraphSVG(SixScatter(),
          height = 8
          )
 
+# Extra comparisons of original vs mean vs std.BHPMF
+# --------------------------------------------------
+MultiHist(data = all.estimates[[1]][, 2:4],
+          id = names(all.estimates[[1]])[2:4],
+          xlab = "stem height"
+          )
+# Original is highlyl skewed, estimates less so
+MultiHist(data = all.estimates[[2]][, 2:4],
+          id = names(all.estimates[[2]])[2:4],
+          xlab = "blade length"
+          )
+# Distributions much more similar
+MultiHist(data = all.estimates[[2]][, 2:4],
+          id = names(all.estimates[[2]])[2:4],
+          xlab = "fruit length"
+          )
+# Like Blade length, distributions much more similar.
+
+# Same thing for residuals:
+all.residuals <- llply(all.estimates,
+                       function(df) {
+                         data.frame(original    = df$original,
+                                    resid.mean  = df$mean - df$original,
+                                    resid.BHPMF = df$std.BHPMF - df$original
+                                    )
+                       }
+                       )
+MultiHist(data = all.residuals[[1]][, 2:3],
+          id = names(all.residuals[[1]])[2:3],
+          xlab = trait.names[1]
+          )
+MultiHist(data = all.residuals[[2]][, 2:3],
+          id = names(all.residuals[[2]])[2:3],
+          xlab = trait.names[2]
+          )
+MultiHist(data = all.residuals[[3]][, 2:3],
+          id = names(all.residuals[[3]])[2:3],
+          xlab = trait.names[3]
+          )
+
+# Find those stem height outliers:
+palm.traits[which(palm.traits$stem.height > 100), ]
+palm.traits[which(palm.traits$genus == "Calamus"), ]
+palm.traits[which(palm.traits$genus == "Eremospatha"), ]
+# In both cases, the 150m climbing palm resides in a genus filled with much
+# shorter companions.
+# A tiny speck of hope: most species for which we do not know the height
+# are not likely to be >100m.
+
 
 
 # TODO: compare uncertainties of BHPMF, i.e. the st.dev outputs.

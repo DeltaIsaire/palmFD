@@ -337,4 +337,15 @@ Residual questions about trait-filling:
 
 
 TODO (among other things):
+- test quality of gapfilling
 - Implement real FD calculation, using both filled and unfilled (complete-only?) data.
+- correlate FD with richness (and FRic with FDisp, because why not)
+- Compare real FD data with null model one. HOW?
+
+Results of discussion with daily supervisor:
+- see if you can streamline FD calculation (look at alternatives to dbFD)
+- Null model does have to be iterated 100-1000 times, because it is like a nonparametric test you're doing - comparing real FD values to the null model iterations and seeing how often the real value is higher/lower than the null.
+
+- about trait-filling accuracy: for posterity, you can check how often an estimated stem height value is in the middle of a bimodal within-genus height distribution caused by growth form differences. So, for each genus that has NA stem height values, find out how many growthforms it has, etc etc. But don't spend more than one day on this whole procedure. 
+
+We'll continue this tomorrow. 
