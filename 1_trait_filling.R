@@ -202,5 +202,3 @@ write.csv(BHPMF.missing,
 
 cat("Done.\n")
 
-# TODO:we use the taxonomic data from the trait dataset.
-# Will we do nothing with the phylogenetic tree?

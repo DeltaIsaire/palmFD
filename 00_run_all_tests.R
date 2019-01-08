@@ -14,9 +14,11 @@
 #   functions/
 #   output/
 #   graphs/
-# Only the functions/ directory is available from the repository.
-# The other directories contain datasets I shouldn't publish,
-# else my supervisors would kill me :/ 
+# Only the functions/ directory is available from the Github repository.
+# The data/ directory contain datasets I shouldn't publish,
+# else my supervisors would kill me :/
+# The output/ and graphs/ directories can be missing, in which case this
+# script will create them. 
 #
 # See the individual scripts for comments and details of their operations.
 
@@ -45,11 +47,14 @@ source(file = "test_2_trait_filling_comparison.R")
 cat("Testing accuracy of gap-filling:\n")
 source(file = "test_3_gapfilling_accuracy.R")
 
+cat("Identifying gap-filling error:\n")
+source(file = "test_4_gapfilling_error.R")
+
 cat("Calculating functional diversity indices:\n")
-source(file = "test_4_FD_indices.R")
+source(file = "test_5_FD_indices.R")
 
 cat("Generating FD null model one:\n")
-source(file = "test_5_FD_null_model_one.R")
+source(file = "test_6_FD_null_model_one.R")
 
 cat("Finished running all test scripts.\n")
 

@@ -6,19 +6,19 @@
 # These trials were generated in 'test_1_trait_filling.R'.
 #
 # Input files:
-#   output/palm.traits.csv
-#   output/traits_filled_genus_mean.csv
-#   output/traits_filled_BHPMF_one.csv
-#   output/traits_filled_BHPMF_two.csv
-#   output/traits_filled_BHPMF_three.csv
-#   output/traits_filled_BHPMF_four.csv
-#   output/traits_filled_BHPMF_five.csv
-#   output/traits_filled_BHPMF_six.csv
-#   output/traits_filled_BHPMF_seven.a.csv
-#   output/traits_filled_BHPMF_seven.b.csv
+#   output/test/palm.traits.csv
+#   output/test/traits_filled_genus_mean.csv
+#   output/test/traits_filled_BHPMF_one.csv
+#   output/test/traits_filled_BHPMF_two.csv
+#   output/test/traits_filled_BHPMF_three.csv
+#   output/test/traits_filled_BHPMF_four.csv
+#   output/test/traits_filled_BHPMF_five.csv
+#   output/test/traits_filled_BHPMF_six.csv
+#   output/test/traits_filled_BHPMF_seven.csv
+#   output/test/traits_filled_BHPMF_eight.csv
 # Generated output files:
-#   graphs/test_estimates_species_counts.svg
-#   graphs/ <several graphs comparing trait estimates.
+#   graphs/test/test_estimates_species_counts.svg
+#   graphs/test/ <several graphs comparing trait estimates.
 #            Filenames all start with 'test_estimates_'>
 
 
@@ -29,6 +29,10 @@ library(plyr)
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
 
+if (!dir.exists("graphs/test/")) {
+  cat("creating directory: graphs/test/\n")
+  dir.create("graphs/test/")
+}
 
 # ---------------------------------------
 # Data preparation: filled trait matrices
@@ -36,19 +40,19 @@ source(file = "functions/plotting_functions.R")
 cat("Preparing data...\n")
 # Trait filling begins with the unimputed trait matrix, which has for each
 # species a single 'observed' value for each trait, with gaps (NAs).
-palm.traits <- read.csv(file = "output/palm_traits.csv")
+palm.traits <- read.csv(file = "output/test/palm_traits.csv")
 # Subsequently we have filled this trait matrix in the following ways:
 #   genus means
-filled.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
+filled.mean <- read.csv(file = "output/test/traits_filled_genus_mean.csv")
 #   BHPMF, in different ways
-filled.BHPMF.one <- read.csv(file = "output/traits_filled_BHPMF_one.csv")
-filled.BHPMF.two <- read.csv(file = "output/traits_filled_BHPMF_two.csv")
-filled.BHPMF.three <- read.csv(file = "output/traits_filled_BHPMF_three.csv")
-filled.BHPMF.four <- read.csv(file = "output/traits_filled_BHPMF_four.csv")
-filled.BHPMF.five <- read.csv(file = "output/traits_filled_BHPMF_five.csv")
-filled.BHPMF.six <- read.csv(file = "output/traits_filled_BHPMF_six.csv")
-filled.BHPMF.seven.a <- read.csv(file = "output/traits_filled_BHPMF_seven.a.csv")
-filled.BHPMF.seven.b <- read.csv(file = "output/traits_filled_BHPMF_seven.b.csv")
+filled.BHPMF.one <- read.csv(file = "output/test/traits_filled_BHPMF_one.csv")
+filled.BHPMF.two <- read.csv(file = "output/test/traits_filled_BHPMF_two.csv")
+filled.BHPMF.three <- read.csv(file = "output/test/traits_filled_BHPMF_three.csv")
+filled.BHPMF.four <- read.csv(file = "output/test/traits_filled_BHPMF_four.csv")
+filled.BHPMF.five <- read.csv(file = "output/test/traits_filled_BHPMF_five.csv")
+filled.BHPMF.six <- read.csv(file = "output/test/traits_filled_BHPMF_six.csv")
+filled.BHPMF.seven <- read.csv(file = "output/test/traits_filled_BHPMF_seven.csv")
+filled.BHPMF.eight <- read.csv(file = "output/test/traits_filled_BHPMF_eight.csv")
 all.filled <- list(original = palm.traits,
                    mean = filled.mean,
                    b.one = filled.BHPMF.one,
@@ -57,15 +61,15 @@ all.filled <- list(original = palm.traits,
                    b.four = filled.BHPMF.four,
                    b.five = filled.BHPMF.five,
                    b.six = filled.BHPMF.six,
-                   b.seven.a = filled.BHPMF.seven.a,
-                   b.seven.b = filled.BHPMF.seven.b
+                   b.seven = filled.BHPMF.seven,
+                   b.eight = filled.BHPMF.eight
                    )
 filled.names <- names(all.filled)
 
 # First, extract the number of species retained in each method:
 species.counts <- ldply(all.filled,
-                 function (x) { length(x[, 1]) }
-                 )
+                        function (x) { length(x[, 1]) }
+                        )
 names(species.counts) <- c("data", "species.count")
 
 # Second, the different methods had to exclude different species, so subset
@@ -103,10 +107,10 @@ all.estimates <-
                              }
                              )
           data.frame(species = species,
-          estimates %>%
-          simplify2array() %>%
-          as.data.frame()
-          )
+                     estimates %>%
+                       simplify2array() %>%
+                       as.data.frame()
+                     )
         }
         )
 names(all.estimates) <- paste0(trait.names, ".estimates")
@@ -122,8 +126,8 @@ GraphSVG(BarPlot(species.counts[, 2],
                  names = species.counts[, 1],
                  ylab = "Species count",
                  ),
-         file = "graphs/test_estimates_species_counts.svg",
-         width = 7,
+         file = "graphs/test/test_estimates_species_counts.svg",
+         width = 8,
          height = 4
          )
 
@@ -137,7 +141,7 @@ for (i in seq_along(all.estimates)) {
                      id = ids,
                      xlab = paste("Estimated", trait.names[i])
                      ),
-           file = paste0("graphs/test_estimates_distributions_",
+           file = paste0("graphs/test/test_estimates_distributions_",
                          trait.names[i],
                          ".svg"
                          ),
@@ -168,7 +172,7 @@ for (df in seq_along(all.estimates)) {
                                           ")"
                                           )
                           ),
-             file=paste0("graphs/test_estimates_scatter_",
+             file=paste0("graphs/test/test_estimates_scatter_",
                          trait.names[df],
                          "_b.one_vs_",
                          y,
@@ -215,7 +219,7 @@ for (i in seq_along(observed.estimates)) {
                                        names(df)[2]
                                        )
                         ),
-           file = paste0("graphs/test_estimates_original_vs_estimated_",
+           file = paste0("graphs/test/test_estimates_original_vs_estimated_",
                          names(df)[2],
                          ".svg"
                          ),
@@ -245,7 +249,7 @@ for (df in seq_along(all.estimates)) {
                                        "BHPMF.five"
                                        )
                         ),
-             file=paste0("graphs/test_estimates_scatter_",
+             file=paste0("graphs/test/test_estimates_scatter_",
                          trait.names[df],
                          "_b.three_vs_b.five.svg"
                          ),

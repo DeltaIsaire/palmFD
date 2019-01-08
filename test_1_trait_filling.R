@@ -31,52 +31,52 @@
 # 5. Same as #3, but with 10 such dummy traits instead of just one.
 # 6. Same as #1, but with an extra hierarchy level between genus and species
 #    corresponding to growth form: acaulescent / freestanding / climbing
-# 7. Same as 4. but including the following additional binary traits, coded
-#    with values 0 / 100: Climbing, Acaulescence, Errect, UnderstoryCanopy,
-#    StemSolitary, StemArmed, LeavesArmed, FruitSizeBinary.
-#    Actually we're going to do 7a: all these traits, and 7b: only the three
-#    original traits + the three categorical growthform traits.
+# 7. Same as #1, but including three binary traits (coded 0 / 100) corresponding
+#    to the three primary growth forms: Climbing, Acaulescence and Errect.
+# 8. Same as #4, but including all usable binary traits as well: Climbing,
+#    Acaulescence, Errect, UnderstoryCanopy, StemSolitary, StemArmed, LeavesArmed,
+#    FruitSizeBinary.
 #
 # Input files:
 #   data/palms_in_tdwg3.csv
 #   data/PalmTraits_10.csv
 # Generated output files:
-#   output/palm_traits.csv
-#   output/palm_hierarchy.csv
-#   output/traits_filled_genus_mean.csv
-#   output/missing_genus_mean.csv
-#   output/test_BHPMF_one_mean.txt
-#   output/test_BHPMF_one_std.txt
-#   output/traits_filled_BHPMF_one.csv
-#   output/missing_BHPMF_one.csv
-#   output/test_BHPMF_two_mean.txt
-#   output/test_BHPMF_two_std.txt
-#   output/traits_filled_BHPMF_two.csv
-#   output/missing_BHPMF_two.csv
-#   output/test_BHPMF_three_mean.txt
-#   output/test_BHPMF_three_std.txt
-#   output/traits_filled_BHPMF_three.csv
-#   output/missing_BHPMF_three.csv
-#   output/test_BHPMF_four_mean.txt
-#   output/test_BHPMF_four_std.txt
-#   output/traits_filled_BHPMF_four.csv
-#   output/missing_BHPMF_four.csv
-#   output/test_BHPMF_five_mean.txt
-#   output/test_BHPMF_five_std.txt
-#   output/traits_filled_BHPMF_five.csv
-#   output/missing_BHPMF_five.csv
-#   output/test_BHPMF_six_mean.txt
-#   output/test_BHPMF_six_std.txt
-#   output/traits_filled_BHPMF_six.csv
-#   output/missing_BHPMF_six.csv
-#   output/test_BHPMF_seven.a_mean.txt
-#   output/test_BHPMF_seven.a_std.txt
-#   output/traits_filled_BHPMF_seven.a.csv
-#   output/missing_BHPMF_seven.a.csv
-#   output/test_BHPMF_seven.b_mean.txt
-#   output/test_BHPMF_seven.b_std.txt
-#   output/traits_filled_BHPMF_seven.b.csv
-#   output/missing_BHPMF_seven.b.csv
+#   output/test/palm_traits.csv
+#   output/test/palm_hierarchy.csv
+#   output/test/traits_filled_genus_mean.csv
+#   output/test/missing_genus_mean.csv
+#   output/test/test_BHPMF_one_mean.txt
+#   output/test/test_BHPMF_one_std.txt
+#   output/test/traits_filled_BHPMF_one.csv
+#   output/test/missing_BHPMF_one.csv
+#   output/test/test_BHPMF_two_mean.txt
+#   output/test/test_BHPMF_two_std.txt
+#   output/test/traits_filled_BHPMF_two.csv
+#   output/test/missing_BHPMF_two.csv
+#   output/test/test_BHPMF_three_mean.txt
+#   output/test/test_BHPMF_three_std.txt
+#   output/test/traits_filled_BHPMF_three.csv
+#   output/test/missing_BHPMF_three.csv
+#   output/test/test_BHPMF_four_mean.txt
+#   output/test/test_BHPMF_four_std.txt
+#   output/test/traits_filled_BHPMF_four.csv
+#   output/test/missing_BHPMF_four.csv
+#   output/test/test_BHPMF_five_mean.txt
+#   output/test/test_BHPMF_five_std.txt
+#   output/test/traits_filled_BHPMF_five.csv
+#   output/test/missing_BHPMF_five.csv
+#   output/test/test_BHPMF_six_mean.txt
+#   output/test/test_BHPMF_six_std.txt
+#   output/test/traits_filled_BHPMF_six.csv
+#   output/test/missing_BHPMF_six.csv
+#   output/test/test_BHPMF_seven_mean.txt
+#   output/test/test_BHPMF_seven_std.txt
+#   output/test/traits_filled_BHPMF_seven.csv
+#   output/test/missing_BHPMF_seven.csv
+#   output/test/test_BHPMF_eight_mean.txt
+#   output/test/test_BHPMF_eight_std.txt
+#   output/test/traits_filled_BHPMF_eight.csv
+#   output/test/missing_BHPMF_eight.csv
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -87,6 +87,11 @@ source(file = "functions/base_functions.R")
 
 # Use verbose BHPMF?
 verbose <- FALSE
+
+if (!dir.exists("output/test/")) {
+  cat("creating directory: output/test/\n")
+  dir.create("output/test/")
+}
 
 # ------------------
 # Prepare trait data
@@ -141,7 +146,7 @@ palm.traits <-
 # Genus is included because we need it to calculate genus mean trait values
 # Note: there should be no missing species, so the extra subset is for posterity.
 write.csv(palm.traits, 
-          file = "output/palm_traits.csv",
+          file = "output/test/palm_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -156,7 +161,7 @@ palm.hierarchy <-   data.frame(species   = trait.data$SpecName,
                                subfamily = trait.data$PalmSubfamily
                                )
 write.csv(palm.hierarchy,
-          file = "output/palm_hierarchy.csv",
+          file = "output/test/palm_hierarchy.csv",
           eol="\r\n",
           row.names = FALSE)
 
@@ -179,12 +184,12 @@ genus.mean.missing <-
 traits.filled.mean %<>% 
   .[complete.cases(.), ]
 write.csv(traits.filled.mean,
-          file = "output/traits_filled_genus_mean.csv",
+          file = "output/test/traits_filled_genus_mean.csv",
           eol="\r\n",
           row.names=FALSE
           )
 write.csv(genus.mean.missing, 
-          file = "output/missing_genus_mean.csv",
+          file = "output/test/missing_genus_mean.csv",
           eol="\r\n",
           row.names=FALSE
           )
@@ -213,21 +218,21 @@ TestBHPMF <- function(trial) {
   # To avoid errors or erronous output when re-running the code, this directory
   # needs to be emptied.
   cat("Running BHPMF trial", trial, "\n")
-  unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-  dir.create("output/BHPMF_preprocessing_test")
+  unlink("output/test/BHPMF_preprocessing_test", recursive=TRUE)
+  dir.create("output/test/BHPMF_preprocessing_test")
   GapFilling(X = test.matrix,
              hierarchy.info = test.hierarchy,
              prediction.level = 4,
              used.num.hierarchy.levels = 3,
-             mean.gap.filled.output.path = paste0("output/test_BHPMF_",
+             mean.gap.filled.output.path = paste0("output/test/test_BHPMF_",
                                                   trial,
                                                   "_mean.txt"
                                                   ),
-             std.gap.filled.output.path = paste0("output/test_BHPMF_",
+             std.gap.filled.output.path = paste0("output/test/test_BHPMF_",
                                                  trial,
                                                  "_std.txt"
                                                  ),
-             tmp.dir = "output/BHPMF_preprocessing_test", 
+             tmp.dir = "output/test/BHPMF_preprocessing_test", 
              rmse.plot.test.data=FALSE,
              verbose=verbose
              )
@@ -239,7 +244,7 @@ ParseBHPMF <- function(trial) {
 # Trial: character vector of length 1 giving the name of the trial,
 #        e.g. "one".
   traits.filled.BHPMF.test <-
-    read.table(file = paste0("output/test_BHPMF_",
+    read.table(file = paste0("output/test/test_BHPMF_",
                              trial,
                              "_mean.txt"
                              ),
@@ -258,7 +263,7 @@ ParseBHPMF <- function(trial) {
     { .[complete.cases(.), ] }
   
   write.csv(traits.filled.BHPMF.test,
-            file = paste0("output/traits_filled_BHPMF_",
+            file = paste0("output/test/traits_filled_BHPMF_",
                           trial,
                           ".csv"
                           ),
@@ -266,7 +271,7 @@ ParseBHPMF <- function(trial) {
             row.names=FALSE
             )
   write.csv(missing.BHPMF.test,
-            file = paste0("output/missing_BHPMF_",
+            file = paste0("output/test/missing_BHPMF_",
                           trial,
                           ".csv"
                           ),
@@ -310,7 +315,7 @@ trial <- "two"
 TestBHPMF(trial)
 # Not using ParseBHPMF() because here we take all estimates.
 traits.filled.BHPMF.test <-
-  read.table(file = paste0("output/test_BHPMF_",
+  read.table(file = paste0("output/test/test_BHPMF_",
                            trial,
                            "_mean.txt"
                            ),
@@ -324,7 +329,7 @@ traits.filled.BHPMF.test <-
   { .[complete.cases(.), ] }
 
 write.csv(traits.filled.BHPMF.test,
-          file = paste0("output/traits_filled_BHPMF_",
+          file = paste0("output/test/traits_filled_BHPMF_",
                         trial,
                         ".csv"
                         ),
@@ -332,7 +337,7 @@ write.csv(traits.filled.BHPMF.test,
           row.names=FALSE
           )
 write.csv(missing.BHPMF.test,
-          file = paste0("output/missing_BHPMF_",
+          file = paste0("output/test/missing_BHPMF_",
                         trial,
                         ".csv"
                         ),
@@ -466,29 +471,28 @@ rm(to.remove)
 trial <- "six"
 # Not using TestBHPMF() because we use a different hierarchy
 cat("Running BHPMF trial", trial, "\n")
-unlink("output/BHPMF_preprocessing_test", recursive=TRUE)
-dir.create("output/BHPMF_preprocessing_test")
+unlink("output/test/BHPMF_preprocessing_test", recursive=TRUE)
+dir.create("output/test/BHPMF_preprocessing_test")
 GapFilling(X = test.matrix,
            hierarchy.info = test.hierarchy,
            prediction.level = 5,
            used.num.hierarchy.levels = 4,
-           mean.gap.filled.output.path = paste0("output/test_BHPMF_",
+           mean.gap.filled.output.path = paste0("output/test/test_BHPMF_",
                                                 trial,
                                                 "_mean.txt"
                                                 ),
-           std.gap.filled.output.path = paste0("output/test_BHPMF_",
+           std.gap.filled.output.path = paste0("output/test/test_BHPMF_",
                                                trial,
                                                "_std.txt"
                                                ),
-           tmp.dir = "output/BHPMF_preprocessing_test", 
+           tmp.dir = "output/test/BHPMF_preprocessing_test", 
            rmse.plot.test.data=FALSE,
            verbose=verbose
            )
 ParseBHPMF(trial)
 
-# 7. Gap-filling with BHPMF: including even more traits
-# ------------------------------------------------
-cat("(7) including binary palm traits\n")
+# 7 + 8. Gap-filling with BHPMF: including even more traits
+# ---------------------------------------------------------
 # Extract and clean trait data. Binary traits should get values 1 (for 0)
 # and 100 (for 1).
 extra.traits <- trait.data[, c("MaxStemDia_cm",
@@ -523,7 +527,7 @@ test.matrix.all <- cbind(trait.matrix, as.matrix(extra.traits))
 
 test.matrix.growthform <- test.matrix.all[, c(1:3, 9:11)]
 
-cat("(7a) three continuous traits + three growthform binary traits\n")
+cat("(7) three continuous traits + three growthform binary traits\n")
 test.matrix <- test.matrix.growthform
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
@@ -540,11 +544,11 @@ if (!length(to.remove) == 0) {
 }
 rm(to.remove)
 
-trial <- "seven.a"
+trial <- "seven"
 TestBHPMF(trial)
 ParseBHPMF(trial)
 
-cat("(7b) all usable traits\n")
+cat("(8) all usable traits\n")
 test.matrix <- test.matrix.all
 # BHPMF does not want observations with NA for all trait values,
 # So we have to remove those from both matrices.
@@ -561,7 +565,7 @@ if (!length(to.remove) == 0) {
 }
 rm(to.remove)
 
-trial <- "seven.b"
+trial <- "eight"
 TestBHPMF(trial)
 ParseBHPMF(trial)
 

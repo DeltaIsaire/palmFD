@@ -14,9 +14,11 @@
 #   functions/
 #   output/
 #   graphs/
-# Only the functions/ directory is available from the repository.
-# The other directories contain datasets I shouldn't publish,
-# else my supervisors would kill me :/ 
+# Only the functions/ directory is available from the Github repository.
+# The data/ directory contain datasets I shouldn't publish,
+# else my supervisors would kill me :/
+# The output/ and graphs/ directories can be missing, in which case this
+# script will create them.  
 #
 # See the individual scripts for comments and details of their operations.
 

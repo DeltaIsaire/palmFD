@@ -349,3 +349,7 @@ Results of discussion with daily supervisor:
 - about trait-filling accuracy: for posterity, you can check how often an estimated stem height value is in the middle of a bimodal within-genus height distribution caused by growth form differences. So, for each genus that has NA stem height values, find out how many growthforms it has, etc etc. But don't spend more than one day on this whole procedure. 
 
 We'll continue this tomorrow. 
+
+
+
+
