@@ -10,13 +10,13 @@
 # Input files:
 #   data/TDWG_Environment_AllData_2014Dec.csv
 #   data/palms_in_tdwg3.csv
-#   output/test_palm_tdwg3_pres_abs_matrix.csv
-#   output/test_palm_trait_matrix_transformed.csv
+#   output/test/test_palm_tdwg3_pres_abs_matrix.csv
+#   output/test/test_palm_trait_matrix_transformed.csv
 # Generated output files:
-#   output/tdwg3_info.csv
-#   output/test_nullmodel_one_pres_abs_matrix.csv
-#   output/test_fd.indices_nullmodel_one.csv
-#   output/test_fd.indices_nullmodel_one_single_traits.csv
+#   output/test/tdwg3_info.csv
+#   output/test/test_nullmodel_one_pres_abs_matrix.csv
+#   output/test/test_fd.indices_nullmodel_one.csv
+#   output/test/test_fd.indices_nullmodel_one_single_traits.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -71,7 +71,7 @@ tdwg3.info$has.palms <-
   ifelse(tdwg3.info$palm.richness > 0, 1, 0) %>%
   as.factor()
 write.csv(tdwg3.info,
-          file = "output/tdwg3_info.csv",
+          file = "output/test/tdwg3_info.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -94,7 +94,7 @@ tdwg3.info
 # Do not use tdwg3.info$has.palms, but use the presence/absence matrix,
 # because trait-filling may have excluded some species.
 pres.abs.matrix <- 
-  read.csv(file = "output/test_palm_tdwg3_pres_abs_matrix.csv",
+  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_matrix.csv",
            row.names = 1,
            check.names = FALSE) %>%
   as.matrix()
@@ -132,6 +132,14 @@ realm.species <- llply(realm.tdwg3,
                        }
                        )
 
+# Load trait matrix
+# -----------------
+trait.matrix <- 
+  read.csv(file = "output/test/test_palm_trait_matrix_transformed.csv",
+           row.names = 1) %>%
+  as.matrix()
+# This will be useful:
+trait.names <- colnames(trait.matrix)
 
 # ----------------------------------------
 # Randomly sampling null model communities
@@ -145,36 +153,71 @@ cat("Randomly sampling null model communities from realm species pool...\n")
 palm.richness <- data.frame(tdwg3.code    = rownames(pres.abs.matrix),
                             palm.richness = rowSums(pres.abs.matrix)
                             )
-null.model.species <- list(NULL)
-i <- 1
-for (realm in seq_along(realm.tdwg3)) {
-  for (country in seq_along(realm.tdwg3[[realm]])) {
-    richness <-
-      palm.richness %>% {
-        .[which(.$tdwg3.code == realm.tdwg3[[realm]][country]), "palm.richness"]
-      }
-    indices <-
-      runif(n = richness * 3,
-            min = 1,
-            max = length(realm.species[[realm]])
-            ) %>%
-      round() %>%
-      unique() %>%
-      sort() %>%
-      .[1:richness]
-    null.model.species[[i]] <- realm.species[[realm]][indices]
-    names(null.model.species)[i] <- realm.tdwg3[[realm]][country]
-    i <- i + 1
+# The FD requirement species > traits applies to functionally unique species.
+# That means it does NOT suffice to have richness > 3 (our number of traits).
+# Rather, we need > 3 species with unique trait combinations. 
+# This happens to be the case for our real dataset, but is not automatically
+# guaranteed for the null model samples.
+# So we have to enforce this explicitly, by resampling until this condition
+# is satisfied.
+do.sample <- TRUE
+sampling.iterations <- 0
+while (do.sample) {
+  null.model.species <- list(NULL)
+  i <- 1
+  for (realm in seq_along(realm.tdwg3)) {
+    for (country in seq_along(realm.tdwg3[[realm]])) {
+      richness <-
+        palm.richness %>% {
+          .[which(.$tdwg3.code == realm.tdwg3[[realm]][country]), "palm.richness"]
+        }
+      indices <-
+        runif(n = richness * 3,
+              min = 1,
+              max = length(realm.species[[realm]])
+              ) %>%
+        round() %>%
+        unique() %>%
+        sort() %>%
+        .[1:richness]
+      null.model.species[[i]] <- realm.species[[realm]][indices]
+      names(null.model.species)[i] <- realm.tdwg3[[realm]][country]
+      i <- i + 1
+    }
   }
+  null.model.species %<>% .[order(names(.))]
+  # Check if uniqueness condition is satisfied:
+  # Step 1: assemble trait values for species in each community
+  sample.traits <-
+    llply(null.model.species,
+          function(community) {
+            indices <- CrossCheck(x = rownames(trait.matrix),
+                                  y = community,
+                                  presence = TRUE,
+                                  value = FALSE
+                                  )
+            trait.matrix[indices, ]
+          }
+          )
+  # Step 2: Identify communities with < 4 unique trait combinations
+  sample.counts <-
+    llply(sample.traits,
+          function(community) {
+            count(community) %>%
+              nrow()
+          }
+          ) %>%
+    simplify2array()
+  resample <- names(sample.counts)[sample.counts < 4]
+  # Step 3: evaluate
+  if (identical(length(resample), as.integer(0))) {
+    do.sample <- FALSE
+  } else {
+    do.sample <- TRUE
+  }
+  sampling.iterations %<>% + 1
 }
-null.model.species %<>% .[order(names(.))]
-
-# Because FRic is standardized by the global trait volume, we must include a fake
-# community with all species.
-# TODO: decide whether to standardize. For now, standardization is DISABLED.
-#null.model.species[[length(null.model.species) + 1]] <-
-#  colnames(pres.abs.matrix)
-#names(null.model.species)[length(null.model.species)] <- "global"
+cat("Null model sampling required", sampling.iterations, "sampling attempts\n")
 
 # Now the fun part: transform null.model.species to a presence/absence matrix
 species <- unlist(null.model.species)
@@ -195,7 +238,7 @@ nm.one.pres.abs <-
   as.data.frame.matrix() %>%
   as.matrix()
 write.csv(nm.one.pres.abs,
-          file = "output/test_nullmodel_one_pres_abs_matrix.csv",
+          file = "output/test/test_nullmodel_one_pres_abs_matrix.csv",
           eol = "\r\n",
           row.names = TRUE
           )
@@ -204,11 +247,7 @@ write.csv(nm.one.pres.abs,
 # Calculating Functional Diversity
 # --------------------------------
 cat("Calculating Functional Diversity indices... (this may take a while)\n")
-# Load trait matrix and subset to species in the null model
-trait.matrix <- 
-  read.csv(file = "output/test_palm_trait_matrix_transformed.csv",
-           row.names = 1) %>%
-  as.matrix()
+# Subset trait matrix to species in the null model
 indices <- CrossCheck(x = rownames(trait.matrix),
                       y = colnames(nm.one.pres.abs),
                       presence = TRUE,
@@ -234,19 +273,19 @@ if (FALSE) {
 # FD using all traits
 # -------------------
 cat("(1) FD with all traits...\n")
-output.all <- dbFD(x = trait.matrix,
-                   a = nm.one.pres.abs,
-                   w.abun = FALSE,
-                   stand.x = TRUE,
-                   corr = "cailliez",  # Is this the best option?
-                   calc.FRic = TRUE,
-                   m = "max",
-                   stand.FRic = FALSE,  # Would this be useful to do?
-                   calc.CWM = TRUE,
-                   calc.FDiv = FALSE,
-                   messages = TRUE
-                   )
-
+output.all <- suppressWarnings(dbFD(x = trait.matrix,
+                                    a = nm.one.pres.abs,
+                                    w.abun = FALSE,
+                                    stand.x = TRUE,
+                                    corr = "cailliez",
+                                    calc.FRic = TRUE,
+                                    m = "max",
+                                    stand.FRic = FALSE,
+                                    calc.CWM = FALSE,
+                                    calc.FDiv = FALSE,
+                                    messages = TRUE
+                                    )
+                               )
 # FD for single traits
 # --------------------
 cat("(2) FD for single traits:\n")
@@ -265,7 +304,7 @@ Temp <- function(trait) {
                    calc.FRic = TRUE,
                    m = "max",
                    stand.FRic = FALSE,  # Would this be useful to do?
-                   calc.CWM = TRUE,
+                   calc.CWM = FALSE,
                    calc.FDiv = FALSE,
                    messages = TRUE
                    )
@@ -288,7 +327,7 @@ fd.indices <- data.frame(TDWG3 = names(output.all$nbsp),
                          FDis  = output.all$FDis
                          )
 write.csv(fd.indices,
-          file = "output/test_fd.indices_nullmodel_one.csv",
+          file = "output/test/test_fd.indices_nullmodel_one.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -303,7 +342,7 @@ single.fd <- data.frame(TDWG3       = names(output.all$nbsp),
                         fruit.FDis  = output.fruit.length$FDis
                         )
 write.csv(single.fd,
-          file = "output/test_fd.indices_nullmodel_one_single_traits.csv",
+          file = "output/test/test_fd.indices_nullmodel_one_single_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )

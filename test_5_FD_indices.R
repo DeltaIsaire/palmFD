@@ -5,14 +5,14 @@
 # In which we explore how to properly implement calculation of FD indices.
 #
 # Input files:
-#   output/traits_filled_genus_mean.csv
+#   output/test/traits_filled_genus_mean.csv
 #   data/palms_in_tdwg3.csv
 # Generated output files:
-#   output/test_palm_trait_matrix_transformed.csv
-#   output/test_palm_tdwg3_pres_abs_matrix.csv
-#   output/test_fd.indices.csv
-#   output/test_fd.indices_single_traits.csv
-#   output/test_tdwg3_trait_means.csv
+#   output/test/test_palm_trait_matrix_transformed.csv
+#   output/test/test_palm_tdwg3_pres_abs_matrix.csv
+#   output/test/test_fd.indices.csv
+#   output/test/test_fd.indices_single_traits.csv
+#   output/test/test_tdwg3_trait_means.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -28,15 +28,17 @@ source(file = "functions/base_functions.R")
 # --------------------------------------------------
 cat("Preparing data...\n")
 # First thing we need is the (filled) trait matrix.
-# For now, we'll use genus-mean filled data.
-# It needs 'species labels'. I'm assuming that means rownames.
+# We will use genus-mean filled data.
+# The matrix needs 'species labels'. I'm assuming that means rownames.
 trait.names <- c("stem.height", "blade.length", "fruit.length")
-traits.filled <- read.csv(file = "output/traits_filled_genus_mean.csv")
+traits.filled <- read.csv(file = "output/test/traits_filled_genus_mean.csv")
 trait.matrix <- traits.filled[, trait.names]
 
 # The traits should be log10-transformed.
 # The log of 0 is undefined (-Inf), so we cannot have stem height == 0.
-# In addition log10 for values below 1 is negative, which I feel better avoiding.
+# In addition, The log10 of values below 1 is negative, and negative trait
+# values are weird. Or put more accurately, log transformation is symmetrical
+# around unity, not around zero.
 # Solution:
 # Transform stem height from m to cm,
 # Transform blade length from m to cm,
@@ -55,12 +57,12 @@ rownames(trait.matrix) <- traits.filled$species
 # units and columns are species.
 palm.dist <- read.csv(file="data/palms_in_tdwg3.csv")
 # Subset to the species for which we have completely filled trait data
-species.shared <- CrossCheck(x = unique(palm.dist$SpecName),
-                             y = traits.filled$species,
+species.shared <- CrossCheck(x = unique(palm.dist[, "SpecName"]),
+                             y = traits.filled[, "species"],
                              presence = TRUE,
                              value = TRUE
                              )
-indices <- CrossCheck(x = palm.dist$SpecName,
+indices <- CrossCheck(x = palm.dist[, "SpecName"],
                       y = species.shared,
                       presence = TRUE,
                       value = FALSE
@@ -71,17 +73,19 @@ if (!identical(length(rownames(trait.matrix)), length(unique(palm.dist$SpecName)
   stop("trait.matrix and palm.dist have differing number of species")
 }
 dist.species <-
-  unique(palm.dist$SpecName) %>%
+  unique(palm.dist[, "SpecName"]) %>%
   sort() %>%
   as.character()
 if (!identical(rownames(trait.matrix), dist.species)) {
   stop("species in trait.matrix and palm.dist do not match")
 }
+
 # with palm.dist subsetted correctly, we transform it to pres/abs matrix:
 pres.abs.matrix <-
   table(palm.dist) %>%
   as.data.frame.matrix() %>%  # yes, that's a function, and yes, we need it.
   as.matrix()
+
 # Subset to TDWG3 units with richness > 3 as requirement for FD indices:
 pres.abs.matrix %<>% .[which(rowSums(.) > 3), ]
 # Remove TDWG3 unit 'VNA' because we have no environmental data for it:
@@ -108,12 +112,12 @@ cat("Using trait dataset with",
     "botanical countries.\n"
     )
 write.csv(trait.matrix,
-          file = "output/test_palm_trait_matrix_transformed.csv",
+          file = "output/test/test_palm_trait_matrix_transformed.csv",
           eol = "\r\n",
           row.names = TRUE
           )
 write.csv(pres.abs.matrix,
-          file = "output/test_palm_tdwg3_pres_abs_matrix.csv",
+          file = "output/test/test_palm_tdwg3_pres_abs_matrix.csv",
           eol = "\r\n",
           row.names = TRUE
           )
@@ -125,6 +129,7 @@ write.csv(pres.abs.matrix,
 cat("Calculating Functional Diversity indices... (this may take a while)\n")
 
 # Code to subset data to expedite testing. This stuff is computationally intensive.
+# To use it, set the if condition to TRUE.
 if (FALSE) {
   pres.abs.matrix <- pres.abs.matrix[1:10, ]
   orphaned.species <-
@@ -178,18 +183,19 @@ Temp <- function(trait) {
      trait.matrix[, trait] %>%
      as.matrix()
   colnames(subset.matrix) <- trait
-  fd.trait <- dbFD(x = subset.matrix,
-                   a = pres.abs.matrix,
-                   w.abun = FALSE,
-                   stand.x = TRUE,
-                   corr = "cailliez",  # Is this the best option?
-                   calc.FRic = TRUE,
-                   m = "max",
-                   stand.FRic = FALSE,  # Would this be useful to do?
-                   calc.CWM = TRUE,
-                   calc.FDiv = FALSE,
-                   messages = TRUE
-                   )
+  fd.trait <- suppressWarnings(dbFD(x = subset.matrix,
+                                    a = pres.abs.matrix,
+                                    w.abun = FALSE,
+                                    stand.x = TRUE,
+                                    corr = "cailliez",  # Is this the best option?
+                                    calc.FRic = TRUE,
+                                    m = "max",
+                                    stand.FRic = FALSE,  # Would this be useful?
+                                    calc.CWM = FALSE,
+                                    calc.FDiv = FALSE,
+                                    messages = TRUE
+                                    )
+                               )
   fd.trait
 }
 
@@ -212,7 +218,7 @@ fd.indices <- data.frame(TDWG3 = names(output.all$nbsp),
                          FDis  = output.all$FDis
                          )
 write.csv(fd.indices,
-          file = "output/test_fd.indices.csv",
+          file = "output/test/test_fd.indices.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -227,17 +233,17 @@ single.fd <- data.frame(TDWG3       = names(output.all$nbsp),
                         fruit.FDis  = output.fruit.length$FDis
                         )
 write.csv(single.fd,
-          file = "output/test_fd.indices_single_traits.csv",
+          file = "output/test/test_fd.indices_single_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )
 
 # Community weighted mean trait values
-# Not weighted in our case, so just the mean
+# Not weighted in our case, so just the m21233454678890-=ean
 # KEEP IN MIND THESE ARE LOG10-TRANSFORMED VALUES
 community.means <- output.all$CWM
 write.csv(community.means,
-          file = "output/test_tdwg3_trait_means.csv",
+          file = "output/test/test_tdwg3_trait_means.csv",
           eol = "\r\n",
           row.names = FALSE
           )
