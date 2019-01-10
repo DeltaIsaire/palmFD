@@ -26,10 +26,13 @@ library(FD)
 
 source(file = "functions/base_functions.R")
 
+# Enable verbose reporting in the null model procedure?
+verbose <- TRUE
 
-# ----------------
+
+##################
 # Data preparation
-# ----------------
+##################
 cat("Preparing data...\n")
 
 # Information on tdwg3 units
@@ -98,6 +101,10 @@ pres.abs.matrix <-
            row.names = 1,
            check.names = FALSE) %>%
   as.matrix()
+palm.richness <- data.frame(tdwg3.code    = rownames(pres.abs.matrix),
+                            palm.richness = rowSums(pres.abs.matrix)
+                            )
+
 realm.tdwg3 <- list(new.world = tdwg3.info[which(tdwg3.info$realm == "NewWorld"),
                                            "tdwg3.code"],
                     old.world.west = tdwg3.info[which(tdwg3.info$realm == "OWWest"),
@@ -116,7 +123,6 @@ realm.tdwg3 %<>% {
         }
         )
 }
-
 # Then, for each realm, extract the present species
 realm.species <- llply(realm.tdwg3,
                        function(realm) {
@@ -141,18 +147,32 @@ trait.matrix <-
 # This will be useful:
 trait.names <- colnames(trait.matrix)
 
-# ----------------------------------------
-# Randomly sampling null model communities
-# ----------------------------------------
-cat("Randomly sampling null model communities from realm species pool...\n")
-# For each tdwg3 unit in each realm, get the palm richness and sample that many
-# species from the realm species pool, without replacement,
-# and combine results into a list.
-# Do not use tdwg3.info$palm.richness, but use the presence/absence matrix,
-# because trait-filling may have excluded some species.
-palm.richness <- data.frame(tdwg3.code    = rownames(pres.abs.matrix),
-                            palm.richness = rowSums(pres.abs.matrix)
-                            )
+
+#############################
+# Running the Null Model test
+#############################
+#
+# This is a complicated multi-step procedure.
+# The code is wrapped inside a function.
+
+NullModelOne <- function(verbose) {
+#
+# Args:
+#   verbose: output extended info about progress.
+#
+# Returns:
+#
+
+  # ----------------------------------------
+  # Randomly sampling null model communities
+  # ----------------------------------------
+  if (verbose) {
+    cat("Randomly sampling null model communities from realm species pool...\n")
+  }
+  # For each tdwg3 unit in each realm, get the palm richness and sample that many
+  # species from the realm species pool, without replacement,
+  # and combine results into a list.
+
 # The FD requirement species > traits applies to functionally unique species.
 # That means it does NOT suffice to have richness > 3 (our number of traits).
 # Rather, we need > 3 species with unique trait combinations. 
