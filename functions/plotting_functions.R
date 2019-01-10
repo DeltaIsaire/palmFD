@@ -23,7 +23,7 @@ source(file="functions/base_functions.R")
 
 
 Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
-                        xlab = NULL, ylab = NULL) {
+                        xlab = NULL, ylab = NULL, title = NULL) {
 # Wrapper function of plot() for making scatterplots.
 # Helps creating scatterplots by automatically implementing good default
 # parameters and plotting options. Makes it simple to quickly generate
@@ -36,6 +36,9 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
 #   pch: plotting symbol for points (see ?par for details). Default is 21
 #        (hollow circles)
 #   col: Color for plotted points. Default is black.
+#   xlab: optional character string giving name for x-axis
+#   ylab: optional character string giving name for y-axis
+#   title: optional character string giving title for plot
 #
 # Returns:
 #   A new plot frame with the plot. In addition, Scatterplot sets custom
@@ -51,36 +54,41 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
     data %<>% .[complete.cases(.), ]
     warning("Omitted pairwise observations with missing values")
   }
- # set margins to be nicely narrow
- par(mar = c(4.1, 4.1, .5, .5))
- # Initiate plot, but do not plot values yet
- plot(y ~ x, 
-      data = data, 
-      type = "n", 
-      ylim = if (min(y) < 0) {
-               c(1.02 * min(y), 1.02 * max(y))
-             } else {      
-               c(0, 1.02 * max(y))
-             } ,
-      xlab = if (!is.null(xlab)) {
-               xlab
-             } else {
-               if (length(names(x)) > 0) {
-                 names(x)
-               } else {
-                 "x"
-               }
-             } ,
-      ylab = if (!is.null(ylab)) {
-               ylab
-             } else {
-               if (length(names(y)) > 0) {
-                 names(y)
-               } else {
-                 "y"
-               }
-             }
-      )
+  # set margins to be nicely narrow
+  if (is.null(title)) {
+    par(mar = c(4.1, 4.1, .5, .5))
+  } else {
+    par(mar = c(4.1, 4.1, 2.1, .5))
+  }
+  # Initiate plot, but do not plot values yet
+  plot(y ~ x, 
+       data = data, 
+       type = "n", 
+       ylim = if (min(y) < 0) {
+                c(1.02 * min(y), 1.02 * max(y))
+              } else {      
+                c(0, 1.02 * max(y))
+              } ,
+       xlab = if (!is.null(xlab)) {
+                xlab
+              } else {
+                if (length(names(x)) > 0) {
+                  names(x)
+                } else {
+                  "x"
+                }
+              } ,
+       ylab = if (!is.null(ylab)) {
+                ylab
+              } else {
+                if (length(names(y)) > 0) {
+                  names(y)
+                } else {
+                  "y"
+                }
+              },
+       main = title
+       )
   # Set background color for plotting region. Color is very light grey.
   rect(par("usr")[1], 
        par("usr")[3], 
