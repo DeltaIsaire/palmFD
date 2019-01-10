@@ -11,7 +11,8 @@
 #   output/test/test_palm_tdwg3_pres_abs_filled.csv
 #   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
 # Generated output files:
-#
+#   graphs/test/test_scatter_fric_vs_richness.svg
+#   graphs/test/test_scatter_fric_vs_richness_singles.svg
 
 
 cat("Loading required packages and functions...\n")
@@ -86,8 +87,11 @@ fd.single.unfilled[, "richness"] <- rowSums(pres.abs.unfilled)
 # Functional Richness of palms in tdwg3 units
 #############################################
 
-# Correlation of single trait FRic (range) with palm richness
-# -----------------------------------------------------------
+# -------------------------------------------
+# Correlating FRic (range) with palm richness
+# -------------------------------------------
+cat("Correlating FRic with palm richness...\n")
+
 fric.list <- 
   list(all.filled      = fd.filled[, c("FRic", "richness")],
        all.unfilled    = fd.unfilled[, c("FRic", "richness")],
@@ -124,36 +128,105 @@ fric.mods.summary <-
 
 # graphs of correlations
 # ----------------------
-# Gap-filled data:
-Scatterplot(x = fd.filled$richness,
-            y = fd.filled$FRic,
-            xlab = "Species richness",
-            ylab = "Functional richness"
-            )
-lines(x = fd.filled$richness, y = predict(mod.richness.filled))
-# Unfilled data:
-Scatterplot(x = fd.unfilled$richness,
-            y = fd.unfilled$FRic,
-            xlab = "Species richness",
-            ylab = "Functional richness"
-            )
-lines(x = fd.unfilled$richness, y = predict(mod.richness.unfilled))
+RichRichPlot <- function() {
+  par(mfrow = c(1, 2))
+  # Gap-filled data:
+  Scatterplot(x = fd.filled$richness,
+              y = fd.filled$FRic,
+              xlab = "Species richness",
+              ylab = "Functional richness",
+              title = "Gap-filled dataset"
+              )
+  lines(x = fd.filled$richness, y = predict(mod.richness.filled))
+  # Unfilled data:
+  Scatterplot(x = fd.unfilled$richness,
+              y = fd.unfilled$FRic,
+              xlab = "Species richness",
+              ylab = "Functional richness",
+              title = "Unfilled dataset"
+              )
+  lines(x = fd.unfilled$richness, y = predict(mod.richness.unfilled))
+}
+GraphSVG(RichRichPlot(),
+         file = "graphs/test/test_scatter_fric_vs_richness.svg",
+         width = 12,
+         height = 4
+         )
 # WORD OF CAUTION: From these graphs the correlation appears to be curvilinear,
-# not linear. There appears to be a saturation effect, which makes sense.
+# not linear. There appears to be a slight saturation effect, which makes sense.
 
 # Single traits:
-singlesPlot <- function() {
-  
+SinglesPlot <- function() {
+  par(mfrow = c(3, 2))
+  for (i in c(3, 6, 4, 7, 5, 8)) { 
+    Scatterplot(x = fric.list[[i]][ ,2],
+                y = fric.list[[i]][ ,1],
+                xlab = names(fric.list[[i]])[2],
+                ylab = names(fric.list[[i]])[1],
+                title = names(fric.list)[i]
+                )
+    lines(x = fric.list[[i]][ ,2], y = predict(fric.mods[[i]]))
+  }
+}
+GraphSVG(SinglesPlot(),
+         file = "graphs/test/test_scatter_fric_vs_richness_singles.svg",
+         width = 8,
+         height = 8
+         )
+# Those are curvilinear relationships with much stronger saturation!
 
-# A single trait sample plot:
-Scatterplot(x = fd.single.filled$richness,
-            y = fd.single.filled$height.FRic,
-            xlab = "Species richness",
-            ylab = "Functional richness (stem height)"
-            )
-lines(x = fd.single.filled$richness, y = predict(fric.mods[[3]]))
+
+# -------------------------------------------
+# Plotting Functional Richness in tdwg3 units
+# -------------------------------------------
+cat("Plotting FRic in tdwg3 units...\n")
 
 
+
+###############################################
+# Functional Dispersion of palms in tdwg3 units
+###############################################
+
+# -----------------------------------
+# Correlating FDis with palm richness
+# -----------------------------------
+cat("Correlating FDis with palm richness...\n")
+
+fdis.list <- 
+  list(all.filled      = fd.filled[, c("FDis", "richness")],
+       all.unfilled    = fd.unfilled[, c("FDis", "richness")],
+       height.filled   = fd.single.filled[, c("height.FDis", "richness")],
+       blade.filled    = fd.single.filled[, c("blade.FDis", "richness")],
+       fruit.filled    = fd.single.filled[, c("fruit.FDis", "richness")],
+       height.unfilled = fd.single.unfilled[, c("height.FDis", "richness")],
+       blade.unfilled  = fd.single.unfilled[, c("blade.FDis", "richness")],
+       fruit.unfilled  = fd.single.unfilled[, c("fruit.FDis", "richness")]
+       )
+fdis.mods <- llply(fdis.list,
+                   function(x) {
+                     lm(paste(names(x)[1], "~", names(x)[2]),
+                        data = x
+                        )
+                   }
+                   )
+fdis.mods.summary <-
+  data.frame(FDis.trait = names(fdis.list),
+             p.value    = laply(fdis.mods,
+                                function(x) {
+                                  summary(x)$coefficients[8]
+                                }
+                                ),
+             R.squared  = laply(fdis.mods,
+                                function(x) {
+                                  summary(x)$r.squared
+                                }
+                                )
+             )
+# No significant correlations, except for blade.unfilled which
+# has p-value < 0.01, but R-squared fo only 0.07.
+# So functional dispersion is not correlated with species richness.
+# Of course FDis isn't correlated with richness by design, so these tests
+# are merely a checksum anyway.
 
 
 cat("Done.\n")
