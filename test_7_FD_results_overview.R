@@ -18,6 +18,9 @@
 cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
+library(sf)
+library(ggplot2)
+theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
@@ -82,6 +85,26 @@ fd.single.filled[, "richness"] <- rowSums(pres.abs.filled)
 fd.unfilled[, "richness"] <- rowSums(pres.abs.unfilled)
 fd.single.unfilled[, "richness"] <- rowSums(pres.abs.unfilled)
 
+# Load spatial map:
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
+# Note I am using the 'sf' spatial format instead of 'SpatialPolygonsDataFrame'.
+# The sf package with function sf::read_sf is more modern than using rgdal::readOGR.
+# Instead of using ggplot2::fortify() and geom_polygon(), 
+# we just use geom_sf() with the 'sf' object, like so:
+basic.plot <- ggplot(data = tdwg.map) + geom_sf()
+# The geom_sf() function is included in the github version of ggplot2, but not
+# in the CRAN version.
+# For info and tutorial see https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html
+#
+# Spatial data and FD index data can be merged with merge():
+spatial.filled <- merge(x = tdwg.map,
+                        y = fd.filled,
+                        by.x = "LEVEL_3_CO",
+                        by.y = "TDWG3",
+                        all.x = TRUE
+                        )
+
 
 #############################################
 # Functional Richness of palms in tdwg3 units
@@ -137,7 +160,7 @@ RichRichPlot <- function() {
               ylab = "Functional richness",
               title = "Gap-filled dataset"
               )
-  lines(x = fd.filled$richness, y = predict(mod.richness.filled))
+  lines(x = fd.filled$richness, y = predict(fric.mods[[1]]))
   # Unfilled data:
   Scatterplot(x = fd.unfilled$richness,
               y = fd.unfilled$FRic,
@@ -145,7 +168,7 @@ RichRichPlot <- function() {
               ylab = "Functional richness",
               title = "Unfilled dataset"
               )
-  lines(x = fd.unfilled$richness, y = predict(mod.richness.unfilled))
+  lines(x = fd.unfilled$richness, y = predict(fric.mods[[2]]))
 }
 GraphSVG(RichRichPlot(),
          file = "graphs/test/test_scatter_fric_vs_richness.svg",
@@ -157,8 +180,8 @@ GraphSVG(RichRichPlot(),
 
 # Single traits:
 SinglesPlot <- function() {
-  par(mfrow = c(3, 2))
-  for (i in c(3, 6, 4, 7, 5, 8)) { 
+  par(mfrow = c(2, 3))
+  for (i in c(3, 4, 5, 6, 7, 8)) { 
     Scatterplot(x = fric.list[[i]][ ,2],
                 y = fric.list[[i]][ ,1],
                 xlab = names(fric.list[[i]])[2],
@@ -171,16 +194,25 @@ SinglesPlot <- function() {
 GraphSVG(SinglesPlot(),
          file = "graphs/test/test_scatter_fric_vs_richness_singles.svg",
          width = 8,
-         height = 8
+         height = 4
          )
 # Those are curvilinear relationships with much stronger saturation!
-
 
 # -------------------------------------------
 # Plotting Functional Richness in tdwg3 units
 # -------------------------------------------
 cat("Plotting FRic in tdwg3 units...\n")
 
+plot.fric.filled <-
+  ggplot(data = spatial.filled) +
+         geom_sf(color = "black", aes(fill = FRic)) +
+         scale_fill_viridis_c(option = "plasma") +
+         ggtitle("Distribution of FRic (gap-filled dataset)")
+ggsave(plot = plot.fric.filled,
+       filename = "graphs/test/test_distribution_FRic_filled.png",
+       width = 8,
+       height = 4
+       )
 
 
 ###############################################
@@ -228,6 +260,21 @@ fdis.mods.summary <-
 # Of course FDis isn't correlated with richness by design, so these tests
 # are merely a checksum anyway.
 
+# -------------------------------------------
+# Plotting Functional Dispersion in tdwg3 units
+# -------------------------------------------
+cat("Plotting FDis in tdwg3 units...\n")
+
+plot.fdis.filled <-
+  ggplot(data = spatial.filled) +
+         geom_sf(color = "black", aes(fill = FDis)) +
+         scale_fill_viridis_c(option = "plasma") +
+         ggtitle("Distribution of FDis (gap-filled dataset)")
+ggsave(plot = plot.fdis.filled,
+       filename = "graphs/test/test_distribution_FDis_filled.png",
+       width = 8,
+       height = 4
+       )
 
 cat("Done.\n")
 
