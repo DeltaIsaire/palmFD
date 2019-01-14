@@ -53,8 +53,8 @@ source(file = "test_4_gapfilling_error.R")
 cat("Calculating functional diversity indices:\n")
 source(file = "test_5_FD_indices.R")
 
-cat("Generating FD null model one:\n")
-source(file = "test_6_FD_null_model_one.R")
+cat("Generating FD null model \"regional\":\n")
+source(file = "test_6_FD_null_model_regional.R")
 
 cat("Finished running all test scripts.\n")
 

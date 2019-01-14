@@ -30,6 +30,10 @@ library(plyr)
 library(FD)
 
 source(file = "functions/base_functions.R")
+source(file = "functions/functional_diversity_functions.R")
+
+# Subset FD input for quick code testing?
+subset <- FALSE
 
 
 ####################################################
@@ -58,14 +62,11 @@ ToMatrix <- function(x) {
   # values are weird. Or put more accurately, log transformation is symmetrical
   # around unity, not around zero.
   # Solution:
-  # Transform stem height from m to cm,
-  # Transform blade length from m to cm,
-  # Transform fruit length from cm to mm.
-  # After log-transformation, substitute -Inf with 0.
+  # Add +1 to all observed trait values prior to log10-transformation
   data <-
-    data.frame(stem.height  = log10(data[, "stem.height"] * 100),
-               blade.length = log10(data[, "blade.length"] * 100),
-               fruit.length = log10(data[, "fruit.length"] * 10)
+    data.frame(stem.height  = log10(data[, "stem.height"] + 1),
+               blade.length = log10(data[, "blade.length"] + 1),
+               fruit.length = log10(data[, "fruit.length"] + 1)
                ) %>%
     as.matrix()
   data[which(data == -Inf)] <- 0
@@ -177,112 +178,45 @@ write.csv(pres.abs.unfilled,
 ##################################
 cat("Calculating Functional Diversity indices... (this may take a while)\n")
 
-RunFD <- function(trait.matrix, pres.abs.matrix, subset = FALSE) {
-# Wrapper function to run FD for the given dataset.
-# Output is a list, where the first element is the output of FD using all traits,
-# and further elements are the output of FD using single traits.
-# If subset is true, FD is calculated only for the first 10 communities,
-# which reduces the function runtime. Obviously that is for testing purposes.
-  if (subset) {
-    pres.abs <- pres.abs.matrix[1:10, ]
-    orphaned.species <-
-      which(colSums(pres.abs) == 0) %>%
-      colnames(pres.abs)[.]
-    pres.abs %<>% .[, -which(colSums(.) == 0)]
-    indices <- CrossCheck(x = rownames(trait.matrix),
-                          y = orphaned.species,
-                          presence = TRUE,
-                          value = FALSE
+cat("(1) for the gap-filled dataset:\n")
+output.all <- RunFD(matrix.filled,
+                    pres.abs.filled,
+                    subset = subset,
+                    verbose = TRUE
+                    )
+output.single <- SingleFD(matrix.filled,
+                          pres.abs.filled,
+                          subset = subset,
+                          verbose = TRUE
                           )
-    traits <- trait.matrix[-indices, ]
-  } else {
-  pres.abs <- pres.abs.matrix
-  traits <- trait.matrix
-  }
-  cat("Using trait dataset with",
-      dim(pres.abs)[2],
-      "species occurring in",
-      dim(pres.abs)[1],
-      "botanical countries.\n"
-      )
+fd.indices.filled <- c(list(all.traits = output.all), output.single)
 
-  # FD using all traits
-  # -------------------
-  cat("(1) FD with all traits...\n")
-  output.all <- suppressWarnings(dbFD(x = traits,
-                                      a = pres.abs,
-                                      w.abun = FALSE,
-                                      stand.x = TRUE,
-                                      corr = "cailliez",  # Is this the best option?
-                                      calc.FRic = TRUE,
-                                      m = "max",
-                                      stand.FRic = FALSE,  # Would this be useful?
-                                      calc.CWM = TRUE,
-                                      calc.FDiv = FALSE,
-                                      messages = TRUE
-                                      )
-                                 )
-  # Structure of output.all:
-  # $nbsp      - number of species in each community.
-  # $sing.sp   - number of species with a unique trait combination in each community.
-  # $FRic      - Functional Richness of each community. WE WANT THIS.
-  # $qual.FRic - Quality of reduced-space representation of FD. In our case, space
-  #              reduction should not be necessary, so this value should be 1.
-  # $FEve      - Functional Evenness for each community.
-  # $FDis      - Functional Dispersion of each community. WE WANT THIS.
-  # $RaoQ      - Rao's quadratic entropy (Q) of each community.
-  # $CWM       - Data frame with community-weighted mean trait values. We use
-  #              presence/absence data so there is no weighing in our case.
-  #              So for us, this is the mean trait value in each community.
-  #              COULD BE USEFUL.
+cat("(2) For the unfilled dataset:\n")
+output.all <- RunFD(matrix.unfilled,
+                    pres.abs.unfilled,
+                    subset = subset,
+                    verbose = TRUE
+                    )
+output.single <- SingleFD(matrix.unfilled,
+                          pres.abs.unfilled,
+                          subset = subset,
+                          verbose = TRUE
+                          )
+fd.indices.unfilled <- c(list(all.traits = output.all), output.single)
 
-  # FD for single traits
-  # --------------------
-  cat("(2) FD for single traits:\n")
-  Temp <- function(trait) {
-    cat(trait, "...\n")
-    subset.matrix <-
-      traits[, trait] %>%
-      as.matrix()
-    colnames(subset.matrix) <- trait
-    fd.trait <- suppressWarnings(dbFD(x = subset.matrix,
-                                      a = pres.abs,
-                                      w.abun = FALSE,
-                                      stand.x = TRUE,
-                                      corr = "cailliez",  # Is this the best option?
-                                      calc.FRic = TRUE,
-                                      m = "max",
-                                      stand.FRic = FALSE,  # Would this be useful?
-                                      calc.CWM = FALSE,
-                                      calc.FDiv = FALSE,
-                                      messages = TRUE
-                                      )
-                                 )
-    fd.trait
-  }
-  output.stem.height  <- suppressWarnings(Temp(trait.names[1]))
-  output.blade.length <- suppressWarnings(Temp(trait.names[2]))
-  output.fruit.length <- suppressWarnings(Temp(trait.names[3]))
-  # Zero distance(s)' warning means some species within the same community
-  # had identical coordinates in functional space. This is not a problem
-  # so we can ignore these warnings.
-
-  # Gather results:
-  # ---------------
-  list(output.all,
-       output.stem.height,
-       output.blade.length,
-       output.fruit.length
-       )
-}
-
-# ----------------------
-# Run the RunFD function
-# ----------------------
-cat("(A) for the gap-filled dataset:\n")
-fd.indices.filled <- RunFD(matrix.filled, pres.abs.filled, subset = FALSE)
-cat("(B) for the unfilled dataset:\n")
-fd.indices.unfilled <- RunFD(matrix.unfilled, pres.abs.unfilled, subset = FALSE)
+# Structure of FD output list:
+# $nbsp      - number of species in each community.
+# $sing.sp   - number of species with a unique trait combination in each community.
+# $FRic      - Functional Richness of each community. WE WANT THIS.
+# $qual.FRic - Quality of reduced-space representation of FD. In our case, space
+#              reduction should not be necessary, so this value should be 1.
+# $FEve      - Functional Evenness for each community.
+# $FDis      - Functional Dispersion of each community. WE WANT THIS.
+# $RaoQ      - Rao's quadratic entropy (Q) of each community.
+# $CWM       - Data frame with community-weighted mean trait values. We use
+#              presence/absence data so there is no weighing in our case.
+#              So for us, this is the mean trait value in each community.
+#              COULD BE USEFUL.
 
 
 ########################
@@ -305,13 +239,13 @@ ParseOutput <- function(output, name) {
             row.names = FALSE
             )
   # FD indices for single traits
-  single.fd <- data.frame(TDWG3       = names(output[[1]]$nbsp),
-                          height.FRic = output[[2]]$FRic,
-                          height.FDis = output[[2]]$FDis,
-                          blade.FRic  = output[[3]]$FRic,
-                          blade.FDis  = output[[3]]$FDis,
-                          fruit.FRic  = output[[4]]$FRic,
-                          fruit.FDis  = output[[4]]$FDis
+  single.fd <- data.frame(TDWG3              = names(output[[1]]$nbsp),
+                          stem.height.FRic   = output[[2]]$FRic,
+                          stem.height.FDis   = output[[2]]$FDis,
+                          blade.length.FRic  = output[[3]]$FRic,
+                          blade.length.FDis  = output[[3]]$FDis,
+                          fruit.length.FRic  = output[[4]]$FRic,
+                          fruit.length.FDis  = output[[4]]$FDis
                           )
   write.csv(single.fd,
             file = paste0("output/test/test_fd_indices_single_traits_",
