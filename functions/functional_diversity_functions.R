@@ -12,6 +12,7 @@
 # FUNCTION LIST:
 # RunFD
 # SingleFD
+# RandomSpecies
 
 
 library(plyr)
@@ -150,5 +151,124 @@ SingleFD <- function(trait.matrix,
   }
   names(output.list) <- colnames(trait.matrix)
   output.list
+}
+
+
+RandomSpecies <- function(communities, richness, species, trait.matrix,
+                          verbose = TRUE) {
+# A helpful function for generating null models. 
+# For each community, get the species richness and sample that many
+# species from the (group) species pool, without replacement,
+# and combine results into a list.
+#
+# The FD requirement species > traits applies to functionally unique species.
+# That means it does NOT suffice to have richness > 3 (our number of traits).
+# Rather, we need > 3 species with unique trait combinations. 
+# This happens to be the case for our real dataset, but is not automatically
+# guaranteed for the null model samples.
+# So we have to enforce this explicitly, by resampling until this condition
+# is satisfied.
+#
+# If grouping is used, the groups in 'communities' and 'species' should be
+# equal in number, and group names should match.
+#
+# Args:
+#   communities: character vector giving community names for which to sample
+#                species. Or, a list where each element gives the community
+#                names belonging to a group of communities.
+#   richness: dataframe where the first column is a vector of community names
+#             and the second column is a vector of species richness for these
+#             communities.
+#   species: character vector giving the names of species in the species pool.
+#            Or, a list where each element gives the species pool for a group
+#            of communities.
+#   trait.matrix: A matrix with observed numerical trait values in columns,
+#                 without NAs, and rownames with species names. Used to
+#                 verify the S > T criterion.
+#  verbose: Logical indicating whether to print progress messages.
+#
+# Returns: 
+#   A list giving the randomly sampled species names for each community
+
+  # parse and check input
+  if (is.list(communities)) {
+    areas <- communities
+  } else {
+  areas <- list(group = communities)
+  }
+  if (is.list(species)) {
+  list.species <- species
+  } else {
+  list.species <- list(group = species)
+  }
+  if (!identical(names(areas), names(list.species))) {
+    stop("group names in lists 'communities' and 'species' do not match")
+  }
+  areas %<>% .[order(names(.))]
+  list.species %<>% .[order(names(.))]
+  # Run sampling routine
+  do.sample <- TRUE
+  sampling.iterations <- 0
+  while (do.sample) {
+    random.species <- rep(list(NULL), length = length(unlist(areas)))
+    i <- 1
+    for (group in seq_along(areas)) {
+      for (area in seq_along(areas[[group]])) {
+        area.richness <-
+          richness %>% {
+            .[which(.[1] == areas[[group]][area]), 2]
+          }
+        indices <-
+          runif(n = area.richness * 3,
+                min = 1,
+                max = length(list.species[[group]])
+                ) %>%
+          round() %>%
+          unique() %>%
+          .[seq_len(area.richness)]
+        random.species[[i]] <- list.species[[group]][indices]
+        names(random.species)[i] <- areas[[group]][area]
+        i <- i + 1
+      }
+    }
+    random.species %<>% .[order(names(.))]
+    # Check if uniqueness condition is satisfied:
+    # Step 1: assemble trait values for species in each community
+    sample.traits <-
+      llply(random.species,
+            function(area) {
+              indices <- CrossCheck(x = rownames(trait.matrix),
+                                    y = area,
+                                    presence = TRUE,
+                                    value = FALSE
+                                    )
+              trait.matrix[indices, ]
+            }
+            )
+    # Step 2: Identify communities with < 4 unique trait combinations
+    sample.counts <-
+      llply(sample.traits,
+            function(area) {
+              count(area) %>%
+                nrow()
+            }
+            ) %>%
+      simplify2array()
+    resample <- names(sample.counts)[sample.counts < 4]
+    # Step 3: evaluate
+    if (identical(length(resample), as.integer(0))) {
+      do.sample <- FALSE
+    } else {
+      do.sample <- TRUE
+    }
+    sampling.iterations %<>% + 1
+    if (sampling.iterations > 99) {
+      stop("Unable to satisfy criterion S > T within 99 sampling attempts")
+    }
+  }
+  if (verbose) {
+    cat("Null model sampling required", sampling.iterations, "sampling attempts\n")
+  }
+  random.species
 }
 
