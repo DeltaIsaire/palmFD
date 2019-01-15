@@ -147,13 +147,27 @@ realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
                     )
 
 
-test <- NullModel(trait.matrix = traits.filled,
-                  pres.abs.matrix = pres.abs.filled,
-                  groups = realm.tdwg3,
-                  process.dir = "output/test/nullmodel_regional/",
-                  subset = subset,
-                  verbose = verbose
-                  )
+test.filled <-
+  NullModel(trait.matrix = traits.filled,
+            pres.abs.matrix = pres.abs.filled,
+            groups = realm.tdwg3,
+            process.dir = "output/test/nullmodel_regional/gapfilled/",
+            iterations = 10,
+            mc.cores = num.cores,
+            subset = subset,
+            verbose = verbose
+            )
+
+test.unfilled <-
+  NullModel(trait.matrix = traits.filled,
+            pres.abs.matrix = pres.abs.filled,
+            groups = realm.tdwg3,
+            process.dir = "output/test/nullmodel_regional/unfilled/",
+            iterations = 10,
+            mc.cores = num.cores,
+            subset = subset,
+            verbose = verbose
+            )
 
 cat("Done.\n")
 

@@ -20,7 +20,7 @@ library(plyr)
 library(magrittr)
 library(FD)
 library(reshape2)
-
+library(parallel)
 
 
 RunFD <- function(trait.matrix,
@@ -275,8 +275,17 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
 }
 
 
-NullModel <- function(trait.matrix, pres.abs.matrix, groups, process.dir,
-                      subset, verbose) {
+NullModel <- function(trait.matrix,
+                      pres.abs.matrix,
+                      groups = list(rownames(pres.abs.matrix)),
+                      process.dir,
+                      iterations = 100,
+                      mc.cores = getOption("mc.cores", 2L) - 1,
+                      subset,
+                      verbose) {
+# Generate a null model for the given dataset, returning functional richness
+# (FRic) and functional dispersion (FDis) computed for all traits and for each
+# individual trait.
 #
 # Args:
 #   trait.matrix: A matrix with observed numerical trait values in columns,
@@ -288,142 +297,211 @@ NullModel <- function(trait.matrix, pres.abs.matrix, groups, process.dir,
 #   groups: A list of character vectors giving the community names belonging
 #           to each group (list element). Community names must match the
 #           rownames of the pres.abs.matrix. The list can be of length 1 (i.e.
-#           only one group)
+#           only one group, also the default)
 #   process.dir: character string giving the name of a processing directory
 #                to store intermediate files (with a trailing /). Will be created
 #                if it doesn't exist.
+#   iterations: number of random samples for which to calculate the FD.
+#   mc.cores: number of cores to use for parallel processing of iterations
+#             (by passing the argument to 'parallel:mclapply')
 #   subset: Logical indicating whether to subset the data to only the first 10
 #           tdwg3 units. This speeds up code execution, for testing purposes.
 #   verbose: output extended info about progress?
 #
 # Returns:
-#
-  iteration <- 1
-  # Extract species list for each group
-  # -----------------------------------
+#   A nested list with 8 dataframes containing sampled FD indices for each
+#   community.
   if (verbose) {
-    cat("Building species list for each group...\n")
+    cat("Generating null model with", iterations, "samples\n")
   }
-  # First, extract list of communities for each group that has palms,
-  # based on the presence/absence matrix.
-  richness <- data.frame(community = rownames(pres.abs.matrix),
-                         richness  = rowSums(pres.abs.matrix)
-                         )
-  groups.subset <- {
-    llply(groups,
-          function(group) {
-            CrossCheck(x = rownames(pres.abs.matrix),
-                       y = group,
-                       presence = TRUE,
-                       value = TRUE
-                       )
-          }
-          )
-  }
-  # Then, for each group, extract the present species
-  group.species <- llply(groups.subset,
-                         function(group) {
-                           indices <- CrossCheck(x = rownames(pres.abs.matrix),
-                                                 y = group,
-                                                 presence = TRUE,
-                                                 value = FALSE
-                                                 )
-                           pres.abs.subset <- pres.abs.matrix[indices, ]
-                           species <-
-                             pres.abs.subset %>%
-                             { colnames(.)[which(colSums(.) > 0)] }
-                           species
-                         }
-                         )
-
-  # Randomly sampling null model communities
-  # ----------------------------------------
-  if (verbose) {
-    cat("Randomly sampling null model communities from realm species pool...\n")
-  }
-  # We need a new presence/absence matrix of randomly sampled species for our
-  # communities.
-  nm.species <- RandomSpecies(communities = groups.subset,
-                              richness = richness,
-                              species = group.species,
-                              trait.matrix = trait.matrix,
-                              verbose = verbose
-                              )
-  nm.species %<>% melt(., value.name = "species")
-  # Melt is an awesome function but its output is a mess, so restructure:
-  names(nm.species)[2] <- "community"
-  nm.species[, 2] %<>% as.factor()
-  nm.species %<>% .[, c(2, 1)]
-  # Then transform:
-  nm.pres.abs <-
-    table(nm.species) %>%
-    as.data.frame.matrix() %>%
-    as.matrix()
-  nm.pres.abs %<>% .[, order(colnames(.))]
-  # Subset trait matrix to species in the null model
-  indices <- CrossCheck(x = rownames(trait.matrix),
-                        y = colnames(nm.pres.abs),
-                        presence = TRUE,
-                        value = FALSE
-                        )
-  trait.matrix.subset <- trait.matrix[indices, ]
-
-  # Calculating Functional Diversity
-  # --------------------------------
-  if (verbose) {
-    cat("Calculating Functional Diversity indices... (this may take a while)\n")
-  }
-  # FD using all traits
-  if (verbose) {
-    cat("(1) FD with all traits...\n")
-  }
-  output.all <- RunFD(trait.matrix.subset,
-                      nm.pres.abs,
-                      subset = subset,
-                      verbose = verbose
-                      )
-  # FD for single traits
-  if (verbose) {
-    cat("(2) FD for single traits:\n")
-  }
-  output.single <- SingleFD(trait.matrix.subset,
-                            nm.pres.abs,
-                            subset = subset,
-                            verbose = verbose
+  iteration.list <-
+    seq_len(iterations) %>%
+    as.array() %>%
+    t() %>%
+    as.list()
+  mclapply(iteration.list,
+           mc.cores = mc.cores,
+           FUN = function(iteration) {
+    if (!file.exists(paste0(process.dir,
+                            "FD_null_model_iteration_",
+                            iteration,
+                            ".csv"
                             )
-  # gather results
-  fd.indices <- c(list(all.traits = output.all), output.single)
-
-  # Parse and save results
-  # ----------------------
+                     )
+        ) {
+      if (verbose) {
+        cat("---------------------\n")
+        cat("Iteration", iteration, "\n")
+        cat("---------------------\n")
+      }
+      # Extract species list for each group
+      # -----------------------------------
+      if (verbose) {
+        cat("Building species list for each group...\n")
+      }
+      # First, extract list of communities for each group that has palms,
+      # based on the presence/absence matrix.
+      richness <- data.frame(community = rownames(pres.abs.matrix),
+                             richness  = rowSums(pres.abs.matrix)
+                             )
+      groups.subset <- {
+        llply(groups,
+              function(group) {
+                CrossCheck(x = rownames(pres.abs.matrix),
+                           y = group,
+                           presence = TRUE,
+                           value = TRUE
+                           )
+              }
+              )
+      }
+      # Then, for each group, extract the present species
+      group.species <- llply(groups.subset,
+                             function(group) {
+                               indices <- CrossCheck(x = rownames(pres.abs.matrix),
+                                                     y = group,
+                                                     presence = TRUE,
+                                                     value = FALSE
+                                                     )
+                               pres.abs.subset <- pres.abs.matrix[indices, ]
+                               species <-
+                                 pres.abs.subset %>%
+                                 { colnames(.)[which(colSums(.) > 0)] }
+                               species
+                             }
+                             )
+  
+      # Randomly sampling null model communities
+      # ----------------------------------------
+      if (verbose) {
+        cat("Randomly sampling null model communities from realm species pool...\n")
+      }
+      # We need a new presence/absence matrix of randomly sampled species for our
+      # communities.
+      nm.species <- RandomSpecies(communities = groups.subset,
+                                  richness = richness,
+                                  species = group.species,
+                                  trait.matrix = trait.matrix,
+                                  verbose = verbose
+                                  )
+      nm.species %<>% melt(., value.name = "species")
+      # Melt is an awesome function but its output is a mess, so restructure:
+      names(nm.species)[2] <- "community"
+      nm.species[, 2] %<>% as.factor()
+      nm.species %<>% .[, c(2, 1)]
+      # Then transform:
+      nm.pres.abs <-
+        table(nm.species) %>%
+        as.data.frame.matrix() %>%
+        as.matrix()
+      nm.pres.abs %<>% .[, order(colnames(.))]
+      # Subset trait matrix to species in the null model
+      indices <- CrossCheck(x = rownames(trait.matrix),
+                            y = colnames(nm.pres.abs),
+                            presence = TRUE,
+                            value = FALSE
+                            )
+      trait.matrix.subset <- trait.matrix[indices, ]
+  
+      # Calculating Functional Diversity
+      # --------------------------------
+      if (verbose) {
+        cat("Calculating Functional Diversity indices... (this may take a while)\n")
+      }
+      # FD using all traits
+      if (verbose) {
+        cat("(1) FD with all traits...\n")
+      }
+      output.all <- RunFD(trait.matrix.subset,
+                          nm.pres.abs,
+                          subset = subset,
+                          verbose = verbose
+                          )
+      # FD for single traits
+      if (verbose) {
+        cat("(2) FD for single traits:\n")
+      }
+      output.single <- SingleFD(trait.matrix.subset,
+                                nm.pres.abs,
+                                subset = subset,
+                                verbose = verbose
+                                )
+      # gather results
+      fd.indices <- c(list(all.traits = output.all), output.single)
+  
+      # Parse and save results
+      # ----------------------
+      if (verbose) {
+        cat("Parsing and saving output...\n")
+      }
+      # Minimize clutter, so generate one file from a single dataframe
+      result <- data.frame(community          = names(fd.indices[[1]]$nbsp),
+                           all.traits.FRic    = fd.indices[[1]]$FRic,
+                           all.traits.FDis    = fd.indices[[1]]$FDis,
+                           stem.height.FRic   = fd.indices[[2]]$FRic,
+                           stem.height.FDis   = fd.indices[[2]]$FDis,
+                           blade.length.FRic  = fd.indices[[3]]$FRic,
+                           blade.length.FDis  = fd.indices[[3]]$FDis,
+                           fruit.length.FRic  = fd.indices[[4]]$FRic,
+                           fruit.length.FDis  = fd.indices[[4]]$FDis
+                           )
+      if (!dir.exists(process.dir)) {
+        dir.create(process.dir)
+      }
+      write.csv(result,
+                file = paste0(process.dir,
+                              "FD_null_model_iteration_",
+                              iteration,
+                              ".csv"
+                              ),
+                eol = "\r\n",
+                row.names = FALSE
+                )
+    }
+    return (0)
+  })
+  
+  # With all iterations complete, gather up the results
+  # ---------------------------------------------------
   if (verbose) {
-    cat("Parsing and saving output...\n")
+    cat("---------------------\n")
+    cat("Processing results...\n")
   }
-  # Minimize clutter, so generate one file from a single dataframe
-  result <- data.frame(community          = names(fd.indices[[1]]$nbsp),
-                       all.traits.FRic    = fd.indices[[1]]$FRic,
-                       all.traits.FDis    = fd.indices[[1]]$FDis,
-                       stem.height.FRic   = fd.indices[[2]]$FRic,
-                       stem.height.FDis   = fd.indices[[2]]$FDis,
-                       blade.length.FRic  = fd.indices[[3]]$FRic,
-                       blade.length.FDis  = fd.indices[[3]]$FDis,
-                       fruit.length.FRic  = fd.indices[[4]]$FRic,
-                       fruit.length.FDis  = fd.indices[[4]]$FDis
+  # First initialize a result list
+  template <- read.csv(file = paste0(process.dir,
+                                     "FD_null_model_iteration_1.csv"
+                                     ),
+                       header = TRUE
                        )
-  if (!dir.exists(process.dir)) {
-    dir.create(process.dir)
+  mat <- matrix(ncol = nrow(template),
+                nrow = iterations,
+                dimnames = list(seq_len(iterations), template[, 1])
+                )
+  null.model <- list(FRic = rep(list(mat), 4),
+                     FDis = rep(list(mat), 4)
+                     )
+  names <- c("all.traits", "stem.height", "blade.length", "fruit.length")
+  names(null.model$FRic) <- names
+  names(null.model$FDis) <- names
+  # And then fill the list with the data
+  for (i in seq_len(iterations)) {
+    data <- read.csv(file = paste0(process.dir,
+                                   "FD_null_model_iteration_",
+                                   i,
+                                   ".csv"
+                                   ),
+                     header = TRUE
+                     )
+    null.model[[1]] [[1]] [i, ] <- data[, 2]
+    null.model[[1]] [[2]] [i, ] <- data[, 4]
+    null.model[[1]] [[3]] [i, ] <- data[, 6]
+    null.model[[1]] [[4]] [i, ] <- data[, 8]
+    null.model[[2]] [[1]] [i, ] <- data[, 3]
+    null.model[[2]] [[2]] [i, ] <- data[, 5]
+    null.model[[2]] [[3]] [i, ] <- data[, 7]
+    null.model[[2]] [[4]] [i, ] <- data[, 9]
   }
-  write.csv(result,
-            file = paste0(process.dir,
-                          "FD_null_model_iteration_",
-                          iteration,
-                          ".csv"
-                          ),
-            eol = "\r\n",
-            row.names = FALSE
-            )
-
-  return (0)
+  null.model
 }
 
 
