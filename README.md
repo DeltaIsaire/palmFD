@@ -36,7 +36,7 @@ FD
 
 The code has been developed and tested on Linux Mint 18. I have tried to make the code fully compatible with Windows, but compatibility is not guaranteed.
 
-In particular, the null models for functional diversity are generated with parallel processing using 'parallel:mclapply'. This R function uses forking, which is not supported on Windows.
+In particular, the null models for functional diversity are generated with parallel processing using 'parallel::mclapply'. This R function uses forking, which is not supported on Windows.
 
 
 ## Running the code

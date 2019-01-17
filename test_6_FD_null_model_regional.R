@@ -13,13 +13,15 @@
 #   data/palms_in_tdwg3.csv
 #   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
 #   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
-#   output/test/test_palm_trait_matrix_transformed.csv
+#   output/test/test_palm_traits_transformed_gapfilled.csv
+#   output/test/test_palm_traits_transformed_unfilled.csv
 #   output/test/test_fd_indices_gapfilled.csv
 #   output/test/test_fd_indices_unfilled.csv
 # Generated output files:
 #   output/test/tdwg3_info.csv
 #   Null model processing directory: output/test/nullmodel_regional/
-#
+#   output/test/test_fd_z_scores_regional_gapfilled.csv
+#   output/test/test_fd_z_scores_regional_unfilled.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -195,13 +197,13 @@ fd.unfilled <- read.csv(file = "output/test/test_fd_indices_unfilled.csv",
 # -------------------------------------
 fd.regional.gapfilled <- NullTransform(fd.gapfilled, regional.gapfilled)
   write.csv(fd.regional.gapfilled,
-            file = "output/test/test_fd_z_scores_gapfilled.csv",
+            file = "output/test/test_fd_z_scores_regional_gapfilled.csv",
             eol = "\r\n",
             row.names = TRUE
             )
 fd.regional.unfilled <- NullTransform(fd.unfilled, regional.unfilled)
   write.csv(fd.regional.unfilled,
-            file = "output/test/test_fd_z_scores_unfilled.csv",
+            file = "output/test/test_fd_z_scores_regional_unfilled.csv",
             eol = "\r\n",
             row.names = TRUE
             )
