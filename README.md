@@ -24,21 +24,37 @@ See https://www.R-project.org/ for more information and installation instruction
 
 In addition, the following R packages are required:
 ```
+parallel - should come pre-installed with your R installation
 plyr
 magrittr
-BHPMF
+BHPMF - install with devtools::install_github("fisw10/BHPMF")
+reshape2
+FD
 ```
+
+### Compatibility with Windows
+
+The code has been developed and tested on Linux Mint 18. I have tried to make the code fully compatible with Windows, but compatibility is not guaranteed.
+
+In particular, the null models for functional diversity are generated with parallel processing using 'parallel:mclapply'. This R function uses forking, which is not supported on Windows.
+
 
 ## Running the code
 
-The main file (00_run_all.R) automatically executes all scripts in sensible order,
-thus providing a one-click way to re-generate all output. To run it, launch R and set the working directory to the root folder of the project. For example:
+There are two series of scripts.
+The first is the test series, whose filenames begin with 'test\_'. This script series is used for code development. There is a parent script ('00\_run\_all\_tests\_.R') that will automatically execute all test scripts.
+The second series of scripts are the main scripts, which are like the no-nonsense final version of the code. There is also a parent script for these ('00\_run\_all\_main.R').
+
+Each script contains a description of what it does, at the top of the file.
+
+To run any of the scripts, launch R and set the working directory to the root folder of the project. For example:
 ```
 setwd("/home/delta/R_Projects/palm_FD")
 ```
 
-Then you can run the script to execute all the code at once:
+Then you can run any of the scripts with source(). Keep in mind that each script requires the output of the previous script in the sequence, so for a first-time run you should execute the parent scripts.
 ```
-source(file="00_run_all.R")
+source(file = "00_run_all.R")
+source(file = "00_run_all_tests.R")
 ```
 

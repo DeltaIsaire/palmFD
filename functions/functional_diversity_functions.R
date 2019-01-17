@@ -14,6 +14,8 @@
 # SingleFD
 # RandomSpecies
 # NullModel
+# ZScore
+# NullTransform
 
 
 library(plyr)
@@ -42,8 +44,8 @@ RunFD <- function(trait.matrix,
 #          tdwg3 units. This speeds up code execution, for testing purposes.
 #  verbose: Logical indicating whether to print progress messages.
 #
-# Returns: A list with the output of function 'FD:dbFD' applied to the 
-#          provided dataset.
+# Returns:
+#   A list with the output of function 'FD:dbFD' applied to the provided dataset.
   if (subset) {
     pres.abs <- pres.abs.matrix[1:10, ]
     orphaned.species <-
@@ -109,9 +111,10 @@ SingleFD <- function(trait.matrix,
 #          tdwg3 units. This speeds up code execution, for testing purposes.
 #  verbose: Logical indicating whether to print progress messages.
 #
-# Returns: A list of the same length as the number of traits in the trait matrix,
-#          where each element is a list with the output of function 'FD:dbFD'
-#          applied to the dataset subsetted to a single trait. 
+# Returns:
+#   A list of the same length as the number of traits in the trait matrix,
+#   where each element is a list with the output of function 'FD:dbFD'
+#   applied to the dataset subsetted to a single trait. 
   if (is.null(colnames(trait.matrix))) {
     stop("trait matrix should have colnames to identify traits")
   }
@@ -142,7 +145,7 @@ SingleFD <- function(trait.matrix,
   output.list <- rep(list(NULL), ncol(trait.matrix))
   for (i in 1:ncol(trait.matrix)) {
     if (verbose) {
-      cat("Calculating FD for trait", names(trait.matrix)[i], "...\n")
+      cat("Calculating FD for trait", colnames(trait.matrix)[i], "...\n")
     }
     subset.matrix <- traits[, i, drop = FALSE]
     output.list[[i]] <- RunFD(trait.matrix = subset.matrix,
@@ -314,6 +317,9 @@ NullModel <- function(trait.matrix,
   if (verbose) {
     cat("Generating null model with", iterations, "samples\n")
   }
+  if (!dir.exists(process.dir)) {
+    dir.create(process.dir, recursive = TRUE)
+  }
   iteration.list <-
     seq_len(iterations) %>%
     as.array() %>%
@@ -445,9 +451,6 @@ NullModel <- function(trait.matrix,
                            fruit.length.FRic  = fd.indices[[4]]$FRic,
                            fruit.length.FDis  = fd.indices[[4]]$FDis
                            )
-      if (!dir.exists(process.dir)) {
-        dir.create(process.dir)
-      }
       write.csv(result,
                 file = paste0(process.dir,
                               "FD_null_model_iteration_",
@@ -502,6 +505,63 @@ NullModel <- function(trait.matrix,
     null.model[[2]] [[4]] [i, ] <- data[, 9]
   }
   null.model
+}
+
+
+ZScore <- function(x, y) {
+# Given a vector of FD index values and a corresponding null model output,
+# calculate z-scores for the FD index.
+#
+# Args:
+#   x: A named numeric vector of FD index values, where names identify the
+#      community
+#   y: A dataframe with a column for each community, containing null model
+#      FD index values corresponding to x. Column names should match names of
+#      x (but do not need to be in the same order).
+#
+# Returns:
+#   A vector with the same length and names as x, containing null model z-scores
+#   for the FD index.
+  result <- x
+  for (i in seq_along(x)) {
+    column <- match(names(x)[i], colnames(y))
+    result[i] <- (x[i] - mean(y[, column])) / sd(y[, column])
+  }
+  result
+}
+
+
+NullTransform <- function(raw.fd, null.model) {
+# Using the output from an FD null model, z-transform the raw FD indices
+# using 'ZScore'.
+#
+# Args:
+#   raw.fd: dataframe with raw FD indices. column names should match element names
+#           of null.model
+#   null.model: list of dataframes with null model output, see 'Zscore'.
+#               Can be the direct output of 'NullModel'.
+#
+# Returns:
+#   Dataframe with the same dimensions as raw.fd, containing the transformed
+#   FD indices.
+
+  # The default output of NullModel is a nested list, but we need an un-nested list.
+  if (identical(class(null.model[[1]]), "list")) {
+    null.list <- unlist(null.model, recursive = FALSE)
+  } else {
+    null.list <- null.model
+  }
+  # Apply ZScore to each combination of raw and null model data
+  result <- raw.fd
+  for (i in seq_along(raw.fd)) {
+    result[, i] <- ZScore(x = structure(raw.fd[, i], names = rownames(raw.fd)),
+                          y = null.list[[match(colnames(raw.fd)[i],
+                                               names(null.list)
+                                               )
+                                         ]]
+                          )
+  }
+  result
 }
 
 

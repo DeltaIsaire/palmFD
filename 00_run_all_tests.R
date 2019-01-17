@@ -6,6 +6,7 @@
 # thus providing a one-click way to re-generate all TEST output.
 # This script does NOT run the MAIN scripts, only the scripts for the TEST
 # analysis.
+# Keep in mind that the total runtime of all scripts is considerable.
 
 # SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT.
 # File paths in all scripts are relative to the palm_FD/ directory.

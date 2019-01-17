@@ -12,15 +12,13 @@
 #   output/test/palm_traits.csv
 #   data/palms_in_tdwg3.csv
 # Generated output files:
-#   output/test/test_palm_traits_transformed_filled.csv
+#   output/test/test_palm_traits_transformed_gapfilled.csv
 #   output/test/test_palm_traits_transformed_unfilled.csv
-#   output/test/test_palm_tdwg3_pres_abs_filled.csv
+#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
 #   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
-#   output/test/test_fd_indices_filled.csv
+#   output/test/test_fd_indices_gapfilled.csv
 #   output/test/test_fd_indices_unfilled.csv
-#   output/test/test_fd_indices_single_traits_filled.csv
-#   output/test/test_fd_indices_single_traits_unfilled.csv
-#   output/test/test_tdwg3_trait_means_filled.csv
+#   output/test/test_tdwg3_trait_means_gapfilled.csv
 #   output/test/test_tdwg3_trait_means_unfilled.csv
 
 
@@ -40,12 +38,12 @@ subset <- FALSE
 # Data preparation: trait matrix and pres/abs matrix
 ####################################################
 cat("Preparing data...\n")
-# --------------------------------------------------------------
-# First thing we need is the (filled and unfilled) trait matrix.
-# --------------------------------------------------------------
-# The filled dataset we use is the one from genus-mean filling.
+# -----------------------------------------------------------------
+# First thing we need is the (gapfilled and unfilled) trait matrix.
+# -----------------------------------------------------------------
+# The gapfilled dataset we use is the one from genus-mean filling.
 # The matrices need 'species labels'. I'm assuming that means rownames.
-traits.filled <- read.csv(file = "output/test/traits_filled_genus_mean.csv")
+traits.gapfilled <- read.csv(file = "output/test/traits_filled_genus_mean.csv")
 traits.unfilled <-
    read.csv(file = "output/test/palm_traits.csv") %>%
   .[complete.cases(.), ]
@@ -69,12 +67,11 @@ ToMatrix <- function(x) {
                fruit.length = log10(data[, "fruit.length"] + 1)
                ) %>%
     as.matrix()
-  data[which(data == -Inf)] <- 0
   rownames(data) <- x[, "species"]
   data
 }
 
-matrix.filled <- ToMatrix(traits.filled)
+matrix.gapfilled <- ToMatrix(traits.gapfilled)
 matrix.unfilled <- ToMatrix(traits.unfilled)
 
 # ---------------------------------------------------
@@ -139,14 +136,14 @@ PresAbs <- function(trait.matrix, dist.data = palm.dist) {
   list(trait.matrix, pres.abs.matrix)
 }
 
-filled.data <- PresAbs(matrix.filled)
+gapfilled.data <- PresAbs(matrix.gapfilled)
 unfilled.data <- PresAbs(matrix.unfilled)
 
 # Parse and save results
 # ----------------------
-matrix.filled <- filled.data[[1]]
-write.csv(matrix.filled,
-          file = "output/test/test_palm_traits_transformed_filled.csv",
+matrix.gapfilled <- gapfilled.data[[1]]
+write.csv(matrix.gapfilled,
+          file = "output/test/test_palm_traits_transformed_gapfilled.csv",
           eol = "\r\n",
           row.names = TRUE
           )
@@ -158,9 +155,9 @@ write.csv(matrix.unfilled,
           row.names = TRUE
           )
 
-pres.abs.filled <- filled.data[[2]]
-write.csv(pres.abs.filled,
-          file = "output/test/test_palm_tdwg3_pres_abs_filled.csv",
+pres.abs.gapfilled <- gapfilled.data[[2]]
+write.csv(pres.abs.gapfilled,
+          file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
           eol = "\r\n",
           row.names = TRUE
           )
@@ -179,17 +176,17 @@ write.csv(pres.abs.unfilled,
 cat("Calculating Functional Diversity indices... (this may take a while)\n")
 
 cat("(1) for the gap-filled dataset:\n")
-output.all <- RunFD(matrix.filled,
-                    pres.abs.filled,
+output.all <- RunFD(matrix.gapfilled,
+                    pres.abs.gapfilled,
                     subset = subset,
                     verbose = TRUE
                     )
-output.single <- SingleFD(matrix.filled,
-                          pres.abs.filled,
+output.single <- SingleFD(matrix.gapfilled,
+                          pres.abs.gapfilled,
                           subset = subset,
                           verbose = TRUE
                           )
-fd.indices.filled <- c(list(all.traits = output.all), output.single)
+fd.indices.gapfilled <- c(list(all.traits = output.all), output.single)
 
 cat("(2) For the unfilled dataset:\n")
 output.all <- RunFD(matrix.unfilled,
@@ -226,34 +223,24 @@ cat("Parsing and saving output...\n")
 
 ParseOutput <- function(output, name) {
 # Where output is the output list from RunFD.
-# Name is an identifier character string, should be either "filled" or "unfilled".
+# Name is an identifier character string, should be either "gapfilled" or
+# "unfilled".
 
-  # FD indices for all traits
-  fd.indices <- data.frame(TDWG3 = names(output[[1]]$nbsp),
-                           FRic  = output[[1]]$FRic,
-                           FDis  = output[[1]]$FDis
+  # Turns out it is best to combine all FD data into a single dataframe / file.
+  fd.indices <- data.frame(FRic.all.traits   = output[[1]]$FRic,
+                           FRic.stem.height  = output[[2]]$FRic,
+                           FRic.blade.length = output[[3]]$FRic,
+                           FRic.fruit.length = output[[4]]$FRic,
+                           FDis.all.traits   = output[[1]]$FDis,
+                           FDis.stem.height  = output[[2]]$FDis,
+                           FDis.blade.length = output[[3]]$FDis,
+                           FDis.fruit.length = output[[4]]$FDis,
+                           row.names = names(output[[1]]$nbsp)
                            )
   write.csv(fd.indices,
             file = paste0("output/test/test_fd_indices_", name, ".csv"),
             eol = "\r\n",
-            row.names = FALSE
-            )
-  # FD indices for single traits
-  single.fd <- data.frame(TDWG3              = names(output[[1]]$nbsp),
-                          stem.height.FRic   = output[[2]]$FRic,
-                          stem.height.FDis   = output[[2]]$FDis,
-                          blade.length.FRic  = output[[3]]$FRic,
-                          blade.length.FDis  = output[[3]]$FDis,
-                          fruit.length.FRic  = output[[4]]$FRic,
-                          fruit.length.FDis  = output[[4]]$FDis
-                          )
-  write.csv(single.fd,
-            file = paste0("output/test/test_fd_indices_single_traits_",
-                          name,
-                          ".csv"
-                          ),
-            eol = "\r\n",
-            row.names = FALSE
+            row.names = TRUE
             )
   # Community weighted mean trait values
   # Not weighted in our case, so just the mean
@@ -262,12 +249,12 @@ ParseOutput <- function(output, name) {
   write.csv(community.means,
             file = paste0("output/test/test_tdwg3_trait_means_", name, ".csv"),
             eol = "\r\n",
-            row.names = FALSE
+            row.names = TRUE
             )
   return (0)
 }
 
-ParseOutput(fd.indices.filled, "filled")
+ParseOutput(fd.indices.gapfilled, "gapfilled")
 ParseOutput(fd.indices.unfilled, "unfilled")
 
 cat("Done.\n")

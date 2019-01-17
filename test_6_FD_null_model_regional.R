@@ -11,14 +11,15 @@
 # Input files:
 #   data/TDWG_Environment_AllData_2014Dec.csv
 #   data/palms_in_tdwg3.csv
-#   output/test/test_palm_tdwg3_pres_abs_filled.csv
-#   output/test/test_palm_tdwg3_pres_abs_unfilled.csvv
+#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
+#   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
 #   output/test/test_palm_trait_matrix_transformed.csv
+#   output/test/test_fd_indices_gapfilled.csv
+#   output/test/test_fd_indices_unfilled.csv
 # Generated output files:
 #   output/test/tdwg3_info.csv
-
-#   output/test/test_fd.indices_nullmodel_one.csv
-#   output/test/test_fd.indices_nullmodel_one_single_traits.csv
+#   Null model processing directory: output/test/nullmodel_regional/
+#
 
 
 cat("Loading required packages and functions...\n")
@@ -34,12 +35,13 @@ source(file = "functions/functional_diversity_functions.R")
 
 # Enable verbose reporting in the null model procedure?
 verbose <- TRUE
-# Number of cores to use for parallel processing.
+# Number of cores to use for parallel processing (via parallel::mclapply).
 # Default is 1 less than the number of available cores (so your computer
-# doesn't lock up completely while running the code)
-num.cores <- getOption("mc.cores", 2L) - 1
+# doesn't lock up completely while running the code), and should work on most
+# machines.
+num.cores <- if (is.na(detectCores())) { 1 } else { max(1, detectCores() - 1) }
 # Subset FD input for quick code testing?
-subset <- TRUE
+subset <- FALSE
 
 
 ##################
@@ -107,8 +109,8 @@ tdwg3.info
 
 # Load datasets
 # -------------
-pres.abs.filled <- 
-  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_filled.csv",
+pres.abs.gapfilled <- 
+  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
@@ -119,8 +121,8 @@ pres.abs.unfilled <-
            check.names = FALSE
            ) %>%
   as.matrix()
-traits.filled <- 
-  read.csv(file = "output/test/test_palm_traits_transformed_filled.csv",
+traits.gapfilled <- 
+  read.csv(file = "output/test/test_palm_traits_transformed_gapfilled.csv",
            row.names = 1
            ) %>%
   as.matrix()
@@ -130,14 +132,16 @@ traits.unfilled <-
            ) %>%
   as.matrix()
 # This will be useful:
-trait.names <- colnames(traits.filled)
+trait.names <- colnames(traits.gapfilled)
 
 
 #########################
 # The Regional Null Model
 #########################
+cat("Creating Regional null model... (this will take a while)\n")
 
 # Define grouping of tdwg3 units into realms
+# ------------------------------------------
 realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
                                            "tdwg3.code"],
                     old.world.west = tdwg3.info[tdwg3.info$realm == "OWWest",
@@ -146,27 +150,60 @@ realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
                                                 "tdwg3.code"]
                     )
 
-
-test.filled <-
-  NullModel(trait.matrix = traits.filled,
-            pres.abs.matrix = pres.abs.filled,
+# Run the null model simulations
+# ------------------------------
+regional.gapfilled <-
+  NullModel(trait.matrix = traits.gapfilled,
+            pres.abs.matrix = pres.abs.gapfilled,
             groups = realm.tdwg3,
             process.dir = "output/test/nullmodel_regional/gapfilled/",
-            iterations = 10,
+            iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose
             )
 
-test.unfilled <-
-  NullModel(trait.matrix = traits.filled,
-            pres.abs.matrix = pres.abs.filled,
+regional.unfilled <-
+  NullModel(trait.matrix = traits.unfilled,
+            pres.abs.matrix = pres.abs.unfilled,
             groups = realm.tdwg3,
             process.dir = "output/test/nullmodel_regional/unfilled/",
-            iterations = 10,
+            iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose
+            )
+
+
+############################################################
+# Use null model output to convert raw FD values to z-scores
+############################################################
+cat("Applying regional null model to raw FD indices...\n")
+
+# Load raw FD indices
+# -------------------
+fd.gapfilled <- read.csv(file = "output/test/test_fd_indices_gapfilled.csv",
+                      header = TRUE,
+                      row.names = 1
+                      )
+fd.unfilled <- read.csv(file = "output/test/test_fd_indices_unfilled.csv",
+                        header = TRUE,
+                        row.names = 1
+                        )
+
+# Convert FD to z-cores and save output
+# -------------------------------------
+fd.regional.gapfilled <- NullTransform(fd.gapfilled, regional.gapfilled)
+  write.csv(fd.regional.gapfilled,
+            file = "output/test/test_fd_z_scores_gapfilled.csv",
+            eol = "\r\n",
+            row.names = TRUE
+            )
+fd.regional.unfilled <- NullTransform(fd.unfilled, regional.unfilled)
+  write.csv(fd.regional.unfilled,
+            file = "output/test/test_fd_z_scores_unfilled.csv",
+            eol = "\r\n",
+            row.names = TRUE
             )
 
 cat("Done.\n")
