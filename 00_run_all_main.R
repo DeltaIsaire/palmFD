@@ -6,6 +6,7 @@
 # thus providing a one-click way to re-generate all MAIN output.
 # This script does NOT run the TEST scripts, only the scripts for the MAIN
 # analysis.
+# Keep in mind that the total runtime of all scripts is considerable.
 
 # SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT.
 # File paths in all scripts are relative to the palm_FD/ directory.
@@ -40,6 +41,18 @@ if (!dir.exists("graphs/")) {
 
 cat("Gap-filling palm traits matrix:\n")
 source(file = "1_trait_filling.R")
+
+cat("Comparing genus-mean and BHPMF gap-filling:\n")
+source(file = "2_trait_filling_comparison.R")
+
+cat("Testing accuracy of gap-filling:\n")
+source(file = "3_gapfilling_accuracy.R")
+
+cat("Identifying gap-filling error:\n")
+source(file = "4_gapfilling_error.R")
+
+cat("Calculating functional diversity indices:\n")
+source(file = "5_FD_indices.R")
 
 cat("Finished running all main scripts.\n")
 
