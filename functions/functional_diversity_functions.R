@@ -160,7 +160,7 @@ SingleFD <- function(trait.matrix,
 
 
 RandomSpecies <- function(communities, richness, species, trait.matrix,
-                          verbose = TRUE) {
+                          verbose = TRUE, groups = TRUE) {
 # A helpful function for generating null models. 
 # For each community, get the species richness and sample that many
 # species from the (group) species pool, without replacement,
@@ -191,6 +191,10 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
 #                 without NAs, and rownames with species names. Used to
 #                 verify the S > T criterion.
 #  verbose: Logical indicating whether to print progress messages.
+#  groups: does 'communities' contain a list of groups? If FALSE, it is assumed
+#          that each element of 'communities' corresponds to a community, and
+#          contains a character vector with community names representing
+#          the species pool. Element names should be community names.
 #
 # Returns: 
 #   A list giving the randomly sampled species names for each community
@@ -211,29 +215,50 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
   }
   areas %<>% .[order(names(.))]
   list.species %<>% .[order(names(.))]
+
   # Run sampling routine
   do.sample <- TRUE
   sampling.iterations <- 0
   while (do.sample) {
-    random.species <- rep(list(NULL), length = length(unlist(areas)))
-    i <- 1
-    for (group in seq_along(areas)) {
-      for (area in seq_along(areas[[group]])) {
+    if (isTRUE(groups)) {
+      random.species <- rep(list(NULL), length = length(unlist(areas)))
+      i <- 1
+      for (group in seq_along(areas)) {
+        for (area in seq_along(areas[[group]])) {
+          area.richness <-
+            richness %>% {
+              .[which(.[1] == areas[[group]][area]), 2]
+            }
+          indices <-
+            runif(n = area.richness * 100,
+                  min = 1,
+                  max = length(list.species[[group]])
+                  ) %>%
+            round() %>%
+            unique() %>%
+            .[seq_len(area.richness)]
+          random.species[[i]] <- list.species[[group]][indices]
+          names(random.species)[i] <- areas[[group]][area]
+          i <- i + 1
+        }
+      }
+    } else {
+      random.species <- rep(list(NULL), length = length(areas))
+      for (area in seq_along(areas)) {
         area.richness <-
           richness %>% {
-            .[which(.[1] == areas[[group]][area]), 2]
+            .[which(.[1] == names(areas)[area]), 2]
           }
         indices <-
           runif(n = area.richness * 100,
                 min = 1,
-                max = length(list.species[[group]])
+                max = length(list.species[[area]])
                 ) %>%
           round() %>%
           unique() %>%
           .[seq_len(area.richness)]
-        random.species[[i]] <- list.species[[group]][indices]
-        names(random.species)[i] <- areas[[group]][area]
-        i <- i + 1
+        random.species[[area]] <- list.species[[area]][indices]
+        names(random.species)[area] <- names(areas)[area]
       }
     }
     random.species %<>% .[order(names(.))]
@@ -285,7 +310,9 @@ NullModel <- function(trait.matrix,
                       iterations = 100,
                       mc.cores = getOption("mc.cores", 2L) - 1,
                       subset,
-                      verbose) {
+                      verbose,
+                      random.groups
+                      ) {
 # Generate a null model for the given dataset, returning functional richness
 # (FRic) and functional dispersion (FDis) computed for all traits and for each
 # individual trait.
@@ -310,6 +337,8 @@ NullModel <- function(trait.matrix,
 #   subset: Logical indicating whether to subset the data to only the first 10
 #           tdwg3 units. This speeds up code execution, for testing purposes.
 #   verbose: output extended info about progress?
+#   random.groups: logical indicating whether 'groups' contains groups. Also
+#                  passed to argument 'groups' of function 'RandomSpecies'
 #
 # Returns:
 #   A nested list with 8 dataframes containing sampled FD indices for each
@@ -361,22 +390,31 @@ NullModel <- function(trait.matrix,
               }
               )
       }
+      if (!isTRUE(random.groups)) {
+        groups.subset %<>% .[names(.) %in% rownames(pres.abs.matrix)]
+      }
+
       # Then, for each group, extract the present species
-      group.species <- llply(groups.subset,
-                             function(group) {
-                               indices <- CrossCheck(x = rownames(pres.abs.matrix),
+      group.species <-
+        llply(groups.subset,
+              function(group) {
+                if (!identical(group, character(0))) {
+                  indices <- CrossCheck(x = rownames(pres.abs.matrix),
                                                      y = group,
                                                      presence = TRUE,
                                                      value = FALSE
                                                      )
-                               pres.abs.subset <- pres.abs.matrix[indices, ]
-                               species <-
-                                 pres.abs.subset %>%
-                                 { colnames(.)[which(colSums(.) > 0)] }
-                               species
-                             }
-                             )
-  
+                  pres.abs.subset <- pres.abs.matrix[indices, , drop = FALSE]
+                  species <-
+                    pres.abs.subset %>%
+                    { colnames(.)[which(colSums(.) > 0)] }
+                } else {
+                  species <- character(0)
+                }
+                species
+              }
+              )
+
       # Randomly sampling null model communities
       # ----------------------------------------
       if (verbose) {
@@ -388,7 +426,8 @@ NullModel <- function(trait.matrix,
                                   richness = richness,
                                   species = group.species,
                                   trait.matrix = trait.matrix,
-                                  verbose = verbose
+                                  verbose = verbose,
+                                  groups = random.groups
                                   )
       nm.species %<>% melt(., value.name = "species")
       # Melt is an awesome function but its output is a mess, so restructure:

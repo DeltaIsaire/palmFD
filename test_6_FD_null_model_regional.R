@@ -162,7 +162,8 @@ regional.gapfilled <-
             iterations = 100,
             mc.cores = num.cores,
             subset = subset,
-            verbose = verbose
+            verbose = verbose,
+            random.groups = TRUE
             )
 
 regional.unfilled <-
@@ -173,7 +174,8 @@ regional.unfilled <-
             iterations = 100,
             mc.cores = num.cores,
             subset = subset,
-            verbose = verbose
+            verbose = verbose,
+            random.groups = TRUE
             )
 
 

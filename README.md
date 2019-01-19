@@ -30,6 +30,8 @@ magrittr
 BHPMF - install with devtools::install_github("fisw10/BHPMF")
 reshape2
 FD
+sf
+spdep
 ```
 
 ### Compatibility with Windows

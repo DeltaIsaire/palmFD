@@ -2,11 +2,11 @@
 # Palm FD project: Functional Diversity calculation test code
 #############################################################
 #
-# In which we generate FD null model two, based on 
+# In which we generate FD null model three, based on 
 # Random communities sampled from the same species pool.
 # The definiton of species pool for this null model is all palm species
-# occurring worldwide.
-# Which could be the called the "global" null model.
+# occurring in the TDWG3 unit + all neighbouring TDWG3 units.
+# Which could be the called the "local" null model.
 #
 # Input files:
 #   output/test/tdwg3_info.csv
@@ -14,12 +14,13 @@
 #   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
 #   output/test/test_palm_traits_transformed_gapfilled.csv
 #   output/test/test_palm_traits_transformed_unfilled.csv
+#   data/tdwg/TDWG_level3_Coordinates
 #   output/test/test_fd_indices_gapfilled.csv
 #   output/test/test_fd_indices_unfilled.csv
 # Generated output files:
-#   Null model processing directory: output/test/nullmodel_global/
-#   output/test/test_fd_z_scores_global_gapfilled.csv
-#   output/test/test_fd_z_scores_global_unfilled.csv
+#   Null model processing directory: output/test/nullmodel_local/
+#   output/test/test_fd_z_scores_local_gapfilled.csv
+#   output/test/test_fd_z_scores_local_unfilled.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -28,6 +29,8 @@ library(plyr)
 library(FD)
 library(parallel)
 library(reshape2)
+library(sf)
+library(spdep)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
@@ -82,38 +85,60 @@ trait.names <- colnames(traits.gapfilled)
 
 
 #######################
-# The Global Null Model
+# The Local Null Model
 #######################
-cat("Creating Global null model... (this will take a while)\n")
+cat("Creating Local null model... (this will take a while)\n")
 
-# Define grouping of tdwg3 units into realms
-# ------------------------------------------
-global.tdwg3 <- list(global = tdwg3.info[, "tdwg3.code"])
+# Define neighbourhood for each TDWG3 unit
+# ----------------------------------------
+# Load spatial map:
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
+tdwg.spatial <- as(tdwg.map, "Spatial")
+# Find neighbours:
+local <- poly2nb(tdwg.spatial, queen = TRUE)
+# we don't want a fancy neighbour object, just a list
+class(local) <- "list"
+# This is a list of TDWG3 ID numbers. We can find the corresponding TDWG3 codes:
+tdwg3.code <- as.data.frame(tdwg.map)[, "LEVEL_3_CO"]
+# Then do substitution magic
+local.tdwg3 <- llply(local, function(x) { tdwg3.code[x] } )
+names(local.tdwg3) <- tdwg3.code
+# Species pool includes not only neighbours, but also the area itself,
+# so add these to the groups
+for (i in seq_along(local.tdwg3)) {
+  local.tdwg3[[i]] <- c(local.tdwg3[[i]], names(local.tdwg3)[i])
+  local.tdwg3[[i]] %<>% .[order(.)]
+}
+local.tdwg3
+# List of 368:
+#   For each of the 368 TDWG3 units, a character vector giving the names of the
+#   TDWG3 unit plus the surrounding TDWG3 units.
 
 # Run the null model simulations
 # ------------------------------
-global.gapfilled <-
+local.gapfilled <-
   NullModel(trait.matrix = traits.gapfilled,
             pres.abs.matrix = pres.abs.gapfilled,
-            groups = global.tdwg3,
-            process.dir = "output/test/nullmodel_global/gapfilled/",
+            groups = local.tdwg3,
+            process.dir = "output/test/nullmodel_local/gapfilled/",
             iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose,
-            random.groups = TRUE
+            random.groups = FALSE
             )
 
-global.unfilled <-
+local.unfilled <-
   NullModel(trait.matrix = traits.unfilled,
             pres.abs.matrix = pres.abs.unfilled,
-            groups = global.tdwg3,
-            process.dir = "output/test/nullmodel_global/unfilled/",
+            groups = local.tdwg3,
+            process.dir = "output/test/nullmodel_local/unfilled/",
             iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose,
-            random.groups = TRUE
+            random.groups = FALSE
             )
 
 
@@ -135,15 +160,15 @@ fd.unfilled <- read.csv(file = "output/test/test_fd_indices_unfilled.csv",
 
 # Convert FD to z-cores and save output
 # -------------------------------------
-fd.global.gapfilled <- NullTransform(fd.gapfilled, global.gapfilled)
-  write.csv(fd.global.gapfilled,
-            file = "output/test/test_fd_z_scores_global_gapfilled.csv",
+fd.local.gapfilled <- NullTransform(fd.gapfilled, local.gapfilled)
+  write.csv(fd.local.gapfilled,
+            file = "output/test/test_fd_z_scores_local_gapfilled.csv",
             eol = "\r\n",
             row.names = TRUE
             )
-fd.global.unfilled <- NullTransform(fd.unfilled, global.unfilled)
-  write.csv(fd.global.unfilled,
-            file = "output/test/test_fd_z_scores_global_unfilled.csv",
+fd.local.unfilled <- NullTransform(fd.unfilled, local.unfilled)
+  write.csv(fd.local.unfilled,
+            file = "output/test/test_fd_z_scores_local_unfilled.csv",
             eol = "\r\n",
             row.names = TRUE
             )
