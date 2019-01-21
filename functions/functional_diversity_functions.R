@@ -291,6 +291,20 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
     } else {
       do.sample <- TRUE
     }
+    # Step 4: check for trait invariance
+    sample.trait.counts <-
+      llply(sample.traits,
+            function(area) {
+              colwise(function(x) { length(unique(x)) } ) (as.data.frame(area)) %>%
+                min()
+            }
+            ) %>%
+      simplify2array()
+    # Step 5: evaluate
+    if (any(sample.trait.counts < 2)) {
+      do.sample <- TRUE
+    }
+    # wrap up
     sampling.iterations %<>% + 1
     if (sampling.iterations > 99) {
       stop("Unable to satisfy criterion S > T within 99 sampling attempts")
@@ -305,13 +319,13 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
 
 NullModel <- function(trait.matrix,
                       pres.abs.matrix,
-                      groups = list(rownames(pres.abs.matrix)),
+                      groups = list(group = rownames(pres.abs.matrix)),
                       process.dir,
                       iterations = 100,
-                      mc.cores = getOption("mc.cores", 2L) - 1,
-                      subset,
-                      verbose,
-                      random.groups
+                      mc.cores = getOption("mc.cores", 2L),
+                      subset = FALSE,
+                      verbose = TRUE,
+                      random.groups = TRUE
                       ) {
 # Generate a null model for the given dataset, returning functional richness
 # (FRic) and functional dispersion (FDis) computed for all traits and for each
@@ -439,7 +453,7 @@ NullModel <- function(trait.matrix,
         table(nm.species) %>%
         as.data.frame.matrix() %>%
         as.matrix()
-      nm.pres.abs %<>% .[, order(colnames(.))]
+      nm.pres.abs %<>% .[, order(colnames(.)), drop = FALSE]
       # Subset trait matrix to species in the null model
       indices <- CrossCheck(x = rownames(trait.matrix),
                             y = colnames(nm.pres.abs),
@@ -447,6 +461,7 @@ NullModel <- function(trait.matrix,
                             value = FALSE
                             )
       trait.matrix.subset <- trait.matrix[indices, ]
+      trait.matrix.subset %<>% .[order(rownames(.)), ]
   
       # Calculating Functional Diversity
       # --------------------------------
@@ -480,16 +495,17 @@ NullModel <- function(trait.matrix,
         cat("Parsing and saving output...\n")
       }
       # Minimize clutter, so generate one file from a single dataframe
+      trait.names <- colnames(trait.matrix)
       result <- data.frame(community          = names(fd.indices[[1]]$nbsp),
                            all.traits.FRic    = fd.indices[[1]]$FRic,
-                           all.traits.FDis    = fd.indices[[1]]$FDis,
-                           stem.height.FRic   = fd.indices[[2]]$FRic,
-                           stem.height.FDis   = fd.indices[[2]]$FDis,
-                           blade.length.FRic  = fd.indices[[3]]$FRic,
-                           blade.length.FDis  = fd.indices[[3]]$FDis,
-                           fruit.length.FRic  = fd.indices[[4]]$FRic,
-                           fruit.length.FDis  = fd.indices[[4]]$FDis
+                           all.traits.FDis    = fd.indices[[1]]$FDis
                            )
+      for (trait in seq_along(trait.names)) {
+        result[, paste0(trait.names[trait], ".FRic")] <-
+          fd.indices[[trait + 1]]$FRic
+        result[, paste0(trait.names[trait], ".FDis")] <-
+          fd.indices[[trait + 1]]$FDis
+      }
       write.csv(result,
                 file = paste0(process.dir,
                               "FD_null_model_iteration_",
@@ -519,12 +535,11 @@ NullModel <- function(trait.matrix,
                 nrow = iterations,
                 dimnames = list(seq_len(iterations), template[, 1])
                 )
-  null.model <- list(FRic = rep(list(mat), 4),
-                     FDis = rep(list(mat), 4)
+  null.model <- list(FRic = rep(list(mat), (ncol(template) - 1) / 2),
+                     FDis = rep(list(mat), (ncol(template) - 1) / 2)
                      )
-  names <- c("all.traits", "stem.height", "blade.length", "fruit.length")
-  names(null.model$FRic) <- names
-  names(null.model$FDis) <- names
+  names(null.model$FRic) <- c("all.traits", colnames(trait.matrix))
+  names(null.model$FDis) <- c("all.traits", colnames(trait.matrix))
   # And then fill the list with the data
   for (i in seq_len(iterations)) {
     data <- read.csv(file = paste0(process.dir,
@@ -534,14 +549,12 @@ NullModel <- function(trait.matrix,
                                    ),
                      header = TRUE
                      )
-    null.model[[1]] [[1]] [i, ] <- data[, 2]
-    null.model[[1]] [[2]] [i, ] <- data[, 4]
-    null.model[[1]] [[3]] [i, ] <- data[, 6]
-    null.model[[1]] [[4]] [i, ] <- data[, 8]
-    null.model[[2]] [[1]] [i, ] <- data[, 3]
-    null.model[[2]] [[2]] [i, ] <- data[, 5]
-    null.model[[2]] [[3]] [i, ] <- data[, 7]
-    null.model[[2]] [[4]] [i, ] <- data[, 9]
+    null.model[[1]] [[1]] [i, ] <- data[, 2]  # all.traits.FRic
+    null.model[[2]] [[1]] [i, ] <- data[, 3]  # all.traits.FDis
+    for (trait in seq_along(colnames(trait.matrix))) {
+      null.model[[1]] [[trait + 1]] [i, ] <- data[, trait * 2 + 2]  # trait.FRic
+      null.model[[2]] [[trait + 1]] [i, ] <- data[, trait * 2 + 3]  # trait.FDis
+    }
   }
   null.model
 }

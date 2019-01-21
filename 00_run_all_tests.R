@@ -40,22 +40,28 @@ if (!dir.exists("graphs/")) {
 }
 
 cat("Generating gap-filling scenarios:\n")
-source(file = "test_1_trait_filling.R")
+source(file = "test_01_trait_filling.R")
 
 cat("Comparing trait-filling methods:\n")
-source(file = "test_2_trait_filling_comparison.R")
+source(file = "test_02_trait_filling_comparison.R")
 
 cat("Testing accuracy of gap-filling:\n")
-source(file = "test_3_gapfilling_accuracy.R")
+source(file = "test_03_gapfilling_accuracy.R")
 
 cat("Identifying gap-filling error:\n")
-source(file = "test_4_gapfilling_error.R")
+source(file = "test_04_gapfilling_error.R")
 
 cat("Calculating functional diversity indices:\n")
-source(file = "test_5_FD_indices.R")
+source(file = "test_05_FD_indices.R")
 
 cat("Generating FD null model \"regional\":\n")
-source(file = "test_6_FD_null_model_regional.R")
+source(file = "test_06_FD_null_model_regional.R")
+
+cat("Generating FD null model \"global\":\n")
+source(file = "test_07_FD_null_model_global.R")
+
+cat("Generating FD null model \"local\":\n")
+source(file = "test_08_FD_null_model_local.R")
 
 cat("Finished running all test scripts.\n")
 
