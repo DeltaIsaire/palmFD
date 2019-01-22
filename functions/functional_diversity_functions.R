@@ -325,7 +325,8 @@ NullModel <- function(trait.matrix,
                       mc.cores = getOption("mc.cores", 2L),
                       subset = FALSE,
                       verbose = TRUE,
-                      random.groups = TRUE
+                      random.groups = TRUE,
+                      single.traits = TRUE
                       ) {
 # Generate a null model for the given dataset, returning functional richness
 # (FRic) and functional dispersion (FDis) computed for all traits and for each
@@ -353,10 +354,11 @@ NullModel <- function(trait.matrix,
 #   verbose: output extended info about progress?
 #   random.groups: logical indicating whether 'groups' contains groups. Also
 #                  passed to argument 'groups' of function 'RandomSpecies'
+#   single.traits: Include calculation of FD indices for single traits?
 #
 # Returns:
-#   A nested list with 8 dataframes containing sampled FD indices for each
-#   community.
+#   A nested list with dataframes containing sampled FD indices for each
+#   community
   if (verbose) {
     cat("Generating null model with", iterations, "samples\n")
   }
@@ -478,17 +480,21 @@ NullModel <- function(trait.matrix,
                           verbose = verbose
                           )
       # FD for single traits
-      if (verbose) {
-        cat("(2) FD for single traits:\n")
+      if (single.traits) {
+        if (verbose) {
+          cat("(2) FD for single traits:\n")
+        }
+        output.single <- SingleFD(trait.matrix.subset,
+                                  nm.pres.abs,
+                                  subset = subset,
+                                  verbose = verbose
+                                  )
+        # gather results
+        fd.indices <- c(list(all.traits = output.all), output.single)
+      } else {
+        fd.indices <- list(all.traits = output.all)
       }
-      output.single <- SingleFD(trait.matrix.subset,
-                                nm.pres.abs,
-                                subset = subset,
-                                verbose = verbose
-                                )
-      # gather results
-      fd.indices <- c(list(all.traits = output.all), output.single)
-  
+
       # Parse and save results
       # ----------------------
       if (verbose) {
@@ -500,11 +506,13 @@ NullModel <- function(trait.matrix,
                            all.traits.FRic    = fd.indices[[1]]$FRic,
                            all.traits.FDis    = fd.indices[[1]]$FDis
                            )
-      for (trait in seq_along(trait.names)) {
-        result[, paste0(trait.names[trait], ".FRic")] <-
-          fd.indices[[trait + 1]]$FRic
-        result[, paste0(trait.names[trait], ".FDis")] <-
-          fd.indices[[trait + 1]]$FDis
+      if (single.traits) {
+        for (trait in seq_along(trait.names)) {
+          result[, paste0(trait.names[trait], ".FRic")] <-
+            fd.indices[[trait + 1]]$FRic
+          result[, paste0(trait.names[trait], ".FDis")] <-
+            fd.indices[[trait + 1]]$FDis
+        }
       }
       write.csv(result,
                 file = paste0(process.dir,
@@ -535,11 +543,17 @@ NullModel <- function(trait.matrix,
                 nrow = iterations,
                 dimnames = list(seq_len(iterations), template[, 1])
                 )
-  null.model <- list(FRic = rep(list(mat), (ncol(template) - 1) / 2),
-                     FDis = rep(list(mat), (ncol(template) - 1) / 2)
-                     )
-  names(null.model$FRic) <- c("all.traits", colnames(trait.matrix))
-  names(null.model$FDis) <- c("all.traits", colnames(trait.matrix))
+  if (single.traits) {
+    null.model <- list(FRic = rep(list(mat), (ncol(template) - 1) / 2),
+                       FDis = rep(list(mat), (ncol(template) - 1) / 2)
+                       )
+    names(null.model$FRic) <- c("all.traits", colnames(trait.matrix))
+    names(null.model$FDis) <- c("all.traits", colnames(trait.matrix))
+  } else {
+    null.model <- list(FRic = list(all.traits = mat),
+                       FDis = list(all.traits = mat)
+                       )
+  }
   # And then fill the list with the data
   for (i in seq_len(iterations)) {
     data <- read.csv(file = paste0(process.dir,
@@ -551,9 +565,11 @@ NullModel <- function(trait.matrix,
                      )
     null.model[[1]] [[1]] [i, ] <- data[, 2]  # all.traits.FRic
     null.model[[2]] [[1]] [i, ] <- data[, 3]  # all.traits.FDis
-    for (trait in seq_along(colnames(trait.matrix))) {
-      null.model[[1]] [[trait + 1]] [i, ] <- data[, trait * 2 + 2]  # trait.FRic
-      null.model[[2]] [[trait + 1]] [i, ] <- data[, trait * 2 + 3]  # trait.FDis
+    if (single.traits) {
+      for (trait in seq_along(colnames(trait.matrix))) {
+        null.model[[1]] [[trait + 1]] [i, ] <- data[, trait * 2 + 2]  # trait.FRic
+        null.model[[2]] [[trait + 1]] [i, ] <- data[, trait * 2 + 3]  # trait.FDis
+      }
     }
   }
   null.model
