@@ -87,7 +87,7 @@ trait.names <- colnames(traits.gapfilled)
 #######################
 # The Local Null Model
 #######################
-cat("Creating Local null model... (this will take a while)\n")
+cat("Creating Local null model... (this will take a moment)\n")
 
 # Define neighbourhood for each TDWG3 unit
 # ----------------------------------------
@@ -110,10 +110,30 @@ for (i in seq_along(local.tdwg3)) {
   local.tdwg3[[i]] <- c(local.tdwg3[[i]], names(local.tdwg3)[i])
   local.tdwg3[[i]] %<>% .[order(.)]
 }
+# Not done yet: species pool should include at least one neighbour, not solely
+# the tdwg3 unit itself. This happens for islands, which have no direct
+# borders and therefore no neighbours.
+# Solution: for each tdwg3 unit with length (species pool) == 1, include
+# the nearest neighbour.
+near.neigh <- 
+  coordinates(tdwg.spatial) %>%
+  knearneigh(., k = 1) %>%
+  knn2nb()
+class(near.neigh) <- "list"
+# And merge:
+for (i in seq_along(local.tdwg3)) {
+  if (identical(length(local.tdwg3[[i]]), as.integer(1))) {
+    local.tdwg3[[i]] %<>%
+      c(., tdwg3.code[near.neigh[[i]]]) %>%
+      unique()
+  }
+}
+
 local.tdwg3
 # List of 368:
 #   For each of the 368 TDWG3 units, a character vector giving the names of the
-#   TDWG3 unit plus the surrounding TDWG3 units.
+#   TDWG3 unit plus the surrounding TDWG3 units OR the nearest neighbouring
+#   TDWG3 unit.
 
 # Run the null model simulations
 # ------------------------------

@@ -434,7 +434,7 @@ NullModel <- function(trait.matrix,
       # Randomly sampling null model communities
       # ----------------------------------------
       if (verbose) {
-        cat("Randomly sampling null model communities from realm species pool...\n")
+        cat("Randomly sampling null model communities from species pools...\n")
       }
       # We need a new presence/absence matrix of randomly sampled species for our
       # communities.

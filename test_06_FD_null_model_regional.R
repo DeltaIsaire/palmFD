@@ -248,12 +248,12 @@ realm.test <- realm.tdwg3[c(1, 3)]
 
 # Run regional null model for n iterations and compute z-values
 # -------------------------------------------------------------
-# We should test for iterations in (100 * 1:5)
+# We should test for iterations in (100 * 1:10)
 # To save processing time we can cheat: instead of running ten times for ten
-# different iterations, we run it once for 500 iterations, and then
+# different iterations, we run it once for 1000 iterations, and then
 # calculate z-scores based on partial output.
 # We do still need say 10 z-scores for each number of iterations, which means
-# running 500 iterations ten times.
+# running 1000 iterations ten times.
 # To further save on processing time, exclude single-trait FD and focus on
 # all-traits FD.
 #
@@ -263,8 +263,8 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
 
   for (run in 1:10) {
     # init partial results list
-    partial.results <- unlist(list(rep(list(fd.test), 5)), recursive = FALSE)
-    names(partial.results) <- paste0("z.score.", 100 * 1:5)
+    partial.results <- unlist(list(rep(list(fd.test), 10)), recursive = FALSE)
+    names(partial.results) <- paste0("z.score.", 100 * 1:10)
     # clean processing dir
     if (dir.exists("output/test/nullmodel_test/")) {
       unlink("output/test/nullmodel_test/", recursive = TRUE)
@@ -275,7 +275,7 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
                 pres.abs.matrix = pres.abs.subset,
                 groups = realm.test,
                 process.dir = "output/test/nullmodel_test/",
-                iterations = 500,
+                iterations = 1000,
                 mc.cores = num.cores,
                 subset = subset,
                 verbose = verbose,
@@ -283,7 +283,7 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
                 single.traits = FALSE
                 )
     # compute z-scores
-    for (i in 1:5) {
+    for (i in 1:10) {
       # subset nullmodel output
       regional.test.subset <-
         llply(regional.test, function(x) { x[[1]] [1:(100 * i), ] } )
@@ -296,10 +296,10 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
   # Compute sd of z-values for each number of iterations
   # ----------------------------------------------------
   # Init result list
-  mat <- matrix(ncol = 5,
+  mat <- matrix(ncol = 10,
                 nrow = nrow(fd.test),
                 dimnames = list(row = rownames(fd.test),
-                                col = paste0("iterations.", 100 * 1:5)
+                                col = paste0("iterations.", 100 * 1:10)
                                 )
                 )
   sd.results <- list(FRic = mat, FDis = mat)
@@ -308,7 +308,7 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
   values <- numeric(length(test.results))
   for (run in seq_along(test.results)) {
     for (index in 1:2) {
-      for (iterations in 1:5) {
+      for (iterations in 1:10) {
         for (area in seq_len(nrow(fd.test))) {
           values[i] <- test.results[[run]] [[iterations]] [area, index]
           sd.results[[index]] [area, iterations] <- sd(values)
@@ -342,14 +342,36 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
             eol = "\r\n",
             row.names = TRUE
             )
+} else {
+  # Read the saved output:
+  sd.results <- 
+    list(FRic = read.csv("output/test/nullmodel_regional_z_convergence_FRic_sd.csv",
+                         header = TRUE,
+                         row.names = 1
+                         ),
+         FDis = read.csv("output/test/nullmodel_regional_z_convergence_FDis_sd.csv",
+                         header = TRUE,
+                         row.names = 1
+                         )
+         )
+  mean.results <- 
+    list(FRic = read.csv("output/test/nullmodel_regional_z_convergence_FRic_mean.csv",
+                         header = TRUE,
+                         row.names = 1
+                         ),
+         FDis = read.csv("output/test/nullmodel_regional_z_convergence_FDis_mean.csv",
+                         header = TRUE,
+                         row.names = 1
+                         )
+         )
 }
+
+
 # Interpretation of sd.results:
 # FRic - WAU is stable after 200 iterations.
 #        TCI is stable after 300 iterations.
-#        SCZ is stable after 100 iterations.
-#        MLY may or may not be stable after 500 iterations, but the sd is
-#        very low - an order of magnitude lower than the next lowest (WAU) - so
-#        it is probably fine.
+#        SCZ is stable after 400 iterations.
+#        MLY is stable after 100 iterations.
 # FDis - WAU is stable after 100 iterations.
 #        TCI is stable after 100 iterations.
 #        SCZ is stable after 100-200 iterations.
@@ -360,15 +382,17 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
 # fine. 500 or more would be overkill for all practical purposes.
 #
 # Interpretation of mean.results:
-# FRic - WAU is stable after 100-200 iterations
-#        TCI is stable after 200 iterations
-#        SCZ is stable after 100-300 iterations
-#        MLY is stable after 300 iterations
-# FDis - WAU is stable after 100 iterations
-#        TCI is stable after 100 iterations
-#        SCZ is stable after 100 iterations
-#        MLY is stable after 400 iterations
-# The means tell nearly the same story as the SDs.
+# FRic - WAU is accurate at 200 iterations
+#        TCI is accurate at 100 iterations
+#        SCZ is accurate at 200 iterations
+#        MLY is accurate at 100 iterations
+# FDis - WAU is accurate at 100 iterations
+#        TCI is accurate at 100-200 iterations
+#        SCZ is accurate at 100-200 iterations
+#        MLY is accurate at 400 iterations
+# Keep in mind these are averages over 10 runs, so being accurate after x iterations
+# means the value is based on x * 10 iterations.
+# The slowest to converge was FDis for MLY, which has the highest FDis Z-score.
 #
 # Final conclusion: You need at most 400 iterations. 
 # 300 would also be fine in the majority of cases.
