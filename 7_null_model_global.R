@@ -20,6 +20,8 @@
 #   Null model processing directory: output/nullmodel_global/
 #   output/FD_z_scores_global_gapfilled.csv
 #   output/FD_z_scores_global_unfilled.csv
+#   graphs/nullmodel_global_z_convergence_FRic.svg
+#   graphs/nullmodel_global_z_convergence_FDis.svg
 
 
 cat("Loading required packages and functions...\n")
@@ -31,6 +33,7 @@ library(reshape2)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
+source(file = "functions/plotting_functions.R")
 
 
 # Enable verbose reporting in the null model procedure?
@@ -97,7 +100,7 @@ global.gapfilled <-
             pres.abs.matrix = pres.abs.gapfilled,
             groups = global.tdwg3,
             process.dir = "output/nullmodel_global/gapfilled/",
-            iterations = 500,
+            iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose,
@@ -109,7 +112,7 @@ global.unfilled <-
             pres.abs.matrix = pres.abs.unfilled,
             groups = global.tdwg3,
             process.dir = "output/nullmodel_global/unfilled/",
-            iterations = 500,
+            iterations = 100,
             mc.cores = num.cores,
             subset = subset,
             verbose = verbose,
@@ -147,6 +150,88 @@ fd.global.unfilled <- NullTransform(fd.unfilled, global.unfilled)
             eol = "\r\n",
             row.names = TRUE
             )
+
+###############################
+# Visualize z-score convergence
+###############################
+cat("Visualizing z-score convergence...\n")
+# For a few carefully chosen communities, we can visualize the convergence
+# of their z-scores as the number of iterations increases.
+# How? By computing the z-score incrementally.
+# Which communities? The ones with highest/lowest raw FRic and FDis.
+# That's MLY, WAU, SCZ and TCI, respectively.
+areas <- sort(c("MLY", "WAU", "SCZ", "TCI"))
+#
+# For practical purposes, we can focus only on the all-traits FD for the gapfilled
+# dataset. The unfilled and single-trait data is assumed to converge in a similar
+# fashion.
+
+# Subset data to a form usable by ZScore()
+# FRic:
+temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 1]
+raw.FRic.subset <- structure(temp, names = areas)
+null.FRic.subset <-
+  global.gapfilled[[1]] [[1]] [, colnames(global.gapfilled[[1]] [[1]]) %in%
+                                   areas]
+# FDis:
+temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 5]
+raw.FDis.subset <- structure(temp, names = areas)
+null.FDis.subset <-
+  global.gapfilled[[2]] [[1]] [, colnames(global.gapfilled[[2]] [[1]]) %in%
+                                   areas]
+
+# Initialize output
+# z.scores require at least 2 iterations, so the first one doesn't count
+z.scores.FRic <- matrix(ncol = length(areas),
+                        nrow = nrow(null.FRic.subset) - 1,
+                        dimnames = list(row = seq_len(nrow(null.FRic.subset) - 1),
+                                        col = areas
+                                        )
+                        )
+z.scores.FDis <- matrix(ncol = length(areas),
+                        nrow = nrow(null.FDis.subset) - 1,
+                        dimnames = list(row = seq_len(nrow(null.FDis.subset) - 1),
+                                        col = areas
+                                        )
+                        )
+
+# calculate incremental means
+# Instead of NullTransform() we use ZScore() directly.
+# z.scores require at least 2 iterations, so the first one doesn't count
+for (i in seq_len(nrow(null.FRic.subset))[-1]) {
+  z.scores.FRic[(i - 1), ] <-
+    ZScore(raw.FRic.subset, null.FRic.subset[(1:i), ,drop = FALSE])
+}
+for (i in seq_len(nrow(null.FDis.subset))[-1]) {
+  z.scores.FDis[(i - 1), ] <-
+    ZScore(raw.FDis.subset, null.FDis.subset[(1:i), ,drop = FALSE])
+}
+
+# Visualize results
+MyPlot <- function(z.scores, index) {
+  par(mfrow = c(2, 2))
+  for (i in seq_along(areas)) {
+    Scatterplot(x = seq_len(nrow(z.scores)),
+                y = z.scores[, i],
+                xlab = "iterations",
+                ylab = "z.score",
+                title = paste(index,
+                              "z.score convergence in",
+                              colnames(z.scores)[i]
+                              )
+                )
+  }
+}
+GraphSVG(MyPlot(z.scores.FRic, "FRic"),
+         file = "graphs/nullmodel_global_z_convergence_FRic.svg",
+         width = 8,
+         height = 8
+         )
+GraphSVG(MyPlot(z.scores.FDis, "FDis"),
+         file = "graphs/nullmodel_global_z_convergence_FDis.svg",
+         width = 8,
+         height = 8
+         )
 
 cat("Done.\n")
 

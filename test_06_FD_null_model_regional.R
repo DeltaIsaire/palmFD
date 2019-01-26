@@ -8,6 +8,10 @@
 # occurring in the same realm (New World, Old World East or Old World West).
 # Which could be the called the "regional" null model.
 #
+# In addition, the convergence of z-scores is assessed, which will help
+# determine the necessary number of nullmodel iterations to get reliable
+# results in the main run.
+#
 # Input files:
 #   data/TDWG_Environment_AllData_2014Dec.csv
 #   data/palms_in_tdwg3.csv
@@ -22,6 +26,12 @@
 #   Null model processing directory: output/test/nullmodel_regional/
 #   output/test/test_fd_z_scores_regional_gapfilled.csv
 #   output/test/test_fd_z_scores_regional_unfilled.csv
+#   output/test/nullmodel_regional_z_convergence_FRic_sd.csv
+#   output/test/nullmodel_regional_z_convergence_FDis_sd.csv
+#   output/test/nullmodel_regional_z_convergence_FRic_mean.csv
+#   output/test/nullmodel_regional_z_convergence_FDis_mean.csv
+#   graphs/test/test_nullmodel_regional_z_convergence_FRic.svg
+#   graphs/test/test_nullmodel_regional_z_convergence_FDis.svg
 
 
 cat("Loading required packages and functions...\n")
@@ -33,6 +43,7 @@ library(reshape2)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
+source(file = "functions/plotting_functions.R")
 
 
 # Enable verbose reporting in the null model procedure?
@@ -258,7 +269,7 @@ realm.test <- realm.tdwg3[c(1, 3)]
 # all-traits FD.
 #
 # Only run code if the output doesn't exist
-if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
+if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic_sd.csv")) {
   test.results <- vector("list", length = 10)
 
   for (run in 1:10) {
@@ -396,6 +407,92 @@ if (!file.exists("output/test/nullmodel_regional_z_convergence_FRic.csv")) {
 #
 # Final conclusion: You need at most 400 iterations. 
 # 300 would also be fine in the majority of cases.
+
+
+#######################################
+# Code to visualize z-score convergence
+#######################################
+cat("Visualizing z-score convergence...\n")
+# For a few carefully chosen communities, we can visualize the convergence
+# of their z-scores as the number of iterations increases.
+# How? By computing the z-score incrementally.
+# Which communities? The ones with highest/lowest raw FRic and FDis.
+# That's MLY, WAU, SCZ and TCI, respectively.
+areas <- sort(c("MLY", "WAU", "SCZ", "TCI"))
+#
+# For practical purposes, we can focus only on the all-traits FD for the gapfilled
+# dataset. The unfilled and single-trait data is assumed to converge in a similar
+# fashion.
+
+# Subset data to a form usable by ZScore()
+# FRic:
+temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 1]
+raw.FRic.subset <- structure(temp, names = areas)
+null.FRic.subset <-
+  regional.gapfilled[[1]] [[1]] [, colnames(regional.gapfilled[[1]] [[1]]) %in%
+                                   areas]
+# FDis:
+temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 5]
+raw.FDis.subset <- structure(temp, names = areas)
+null.FDis.subset <-
+  regional.gapfilled[[2]] [[1]] [, colnames(regional.gapfilled[[2]] [[1]]) %in%
+                                   areas]
+
+# Initialize output
+# z.scores require at least 2 iterations, so the first one doesn't count
+z.scores.FRic <- matrix(ncol = length(areas),
+                        nrow = nrow(null.FRic.subset) - 1,
+                        dimnames = list(row = seq_len(nrow(null.FRic.subset) - 1),
+                                        col = areas
+                                        )
+                        )
+z.scores.FDis <- matrix(ncol = length(areas),
+                        nrow = nrow(null.FDis.subset) - 1,
+                        dimnames = list(row = seq_len(nrow(null.FDis.subset) - 1),
+                                        col = areas
+                                        )
+                        )
+
+# calculate incremental means
+# Instead of NullTransform() we use ZScore() directly.
+# z.scores require at least 2 iterations, so the first one doesn't count
+for (i in seq_len(nrow(null.FRic.subset))[-1]) {
+  z.scores.FRic[(i - 1), ] <-
+    ZScore(raw.FRic.subset, null.FRic.subset[(1:i), ,drop = FALSE])
+}
+for (i in seq_len(nrow(null.FDis.subset))[-1]) {
+  z.scores.FDis[(i - 1), ] <-
+    ZScore(raw.FDis.subset, null.FDis.subset[(1:i), ,drop = FALSE])
+}
+
+# Visualize results
+MyPlot <- function(z.scores, index) {
+  par(mfrow = c(2, 2))
+  for (i in seq_along(areas)) {
+    Scatterplot(x = seq_len(nrow(z.scores)),
+                y = z.scores[, i],
+                xlab = "iterations",
+                ylab = "z.score",
+                title = paste(index,
+                              "z.score convergence in",
+                              colnames(z.scores)[i]
+                              )
+                )
+  }
+}
+GraphSVG(MyPlot(z.scores.FRic, "FRic"),
+         file = "graphs/test/test_nullmodel_regional_z_convergence_FRic.svg",
+         width = 8,
+         height = 8
+         )
+GraphSVG(MyPlot(z.scores.FDis, "FDis"),
+         file = "graphs/test/test_nullmodel_regional_z_convergence_FDis.svg",
+         width = 8,
+         height = 8
+         )
+
+
+
 
 cat("Done.\n")
 
