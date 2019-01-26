@@ -1,6 +1,6 @@
-#############################################################
-# Palm FD project: Functional Diversity calculation test code
-#############################################################
+###################################################
+# Palm FD project: Functional Diversity calculation
+###################################################
 #
 # In which the two FD indices functional richness (FRic) and functional
 # dispersion (FRic) are calculated.
