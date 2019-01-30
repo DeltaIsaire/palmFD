@@ -234,7 +234,7 @@ NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
 cat("Assessing frequency of random species sample redraws:\n")
 cat("Preparing data...\n")
 # Number of samples to test with:
-samples <- 10
+samples <- 1000
 
 # Information on tdwg3 units
 tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv")

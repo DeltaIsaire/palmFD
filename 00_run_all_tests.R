@@ -63,5 +63,9 @@ source(file = "test_07_FD_null_model_global.R")
 cat("Generating FD null model \"local\":\n")
 source(file = "test_08_FD_null_model_local.R")
 
+cat("Running FD code checks\n")
+source(file = "test_09_FD_code_check.R")
+
+
 cat("Finished running all test scripts.\n")
 
