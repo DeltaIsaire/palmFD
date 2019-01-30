@@ -6,10 +6,18 @@
 # functions in 'functions/functional_diversity_functions.R') is verified
 # through the use of artificial data.
 #
+# In addition, this script assesses how often random species samples for each
+# null model have to be redrawn because the S > T criterion is not satisfied.
+#
 # Input files:
-#   None.
+#   output/test/tdwg3_info.csv
+#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
+#   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
+#   output/test/test_palm_traits_transformed_gapfilled.csv
+#   output/test/test_palm_traits_transformed_unfilled.csv
 # Generated output files:
-#   None.
+#   output/test/test_nullmodel_species_resampling_freq_gapfilled.csv
+#   output/test/test_nullmodel_species_resampling_freq_unfilled.csv
 
 
 cat("Loading required packages and functions...\n")
@@ -173,7 +181,7 @@ randspec.1 <- RandomSpecies(communities = list(A = c("A")),
 ###########
 # NullModel
 ###########
-
+unlink("output/test/nullmodel_test/", recursive = TRUE)
 NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
                               pres.abs.matrix = test.pres.abs,
                               groups = list(group = rownames(test.pres.abs)),
@@ -182,7 +190,8 @@ NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
                               mc.cores = num.cores,
                               subset = FALSE,
                               verbose = TRUE,
-                              random.groups = TRUE
+                              random.groups = TRUE,
+                              single.traits = TRUE
                               )
 # Getting this function to run made me change some of the argument defaults
 # of this function, add one line of code, and generalize the result parsing
@@ -202,6 +211,7 @@ NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
 # Next trial: can 'NullModel' be run for a single area?
 # Of course it can, although I had to tweak the code slightly to make it work.
 # Here is how:
+unlink("output/test/nullmodel_test/", recursive = TRUE)
 NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
                               pres.abs.matrix = test.pres.abs,
                               groups = list(A = c("A", "A1")),
@@ -210,11 +220,134 @@ NullModel.output <- NullModel(trait.matrix = test.traits[, -1],
                               mc.cores = num.cores,
                               subset = FALSE,
                               verbose = TRUE,
-                              random.groups = FALSE
+                              random.groups = FALSE,
+                              single.traits = TRUE
                               )
 # use 'groups' argument list(area = <areas>), with 'random.groups' = FALSE
 
 
+
+
+###################################
+# Species sampling redraw frequency
+###################################
+cat("Assessing frequency of random species sample redraws:\n")
+cat("Preparing data...\n")
+# Number of samples to test with:
+samples <- 10
+
+# Information on tdwg3 units
+tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv")
+
+# Load datasets
+pres.abs.gapfilled <- 
+  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
+pres.abs.unfilled <- 
+  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_unfilled.csv",
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
+traits.gapfilled <- 
+  read.csv(file = "output/test/test_palm_traits_transformed_gapfilled.csv",
+           row.names = 1
+           ) %>%
+  as.matrix()
+traits.unfilled <- 
+  read.csv(file = "output/test/test_palm_traits_transformed_unfilled.csv",
+           row.names = 1
+           ) %>%
+  as.matrix()
+
+
+# Global null model
+# -----------------
+cat("1. For global null model\n")
+global.tdwg3 <- list(global = tdwg3.info[, "tdwg3.code"])
+
+resample.global.gapfilled <-
+  ResampleTest(pres.abs.matrix = pres.abs.gapfilled,
+               trait.matrix = traits.gapfilled,
+               groups = global.tdwg3,
+               random.groups = TRUE,
+               verbose = TRUE,
+               samples = samples
+               )
+
+resample.global.unfilled <-
+  ResampleTest(pres.abs.matrix = pres.abs.unfilled,
+               trait.matrix = traits.unfilled,
+               groups = global.tdwg3,
+               random.groups = TRUE,
+               verbose = TRUE,
+               samples = samples
+               )
+
+# Regional null model
+# -------------------
+cat("For Regional null model\n")
+realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
+                                           "tdwg3.code"],
+                    old.world.west = tdwg3.info[tdwg3.info$realm == "OWWest",
+                                                "tdwg3.code"],
+                    old.world.east = tdwg3.info[tdwg3.info$realm == "OWEast",
+                                                "tdwg3.code"]
+                    )
+
+resample.realm.gapfilled <-
+  ResampleTest(pres.abs.matrix = pres.abs.gapfilled,
+               trait.matrix = traits.gapfilled,
+               groups = realm.tdwg3,
+               random.groups = TRUE,
+               verbose = TRUE,
+               samples = samples
+               )
+
+resample.realm.unfilled <-
+  ResampleTest(pres.abs.matrix = pres.abs.unfilled,
+               trait.matrix = traits.unfilled,
+               groups = realm.tdwg3,
+               random.groups = TRUE,
+               verbose = TRUE,
+               samples = samples
+               )
+
+# Local null model
+# ----------------
+# TODO: to be added
+
+
+# Gather and save results
+# -----------------------
+resample.freq.gapfilled <-
+  data.frame(community = resample.global.gapfilled[, "community"],
+             global.count = resample.global.gapfilled[, 2],
+             global.freq = resample.global.gapfilled[, 3],
+             realm.count = resample.realm.gapfilled[, 2],
+             realm.freq = resample.realm.gapfilled[, 3]
+             )
+write.csv(resample.freq.gapfilled,
+          file = "output/test/test_nullmodel_species_resampling_freq_gapfilled.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+resample.freq.unfilled <-
+  data.frame(community = resample.global.unfilled[, "community"],
+             global.count = resample.global.unfilled[, 2],
+             global.freq = resample.global.unfilled[, 3],
+             realm.count = resample.realm.unfilled[, 2],
+             realm.freq = resample.realm.unfilled[, 3]
+             )
+write.csv(resample.freq.unfilled,
+          file = "output/test/test_nullmodel_species_resampling_freq_unfilled.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
 
 cat("Done.\n")
 

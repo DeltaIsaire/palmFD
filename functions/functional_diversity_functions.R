@@ -16,6 +16,7 @@
 # NullModel
 # ZScore
 # NullTransform
+# ResampleTest
 
 
 library(plyr)
@@ -630,6 +631,202 @@ NullTransform <- function(raw.fd, null.model) {
                           )
   }
   result
+}
+
+
+ResampleTest <- function(pres.abs.matrix, trait.matrix, groups,
+                         random.groups = TRUE, verbose = TRUE, samples) {
+# Test how often resampling the random species sample is necessary
+#
+# Args:
+#   trait.matrix: A matrix with observed numerical trait values in columns,
+#                 without NAs, and rownames with species names.
+#   pres.abs.matrix: A presence/absence matrix giving the presence (1) and
+#                    absence (0) of palm species in tdwg3 units. Rownames should
+#                    be tdwg3 labels, and colnames should be species names.
+#                    The colnames should match the rownames of the trait.matrix!
+#   groups: A list of character vectors giving the community names belonging
+#           to each group (list element). Community names must match the
+#           rownames of the pres.abs.matrix. The list can be of length 1 (i.e.
+#           only one group, also the default)
+#   random.groups: logical indicating whether 'groups' contains groups. Also
+#                  passed to argument 'groups' of function 'RandomSpecies'
+#   verbose: print info about progress?
+#   samples: integer indicating how many times to run the species sampling routine
+#
+# Returns:
+#
+#
+  # Define grouping of tdwg3 units
+  if (verbose) {
+    cat("Parsing community grouping...\n")
+  }
+  groups.subset <-
+  llply(groups,
+        function(group) {
+          CrossCheck(x = rownames(pres.abs.matrix),
+                     y = group,
+                     presence = TRUE,
+                     value = TRUE
+                     )
+        }
+        )
+
+  richness <- data.frame(community = rownames(pres.abs.matrix),
+                         richness  = rowSums(pres.abs.matrix)
+                         )
+
+  if (!isTRUE(random.groups)) {
+    groups.subset %<>% .[names(.) %in% rownames(pres.abs.matrix)]
+  }
+
+  # Then, for each group, extract the present species
+  if (verbose) {
+    cat("Building species pool for each community...\n")
+  }
+  group.species <-
+    llply(groups.subset,
+          function(group) {
+            if (!identical(group, character(0))) {
+              indices <- CrossCheck(x = rownames(pres.abs.matrix),
+                                                 y = group,
+                                                 presence = TRUE,
+                                                 value = FALSE
+                                                 )
+              pres.abs.subset <- pres.abs.matrix[indices, , drop = FALSE]
+              species <-
+                pres.abs.subset %>%
+                { colnames(.)[which(colSums(.) > 0)] }
+            } else {
+              species <- character(0)
+            }
+            species
+          }
+          )
+
+  # Run sampling routine (edited copy of RandomSpecies)
+  if (verbose) {
+    cat("Preparing input for species sampling routine...\n")
+  }
+  communities <- groups.subset
+  richness <- richness
+  species <- group.species
+  trait.matrix <- trait.matrix
+  verbose <- verbose
+  groups <- random.groups
+
+  if (is.list(communities)) {
+    areas <- communities
+  } else {
+  areas <- list(group = communities)
+  }
+  if (is.list(species)) {
+  list.species <- species
+  } else {
+  list.species <- list(group = species)
+  }
+  if (!identical(names(areas), names(list.species))) {
+    stop("group names in lists 'communities' and 'species' do not match")
+  }
+  areas %<>% .[order(names(.))]
+  list.species %<>% .[order(names(.))]
+
+  # Run the sampling routine n times
+  if (verbose) {
+    cat("Running species sampling routine", samples, "times\n")
+  }
+  # Initialize output matrix
+  # Initial data is all zeroes. In each instance where resampling would be
+  # required, the value will be changed to 1.
+  result <- matrix(nrow = length(unlist(areas)),
+                   ncol = samples,
+                   dimnames = list(row = unlist(areas),
+                                   col = seq_len(samples)
+                                   ),
+                   data = 0
+                   )
+  for (sample in seq_len(samples)) {
+    if (verbose) {
+      cat("sample", sample, "\n")
+    }
+    if (isTRUE(groups)) {
+      random.species <- rep(list(NULL), length = length(unlist(areas)))
+      i <- 1
+      for (group in seq_along(areas)) {
+        for (area in seq_along(areas[[group]])) {
+          area.richness <-
+            richness %>% {
+              .[which(.[1] == areas[[group]][area]), 2]
+            }
+          indices <-
+            runif(n = area.richness * 100,
+                  min = 1,
+                  max = length(list.species[[group]])
+                  ) %>%
+            round() %>%
+            unique() %>%
+            .[seq_len(area.richness)]
+          random.species[[i]] <- list.species[[group]][indices]
+          names(random.species)[i] <- areas[[group]][area]
+          i <- i + 1
+        }
+      }
+    } else {
+      random.species <- rep(list(NULL), length = length(areas))
+      for (area in seq_along(areas)) {
+        area.richness <-
+          richness %>% {
+            .[which(.[1] == names(areas)[area]), 2]
+          }
+        indices <-
+          runif(n = area.richness * 100,
+                min = 1,
+                max = length(list.species[[area]])
+                ) %>%
+          round() %>%
+          unique() %>%
+          .[seq_len(area.richness)]
+        random.species[[area]] <- list.species[[area]][indices]
+        names(random.species)[area] <- names(areas)[area]
+      }
+    }
+    random.species %<>% .[order(names(.))]
+    # Check if uniqueness condition is satisfied:
+    # Step 1: assemble trait values for species in each community
+    sample.traits <-
+      llply(random.species,
+            function(area) {
+              indices <- CrossCheck(x = rownames(trait.matrix),
+                                    y = area,
+                                    presence = TRUE,
+                                    value = FALSE
+                                    )
+              trait.matrix[indices, ]
+            }
+            )
+    # Step 2: Identify communities with < 4 unique trait combinations
+    sample.counts <-
+      llply(sample.traits,
+            function(area) {
+              count(area) %>%
+                nrow()
+            }
+            ) %>%
+      simplify2array()
+    resample.indices <- which(sample.counts < 4)
+    # add results to output
+    result[resample.indices, sample] <- 1
+  }
+
+  # Parse results: count frequency of resampling requirements
+  if (verbose) {
+    cat("Processing results...\n")
+  }
+  data.frame(community = rownames(result),
+             resample.count = rowSums(result),
+             resample.freq = rowSums(result) / samples,
+             row.names = seq_len(nrow(result))
+             )
 }
 
 

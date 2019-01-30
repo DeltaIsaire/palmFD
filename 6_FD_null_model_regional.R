@@ -9,7 +9,7 @@
 # Which could be the called the "regional" null model.
 #
 # Input files:
-#   data/TDWG_Environment_AllData_2014Dec.csv
+#   data/TDWG_Environment_AllData_2019Jan.csv
 #   data/palms_in_tdwg3.csv
 #   output/FD_palm_tdwg3_pres_abs_gapfilled.csv
 #   output/FD_palm_tdwg3_pres_abs_unfilled.csv
@@ -53,7 +53,7 @@ cat("Preparing data...\n")
 
 # Information on tdwg3 units
 # --------------------------
-env.data <- read.csv(file = "data/TDWG_Environment_AllData_2014Dec.csv",
+env.data <- read.csv(file = "data/TDWG_Environment_AllData_2019Jan.csv",
                      header = TRUE)
 tdwg3.info <- data.frame(tdwg3.code    = env.data$LEVEL_3_CO,
                          tdwg3.name    = env.data$LEVEL_NAME,
