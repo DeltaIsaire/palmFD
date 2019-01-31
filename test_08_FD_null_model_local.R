@@ -89,6 +89,36 @@ trait.names <- colnames(traits.gapfilled)
 #######################
 cat("Creating Local null model... (this will take a moment)\n")
 
+# New method: probabilistic Assemblage Dispersion Fields
+# The ADF is all communities that share species with a focal community.
+#
+# custom function WeightedADF()
+
+# All species in gapfilled:HAW are endemic to this community
+# All species in gapfilled:NFK are endemic to this community
+# All species in gapfilled:NWC are endemic to this community
+# All species in gapfilled:SEY are endemic to this community
+#
+# All species in unfilled:HAW are endemic to this community
+# All species in unfilled:NFK are endemic to this community
+# All species in unfilled:NWC are endemic to this community
+# All species in unfilled:SEY are endemic to this community
+#
+# That's Hawaii, Norfolk Island (Oceania), New Caledonia and Seychelles.
+# All of them islands, and HAW + NWC have fairly high palm species richness.
+# All HAW species are in genus Pritchardia, which is unique to HAW.
+# NFK has 5 species in 4 genera, all genera unique to NFK.
+# NWC has 39 species in 10 genera, not all genera unique to NWC.
+# SEY has 6 species in 6 genera, most genera are unique to SEY.
+#
+# Unless you want the z-scores of these communities to be guaranteed 0 because
+# they are compared against themselves, maybe they should be removed?
+
+
+
+
+
+
 # Define neighbourhood for each TDWG3 unit
 # ----------------------------------------
 # Load spatial map:

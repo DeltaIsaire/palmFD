@@ -349,5 +349,14 @@ write.csv(resample.freq.unfilled,
           row.names = FALSE
           )
 
+# Some quick results:
+# Resampling is nearly nonexistent for the UNFILLED dataset.
+# For the GAPFILLED dataset there is some nontrivial resampling for about
+# a dozen tdwg3 units.
+# The worst case is SAU for the realm nullmodel, which required 4.1% resampling.
+# Resampling is strongly and negatively correlated with palm species richness.
+# All the tdwg3 units with significant resampling rates have richness 4, the
+# minimum.
+
 cat("Done.\n")
 
