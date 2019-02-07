@@ -13,6 +13,9 @@
 # CrossCheck
 # MultiCheck
 # GapFill
+# CountObserved
+# IntervalRnorm
+# StochasticFill
 
 
 library(plyr)
@@ -193,4 +196,79 @@ GapFill <- function(x, y, by, fill) {
   }
   x
 }
+
+
+CountObserved <- function(x) {
+# A simple function: find the number of values in x that is NOT missing
+#
+# Args:
+#   x: any object whose elements will be checked for being NA
+#
+# Returns:
+#   A single integer value with the number of non-missing values in x.
+  sum(!is.na(x))
+}
+
+
+IntervalRnorm <- function(n, mean = 0, sd = 1, min, max) {
+# From a normal distribution with given mean and sd, draw n values that fall within
+# the interval given by the min and max.
+#
+# Args:
+#   n: Number of random values sto draw
+#   mean: mean of the normal distribution to draw from
+#   sd: standard deviation of the normal distribution to draw from
+#   min: lower limit for randomly drawn values
+#   max: upper limit for randomly drawn values
+#
+# Returns:
+#   A numeric vector of length n with randomly drawn values.
+  output <- numeric(length = n)
+  for (i in seq_along(output)) {
+    do.sample <- TRUE
+    while (do.sample) {
+      value <- rnorm(1, mean = mean, sd = sd)
+      if (value >= min & value <= max) {
+        do.sample <- FALSE
+      }
+    }
+    output[i] <- value
+  }
+  output
+}
+
+
+StochasticFill <- function(trait, genus, distribution) {
+# For every missing value in 'trait', get the genus-level trait distribution from
+# 'distribution' using 'genus' as index, and sample a random value
+# via IntervalRnorm().
+#
+# Args:
+#   trait: numeric vector giving trait data, with missing values
+#   genus: character vector of the same length as trait, giving for each trait
+#          value the genus to which that trait value belongs.
+#   distribution: dataframe giving trait distribution data for each genus.
+#                 must have columns with names in 
+#                 c("genus", "mean", "sd, "min", "max")
+#
+# Returns:
+#   The trait vector with all the NA values filled in.
+  if (!identical(length(trait), length(genus))) {
+    stop("lengths of 'trait' and 'genus' differ")
+  }
+  output <- trait
+  for (i in seq_along(trait)) {
+    if (is.na(trait[i])) {
+      dist <- distribution[match(genus[i], distribution[, "genus"]), ]
+      output[i] <- IntervalRnorm(1,
+                                 mean = dist[, "mean"],
+                                 sd = dist[, "sd"],
+                                 min = dist[, "min"],
+                                 max = dist[, "max"]
+                                 )
+    }
+  }
+  output
+}
+
 
