@@ -22,6 +22,12 @@
 #   output/test/stochastic_gapfilling_genus_distributions_stem.height.csv
 #   output/test/stochastic_gapfilling_genus_distributions_blade.length.csv
 #   output/test/stochastic_gapfilling_genus_distributions_fruit.length.csv
+#   dir 'output/test/stochastic_gapfilled/' with stochastically filled
+#     trait matrices
+#   graphs/test/genus_distribution_completeness.svg
+#   graphs/test/genus_distribution_height.png
+#   graphs/test/genus_distribution_blade.png
+#   graphs/test/genus_distribution_fruit.png
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -134,7 +140,7 @@ genus.min <- ddply(palm.traits.subset, "genus", numcolwise(min, na.rm = TRUE))
 genus.max <- ddply(palm.traits.subset, "genus", numcolwise(max, na.rm = TRUE))
 # let's include total count and missing counts as well, for completeness
 genus.species <- ddply(palm.traits.subset, "genus", nrow)
-genus.missing <- ddply(palm.traits.subset, "genus", numcolwise(CountObserved))
+genus.observed <- ddply(palm.traits.subset, "genus", numcolwise(CountObserved))
 
 # Combine distribution data into a dataframe for each trait
 genus.distributions <- vector("list", length = length(trait.names))
@@ -147,7 +153,7 @@ for (i in seq_along(trait.names)) {
                min  = genus.min[, (i + 1)],
                max  = genus.max[, (i + 1)],
                species.count = genus.species[, 2],
-               species.missing = genus.missing[, (i + 1)]
+               species.observed = genus.observed[, (i + 1)]
                )
 }
 
@@ -194,6 +200,100 @@ for (sample in seq_len(100)) {
             row.names = FALSE
             )
 }
+
+
+###################################################
+# Statistics of the observed genus-level trait data
+###################################################
+cat("Generating plots of observed genus-level trait values...\n")
+# The subsetted dataset contains 122 Genera with 2-379 species (total 2479 species)
+
+# Histogram of proportion of species with known trait values
+# ----------------------------------------------------------
+completeness <- llply(genus.distributions,
+                      function(x) {
+                        (x$species.observed / x$species.count)
+                      }
+                      )
+GraphSVG(MultiHist(completeness, id = names(completeness), xlab = "completeness"),
+         file = "graphs/test/genus_distribution_completeness.svg",
+         width = 3,
+         height = 4
+         )
+# Most genera have relatively complete data.
+
+
+# Shape of genus-level trait distributions
+# ----------------------------------------
+# Can we make histograms for 122 genera, for three traits?
+# I would, but my supervisor isn't going to look at all of them...
+# We can make a list of observed trait values by genus:
+genus.traits <- dlply(palm.traits.subset, "genus", function(x) { x } )
+names(genus.traits) <- unique(palm.traits.subset[, "genus"])
+
+# Then subset to genera with more than one growthform.
+# First, find growthforms for all species
+growthform <- numeric(length = length(trait.data$SpecName))
+growthform[which(trait.data$Climbing == 1)] <- "climbing"
+growthform[which(trait.data$Acaulescence == 1)] <- "acaulescent"
+growthform[which(trait.data$Errect == 1)] <- "freestanding"
+growthform[which(growthform == 0)] <- NA
+# Second, subset to species in palm.traits.subset
+indices <- CrossCheck(x = palm.traits[, "species"],
+                      y = palm.traits.subset[, "species"],
+                      presence = TRUE,
+                      value = FALSE
+                      )
+growthform %<>% .[indices]
+# Third, combine with genus names and find uniques
+genus.growthform <- data.frame(genus = palm.traits.subset$genus,
+                               growthform = growthform
+                               )
+genus.growthform %<>% count()
+# Fourth, count growthforms per genus and subset to counts > 1
+growthform.counts <- ddply(genus.growthform, "genus", nrow)
+growthform.counts %<>% { .[which(.[, 2] > 1), ] }
+# And finally, subset genus.traits
+genus.traits %<>% .[names(.) %in% growthform.counts[, "genus"]]
+# This limits us to a mere 33 genera.
+
+# There is no obvious way to subset it further, so on with the plotting!
+# First obtain for each trait, a list of values for each genus,
+# with the NAs removed,
+# and log10-transformed to compress the x-axis
+Temp <- function(x, trait) {
+  log10(x[!is.na(x[, trait]), trait] + 1)
+}
+genus.traits.height <- llply(genus.traits, Temp, trait = "stem.height")
+genus.traits.blade <- llply(genus.traits, Temp, trait = "blade.length")
+genus.traits.fruit <- llply(genus.traits, Temp, trait = "fruit.length")
+# Then make the plots:
+GraphPNG(MultiHist(genus.traits.height,
+                   id = names(genus.traits.height),
+                   xlab = "Observed log10(stem height)"
+                   ),
+         file = "graphs/test/genus_distribution_height.png",
+         width = 480,
+         height = (120 * 33)
+         )
+GraphPNG(MultiHist(genus.traits.blade,
+                   id = names(genus.traits.blade),
+                   xlab = "Observed log10(blade length)"
+                   ),
+         file = "graphs/test/genus_distribution_blade.png",
+         width = 480,
+         height = (120 * 33)
+         )
+GraphPNG(MultiHist(genus.traits.fruit,
+                   id = names(genus.traits.fruit),
+                   xlab = "Observed log10(fruit length)"
+                   ),
+         file = "graphs/test/genus_distribution_fruit.png",
+         width = 480,
+         height = (120 * 33)
+         )
+
+
 
 
 # Reset RNG

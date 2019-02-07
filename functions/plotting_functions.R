@@ -12,6 +12,7 @@
 # Scatterplot
 # GraphPDF
 # graphSVG
+# GraphPNG
 # MultiScatter
 # BarPlot
 # Histogram
@@ -145,6 +146,23 @@ GraphSVG <- function(expr, file, ...) {
 # Returns:
 #   Creates an svg file with the given filename, containing the graph.
   svg(file = file, ...)
+  eval.parent(substitute(expr))
+  on.exit(dev.off())
+  invisible(expr)
+}
+
+
+GraphPNG <- function(expr, file, ...) {
+# Wrapper function for 'png', to simplify saving graphs as png files.
+#
+# Args:
+#   expr: Function which creates a graph
+#   file: A character string giving the name of the file to create.
+#   ...: additional arguments to pass to the 'png' function
+#
+# Returns:
+#   Creates a png file with the given filename, containing the graph.
+  png(file = file, ...)
   eval.parent(substitute(expr))
   on.exit(dev.off())
   invisible(expr)
