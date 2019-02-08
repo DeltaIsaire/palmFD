@@ -117,11 +117,12 @@ exclude.indices <-
   adply(genus.counts[, -1], .margins = 1, function(x) { any(x < 2) } ) %>%
   { which(.[, "V1"]) }
 exclude.genera <- unique(palm.traits[, "genus"]) [exclude.indices]
-
-# Verify visually and save excluded data:
 excluded <- palm.traits[palm.traits[, "genus"] %in% exclude.genera, ]
-# 78 species in 63 Genera are excluded.
-# These are mainly genera with only 1 species.
+# Hold your horses: some of these species may have complete data, so there is
+# no reason to exclude them.
+excluded %<>% .[!complete.cases(.), ]
+
+# 18 species in 9 Genera are excluded.
 write.csv(excluded, 
           file = "output/test/stochastic_gapfilling_excluded_genera.csv",
           eol = "\r\n",
@@ -129,7 +130,8 @@ write.csv(excluded,
           )
 
 # Subset palm traits dataset
-palm.traits.subset <- palm.traits[!palm.traits[, "genus"] %in% exclude.genera, ]
+palm.traits.subset <-
+  palm.traits[!palm.traits[, "species"] %in% excluded[, "species"], ]
 
 
 # Find the mean, sd, min and max of each trait.
@@ -206,13 +208,13 @@ for (sample in seq_len(100)) {
 # Statistics of the observed genus-level trait data
 ###################################################
 cat("Generating plots of observed genus-level trait values...\n")
-# The subsetted dataset contains 122 Genera with 2-379 species (total 2479 species)
 
 # Histogram of proportion of species with known trait values
 # ----------------------------------------------------------
 completeness <- llply(genus.distributions,
                       function(x) {
-                        (x$species.observed / x$species.count)
+                        subset <- x[!x$species.observed == x$species.count, ]
+                        (subset$species.observed / subset$species.count)
                       }
                       )
 GraphSVG(MultiHist(completeness, id = names(completeness), xlab = "completeness"),
@@ -222,10 +224,29 @@ GraphSVG(MultiHist(completeness, id = names(completeness), xlab = "completeness"
          )
 # Most genera have relatively complete data.
 
+# Histogram of number of observations per genus
+# ---------------------------------------------
+observations <- llply(genus.distributions,
+                      function(x) {
+                        subset <- x[!x$species.observed == x$species.count, ]
+                        subset$species.observed
+                      }
+                      )
+x.max <- ceiling(range(observations)[2] / 5) * 5
+GraphSVG(MultiHist(observations,
+                   id = names(observations),
+                   xlab = "number of observed values",
+                   breaks = seq(0, x.max, 5)
+                   ),
+         file = "graphs/test/genus_distribution_observations.svg",
+         width = 3,
+         height = 4
+         )
+
 
 # Shape of genus-level trait distributions
 # ----------------------------------------
-# Can we make histograms for 122 genera, for three traits?
+# Can we make histograms for 182 genera, for three traits?
 # I would, but my supervisor isn't going to look at all of them...
 # We can make a list of observed trait values by genus:
 genus.traits <- dlply(palm.traits.subset, "genus", function(x) { x } )
@@ -259,41 +280,45 @@ genus.traits %<>% .[names(.) %in% growthform.counts[, "genus"]]
 
 # There is no obvious way to subset it further, so on with the plotting!
 # First obtain for each trait, a list of values for each genus,
-# with the NAs removed,
-# and log10-transformed to compress the x-axis
+# with the NAs removed.
 Temp <- function(x, trait) {
-  log10(x[!is.na(x[, trait]), trait] + 1)
+  x[!is.na(x[, trait]), trait]
 }
 genus.traits.height <- llply(genus.traits, Temp, trait = "stem.height")
 genus.traits.blade <- llply(genus.traits, Temp, trait = "blade.length")
 genus.traits.fruit <- llply(genus.traits, Temp, trait = "fruit.length")
+
 # Then make the plots:
-GraphPNG(MultiHist(genus.traits.height,
-                   id = names(genus.traits.height),
-                   xlab = "Observed log10(stem height)"
-                   ),
-         file = "graphs/test/genus_distribution_height.png",
-         width = 480,
-         height = (120 * 33)
-         )
-GraphPNG(MultiHist(genus.traits.blade,
-                   id = names(genus.traits.blade),
-                   xlab = "Observed log10(blade length)"
-                   ),
-         file = "graphs/test/genus_distribution_blade.png",
-         width = 480,
-         height = (120 * 33)
-         )
-GraphPNG(MultiHist(genus.traits.fruit,
-                   id = names(genus.traits.fruit),
-                   xlab = "Observed log10(fruit length)"
-                   ),
-         file = "graphs/test/genus_distribution_fruit.png",
-         width = 480,
-         height = (120 * 33)
-         )
+StackedPlot <- function(x, trait.name, width) {
+  x.max <- ceiling(range(x)[2] / width) * width
+MultiHist(x,
+          id = names(x),
+          xlab = paste("Observed", trait.name),
+          breaks = seq(0, x.max, width),
+          xlim = c(0, x.max),
+          xaxt = "s"
+          )
+}
 
-
+GraphSVG(StackedPlot(genus.traits.height[-11], trait.names[1], 5),
+         file = "graphs/test/genus_distribution_height.svg",
+         width = 8,
+         height = (3 * 33)
+         )
+# Excluded genus Calamus, because its height range goes up to 150, while all
+# other genera max out < 50. This makes the graphs easier to read.
+Histogram(genus.traits.height[[11]], breaks = seq(0, 150, 5))
+# The height distribution for Calamus is highly skewed, but not bimodal.
+GraphSVG(StackedPlot(genus.traits.blade, trait.names[2], 2),
+         file = "graphs/test/genus_distribution_blade.svg",
+         width = 8,
+         height = (3 * 33)
+         )
+GraphSVG(StackedPlot(genus.traits.fruit, trait.names[3], 2),
+         file = "graphs/test/genus_distribution_fruit.svg",
+         width = 8,
+         height = (3 * 33)
+         )
 
 
 # Reset RNG

@@ -272,7 +272,8 @@ BarPlot <- function(heights, names = NULL, ylab = NULL, height.labels = TRUE) {
 
 
 Histogram <- function(x, set.mar = TRUE, main = NULL, 
-                      col = rgb(220, 220, 220, max = 255), ...) {
+                      col = rgb(220, 220, 220, max = 255),
+                      breaks = round(sqrt(length(x))), ...) {
 # Wrapper function for hist(), to easily produce a decent quality histogram.
 #
 # Args:
@@ -295,7 +296,7 @@ Histogram <- function(x, set.mar = TRUE, main = NULL,
     par(mar = c(4.1, 4.1, .5, .5))
   }
   hist(x = x,
-       breaks = round(sqrt(length(x))),
+       breaks = breaks,
        main = NULL,
        col = rgb(220, 220, 220, max = 255),  # very light grey
        ...
@@ -303,7 +304,7 @@ Histogram <- function(x, set.mar = TRUE, main = NULL,
 }
 
 
-MultiHist <- function(data, id, xlab) {
+MultiHist <- function(data, id, xlab, xlim = round(range(data)), xaxt = "n", ...) {
 # Wrapper function for Histogram(). Takes multi-dimensional input, creats
 # a histogram for each dimension, and plots these histograms stacked
 # vertically.
@@ -319,9 +320,6 @@ MultiHist <- function(data, id, xlab) {
   dims <- 
     seq_along(data)[-1] %>%
     sort(., decreasing = TRUE)
-  xlim <-
-    range(data) %>%
-    round()
   par(mfrow = c(dims[1],
                 1),
       mar = c(.5, 4.1, .5, .5)
@@ -330,14 +328,16 @@ MultiHist <- function(data, id, xlab) {
     Histogram(data[[i]],
               set.mar = FALSE,
               xlim = xlim,
-              xaxt = "n",
-              ylab = paste0("Freq. (", id[i], ")")
+              xaxt = xaxt,
+              ylab = paste0("Freq. (", id[i], ")"),
+              ...
               )
   }
   Histogram(data[[1]],
             xlim = xlim,
             xlab = xlab,
-            ylab = paste0("Freq. (", id[1], ")")
+            ylab = paste0("Freq. (", id[1], ")"),
+            ...
             )
 }
 
