@@ -51,8 +51,12 @@ source(file = "3_gapfilling_accuracy.R")
 cat("Identifying gap-filling error:\n")
 source(file = "4_gapfilling_error.R")
 
-cat("Calculating functional diversity indices:\n")
-source(file = "5_FD_indices.R")
+cat("Creating stochastic genus-level gapfilling series:\n")
+source(file = "5_stochastic_genus_gapfilling.R")
+
+# cat("Calculating functional diversity indices:\n")
+# source(file = "5_FD_indices.R")
+
 
 cat("Finished running all main scripts.\n")
 

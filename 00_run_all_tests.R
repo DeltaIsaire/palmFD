@@ -51,20 +51,11 @@ source(file = "test_03_gapfilling_accuracy.R")
 cat("Identifying gap-filling error:\n")
 source(file = "test_04_gapfilling_error.R")
 
-cat("Calculating functional diversity indices:\n")
-source(file = "test_05_FD_indices.R")
+cat("Creating stochastic genus-level gapfilling series:\n")
+source(file = "test_05_stochastic_genus_gapfilling.R")
 
-cat("Generating FD null model \"regional\":\n")
-source(file = "test_06_FD_null_model_regional.R")
-
-cat("Generating FD null model \"global\":\n")
-source(file = "test_07_FD_null_model_global.R")
-
-cat("Generating FD null model \"local\":\n")
-source(file = "test_08_FD_null_model_local.R")
-
-cat("Running FD code checks\n")
-source(file = "test_09_FD_code_check.R")
+cat("Calculating observed functional diversity indices:\n")
+source(file = "test_06_observed_FD_indices.R")
 
 
 cat("Finished running all test scripts.\n")

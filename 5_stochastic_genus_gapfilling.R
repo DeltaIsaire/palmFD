@@ -17,17 +17,17 @@
 #   data/palms_in_tdwg3.csv
 #   data/PalmTraits_10.csv
 # Generated output files:
-#   output/test/palm_traits.csv
-#   output/test/stochastic_gapfilling_excluded_genera.csv
-#   output/test/stochastic_gapfilling_genus_distributions_stem.height.csv
-#   output/test/stochastic_gapfilling_genus_distributions_blade.length.csv
-#   output/test/stochastic_gapfilling_genus_distributions_fruit.length.csv
-#   dir 'output/test/stochastic_gapfilled/' with stochastically filled
+#   output/palm_traits.csv
+#   output/stochastic_gapfilling_excluded_genera.csv
+#   output/stochastic_gapfilling_genus_distributions_stem.height.csv
+#   output/stochastic_gapfilling_genus_distributions_blade.length.csv
+#   output/stochastic_gapfilling_genus_distributions_fruit.length.csv
+#   dir 'output/stochastic_gapfilled/' with stochastically filled
 #     trait matrices
-#   graphs/test/genus_distribution_completeness.svg
-#   graphs/test/genus_distribution_height.png
-#   graphs/test/genus_distribution_blade.png
-#   graphs/test/genus_distribution_fruit.png
+#   graphs/genus_distribution_completeness.svg
+#   graphs/genus_distribution_height.png
+#   graphs/genus_distribution_blade.png
+#   graphs/genus_distribution_fruit.png
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -96,7 +96,7 @@ palm.traits <-
 # fruit.length = average fruit length in centimeters.
 # Genus is included because we need it to calculate genus trait distributions
 write.csv(palm.traits, 
-          file = "output/test/palm_traits.csv",
+          file = "output/palm_traits.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -124,7 +124,7 @@ excluded %<>% .[!complete.cases(.), ]
 
 # 18 species in 9 Genera are excluded.
 write.csv(excluded, 
-          file = "output/test/stochastic_gapfilling_excluded_genera.csv",
+          file = "output/stochastic_gapfilling_excluded_genera.csv",
           eol = "\r\n",
           row.names = FALSE
           )
@@ -162,7 +162,7 @@ for (i in seq_along(trait.names)) {
 # Save distribution data for later reference
 for (i in seq_along(genus.distributions)) {
   write.csv(genus.distributions[[i]],
-            file = paste0("output/test/stochastic_gapfilling_genus_distributions_",
+            file = paste0("output/stochastic_gapfilling_genus_distributions_",
                           names(genus.distributions)[i],
                           ".csv"
                           ),
@@ -177,9 +177,9 @@ for (i in seq_along(genus.distributions)) {
 ##################################################
 cat("Generating 100 stochastic gapfilled trait matrices...\n")
 
-if (!dir.exists("output/test/stochastic_gapfilled/")) {
-  cat("creating directory: output/test/stochastic_gapfilled/\n")
-  dir.create("output/test/stochastic_gapfilled/")
+if (!dir.exists("output/stochastic_gapfilled/")) {
+  cat("creating directory: output/stochastic_gapfilled/\n")
+  dir.create("output/stochastic_gapfilled/")
 }
 
 for (sample in seq_len(100)) {
@@ -193,7 +193,7 @@ for (sample in seq_len(100)) {
                      )
   }
   write.csv(traits.filled,
-            file = paste0("output/test/stochastic_gapfilled/",
+            file = paste0("output/stochastic_gapfilled/",
                           "stochastic_gapfilled_traits_",
                           sample,
                           ".csv"
@@ -218,7 +218,7 @@ completeness <- llply(genus.distributions,
                       }
                       )
 GraphSVG(MultiHist(completeness, id = names(completeness), xlab = "completeness"),
-         file = "graphs/test/genus_distribution_completeness.svg",
+         file = "graphs/genus_distribution_completeness.svg",
          width = 3,
          height = 4
          )
@@ -238,7 +238,7 @@ GraphSVG(MultiHist(observations,
                    xlab = "number of observed values",
                    breaks = seq(0, x.max, 5)
                    ),
-         file = "graphs/test/genus_distribution_observations.svg",
+         file = "graphs/genus_distribution_observations.svg",
          width = 3,
          height = 4
          )
@@ -301,7 +301,7 @@ MultiHist(x,
 }
 
 GraphSVG(StackedPlot(genus.traits.height[-11], trait.names[1], 5),
-         file = "graphs/test/genus_distribution_height.svg",
+         file = "graphs/genus_distribution_height.svg",
          width = 8,
          height = (3 * 33)
          )
@@ -310,12 +310,12 @@ GraphSVG(StackedPlot(genus.traits.height[-11], trait.names[1], 5),
 # Histogram(genus.traits.height[[11]], breaks = seq(0, 150, 5))
 # The height distribution for Calamus is highly skewed, but not bimodal.
 GraphSVG(StackedPlot(genus.traits.blade, trait.names[2], 2),
-         file = "graphs/test/genus_distribution_blade.svg",
+         file = "graphs/genus_distribution_blade.svg",
          width = 8,
          height = (3 * 33)
          )
 GraphSVG(StackedPlot(genus.traits.fruit, trait.names[3], 2),
-         file = "graphs/test/genus_distribution_fruit.svg",
+         file = "graphs/genus_distribution_fruit.svg",
          width = 8,
          height = (3 * 33)
          )
