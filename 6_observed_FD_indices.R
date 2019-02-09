@@ -6,12 +6,16 @@
 # For each of the 100 gapfilled datasets, calculate functional richness (FRic)
 # and functional dispersion (FRic).
 # FD is calculated (1) using all three traits, and (2) for each trait individually.
-# In addition, the community mean (CWM) trait values are calculated.
+# The community mean (CWM) trait values are also calculated.
+#
+# For comparison, FD is also calculated for the genus-mean gapfilled dataset.
+#
 #
 # Input files:
 #   dir 'output/stochastic_gapfilled/' with stochastically filled
 #     trait matrices
 #   data/palms_in_tdwg3.csv
+#   output/traits_filled_genus.mean.csv
 # Generated output files:
 #   output/palm_tdwg3_pres_abs_gapfilled.csv
 #   < output dir specified below, with 100 FD files and 100 CWM files >
@@ -32,6 +36,8 @@ subset <- FALSE
 verbose <- TRUE
 # Directory for saved FD outputs
 fd.dir <- "output/observed_FD/"
+# Directory for saved trait matrices
+trait.dir <- "output/trait_matrices/"
 # Number of cores to use for parallel processing. Default is 80% of available cores.
 num.cores <- 
   if (!is.na(detectCores())) {
@@ -85,6 +91,14 @@ ToMatrix <- function(x) {
   data
 }
 traits.gapfilled <- llply(traits.gapfilled, ToMatrix)
+
+# Same for the genus-mean filled dataset
+traits.mean <- read.csv(file = "output/traits_filled_genus_mean.csv")
+traits.mean <- ToMatrix(traits.mean)
+# This dataset has slightly more species. To keep the comparison honest,
+# subset traits.mean to the species in traits.gapfilled
+traits.mean %<>% .[rownames(.) %in% rownames(traits.gapfilled[[1]]), ]
+
 
 # -----------------------
 # presence/absence matrix
@@ -148,13 +162,38 @@ indices <- CrossCheck(x = rownames(trait.matrix),
                       value = FALSE
                       )
 traits.gapfilled %<>% llply(., function(x) { x[-indices, ] } )
+traits.mean %<>% .[-indices, ]
+# NOTE: this subsetting excludes 20 species.
+# The remaining dataset is 2539 species in 131 botanical countries.
 
-# Save pres/abs matrix. We will need it later for the null models.
+# Save pres/abs matrix and all trait matrices.
+# We will need them later for the null models.
 write.csv(pres.abs.matrix,
           file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
           eol = "\r\n",
           row.names = TRUE
           )
+
+if (!dir.exists(trait.dir)) {
+  cat("creating directory:", trait.dir, "\n")
+  dir.create(trait.dir)
+}
+write.csv(traits.mean,
+          file = paste0(trait.dir, "palm_trait_matrix_genus_mean.csv"),
+          eol = "\r\n",
+          row.names = TRUE
+          )
+for (i in seq_along(traits.gapfilled)) {
+  write.csv(traits.gapfilled[[i]],
+            file = paste0(trait.dir, 
+                          "palm_trait_matrix_filled_",
+                          i,
+                          ".csv"
+                          ),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+}
 
 
 ##################################
@@ -272,6 +311,13 @@ parLapply(cluster,
 
 # Gracefully end cluster
 stopCluster(cluster)
+
+# SampleFD for genus-mean filled data
+# -----------------------------------
+SampleFD(trait.matrix = traits.mean,
+         pres.abs.matrix = pres.abs.matrix,
+         id = "genus_mean"
+         )
 
 
 cat("Done.\n")
