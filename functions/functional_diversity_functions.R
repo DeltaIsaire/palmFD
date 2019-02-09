@@ -363,14 +363,30 @@ NullModel <- function(trait.matrix,
   if (!dir.exists(process.dir)) {
     dir.create(process.dir, recursive = TRUE)
   }
+
+  # Initiate cluster:
+  cluster <- makeCluster(mc.cores)
+  # Initiate list of iterations to run
   iteration.list <-
     seq_len(iterations) %>%
     as.array() %>%
     t() %>%
     as.list()
-  mclapply(iteration.list,
-           mc.cores = mc.cores,
-           FUN = function(iteration) {
+  # Export environment to cluster
+  clusterExport(cluster, varlist = ls(), envir = environment())
+  clusterExport(cluster, varlist = ls(globalenv()), envir = environment())
+  clusterEvalQ(cluster,
+               {
+                 library(plyr)
+                 library(magrittr)
+                 library(FD)
+                 library(reshape2)
+               }
+               )
+  # parallel apply nullmodel code to each iteration
+  parLapply(cluster,
+            iteration.list,
+            function(iteration) {
     if (!file.exists(paste0(process.dir,
                             "FD_null_model_iteration_",
                             iteration,
@@ -523,7 +539,10 @@ NullModel <- function(trait.matrix,
                 )
     }
     return (0)
-  })
+  }
+  )
+  # Gracefully end cluster
+  stopCluster(cluster)
   
   # With all iterations complete, gather up the results
   # ---------------------------------------------------

@@ -2,27 +2,21 @@
 # Palm FD project: Functional Diversity calculation
 ###################################################
 #
-# In which we generate FD null model two, based on 
+# In which we generate FD null model one, based on 
 # Random communities sampled from the same species pool.
 # The definiton of species pool for this null model is all palm species
 # occurring worldwide.
 # Which could be the called the "global" null model.
 #
 # Input files:
-#   output/tdwg3_info.csv
-#   output/FD_palm_tdwg3_pres_abs_gapfilled.csv
-#   output/FD_palm_tdwg3_pres_abs_unfilled.csv
-#   output/FD_palm_traits_transformed_gapfilled.csv
-#   output/FD_palm_traits_transformed_unfilled.csv
-#   output/FD_indices_gapfilled.csv
-#   output/FD_indices_unfilled.csv
+#   dir 'output/observed_FD/' with 100 observed FD files
+#   output/observed_FD/community_trait_means_genus_mean.csv
+#   output/palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
-#   Null model processing directory: output/nullmodel_global/
-#   output/FD_z_scores_global_gapfilled.csv
-#   output/FD_z_scores_global_unfilled.csv
-#   graphs/nullmodel_global_z_convergence_FRic.svg
-#   graphs/nullmodel_global_z_convergence_FDis.svg
-
+#   "output/tdwg3_info.csv"
+#   < output dir specified below, with 100 FD z-score files >
+#   < nullmodel processing dir specified below, containing for each iteration
+#     1 file with null FD values >
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -33,18 +27,25 @@ library(reshape2)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
-source(file = "functions/plotting_functions.R")
 
 
-# Enable verbose reporting in the null model procedure?
-verbose <- TRUE
-# Number of cores to use for parallel processing (via parallel::mclapply).
-# Default is 1 less than the number of available cores (so your computer
-# doesn't lock up completely while running the code), and should work on most
-# machines.
-num.cores <- if (is.na(detectCores())) { 1 } else { max(1, detectCores() - 1) }
 # Subset FD input for quick code testing?
 subset <- FALSE
+# Enable verbose reporting in the FD calculation?
+verbose <- TRUE
+# Null model processing directory
+nm.dir <- "output/null_model_processing/"
+# Null model output directory
+output.dir <- "output/null_model_global/"
+# Number of cores to use for parallel processing. Default is 90% of available cores.
+num.cores <- 
+  if (!is.na(detectCores())) {
+    floor(detectCores() * 0.9)
+  } else {
+    1
+    warning("unable to detect cores. Parallel processing is NOT used!")
+    cat("unable to detect cores. Parallel processing is NOT used!")
+  }
 
 
 ##################
@@ -54,34 +55,93 @@ cat("Preparing data...\n")
 
 # Information on tdwg3 units
 # --------------------------
-tdwg3.info <- read.csv(file = "output/tdwg3_info.csv")
+env.data <- read.csv(file = "data/TDWG_Environment_AllData_2019Jan.csv",
+                     header = TRUE)
+tdwg3.info <- data.frame(tdwg3.code    = env.data$LEVEL_3_CO,
+                         tdwg3.name    = env.data$LEVEL_NAME,
+                         realm         = env.data$THREEREALM,
+                         flora.region  = env.data$REALM_LONG,
+                         lat           = env.data$LAT,
+                         lon           = env.data$LONG,
+                         is.island     = as.factor(env.data$ISISLAND),
+                         has.palms     = as.factor(env.data$PalmPresAbs),
+                         palm.richness = env.data$PALMSR
+                         )
+tdwg3.info %<>% .[order(.$tdwg3.code), ]
 
-# Load datasets
-# -------------
-pres.abs.gapfilled <- 
-  read.csv(file = "output/FD_palm_tdwg3_pres_abs_gapfilled.csv",
+# Realm has one empty value, belonging to Antarctica, which isn't really in
+# any of the three realms. So set the value to NA
+tdwg3.info[which(tdwg3.info$realm == ""), "realm"] <- NA
+tdwg3.info %<>% droplevels()
+# Overwrite $palm.richness and $has.palms with our palm distribution data
+palm.dist <- read.csv(file="data/palms_in_tdwg3.csv")
+richness <- ddply(palm.dist, "Area_code_L3", nrow)
+names(richness) <- c("tdwg3.code", "palm.richness")
+missing.codes <- CrossCheck(x = tdwg3.info$tdwg3.code,
+                            y = richness$tdwg3.code,
+                            presence = FALSE,
+                            value = TRUE)
+richness %<>% rbind(.,
+                    data.frame(tdwg3.code = missing.codes,
+                               palm.richness = rep(0, length(missing.codes))
+                               )
+                    )
+richness %<>% .[order(as.character(.$tdwg3.code)), ]
+# We have no environmental data for tdwg3 unit 'VNA', so remove it
+richness %<>% .[-which(.$tdwg3.code == "VNA"), ]
+tdwg3.info$palm.richness <- richness$palm.richness
+tdwg3.info$has.palms <-
+  ifelse(tdwg3.info$palm.richness > 0, 1, 0) %>%
+  as.factor()
+write.csv(tdwg3.info,
+          file = "output/tdwg3_info.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
+tdwg3.info
+# data frame with 368 observations of 9 variables:
+# $tdwg3.code   - 3-letter code for each botanical country (tdwg3 unit).
+# $tdwg3.name   - Name of the botanical country.
+# $realm        - Factor with 3 levels "NewWorld", "OWEast", "OWWest".
+# $flora.region - Floristic region to which the botanical country belongs
+# $lat          - Latitude.
+# $lon          - #Longitude
+# is.island     - binary factor indicating whether botanical country is an island
+# has.palms     - binary factor indicating whether botanical country has palms
+# palm.richness - Palm species richness in the botanical country, including
+#                 known absence (richness 0).
+
+# Load transformed gapfilled trait matrices
+# -----------------------------------------
+traits.mean <-
+  read.csv(file = "output/trait_matrices/palm_trait_matrix_genus_mean.csv",
            row.names = 1,
            check.names = FALSE
-           ) %>%
-  as.matrix()
-pres.abs.unfilled <- 
-  read.csv(file = "output/FD_palm_tdwg3_pres_abs_unfilled.csv",
-           row.names = 1,
-           check.names = FALSE
-           ) %>%
-  as.matrix()
-traits.gapfilled <- 
-  read.csv(file = "output/FD_palm_traits_transformed_gapfilled.csv",
-           row.names = 1
-           ) %>%
-  as.matrix()
-traits.unfilled <- 
-  read.csv(file = "output/FD_palm_traits_transformed_unfilled.csv",
-           row.names = 1
            ) %>%
   as.matrix()
 # This will be useful:
-trait.names <- colnames(traits.gapfilled)
+trait.names <- colnames(traits.mean)
+traits.gapfilled <- vector("list", length = 100)
+for (i in seq_along(traits.gapfilled)) {
+  traits.gapfilled[[i]] <-
+    read.csv(file = paste0("output/trait_matrices/palm_trait_matrix_filled_",
+                           i,
+                           ".csv"
+                           ),
+             row.names = 1,
+             check.names = FALSE
+             ) %>%
+    as.matrix()
+}
+
+# Load presence/absence matrix
+# ----------------------------
+pres.abs.matrix <- 
+  read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
 
 
 #######################
@@ -89,149 +149,91 @@ trait.names <- colnames(traits.gapfilled)
 #######################
 cat("Creating Global null model... (this will take a while)\n")
 
+if (!dir.exists(output.dir)) {
+  cat("creating directory:", output.dir, "\n")
+  dir.create(output.dir)
+}
+
 # Define grouping of tdwg3 units into realms
 # ------------------------------------------
 global.tdwg3 <- list(global = tdwg3.info[, "tdwg3.code"])
 
-# Run the null model simulations
-# ------------------------------
-global.gapfilled <-
-  NullModel(trait.matrix = traits.gapfilled,
-            pres.abs.matrix = pres.abs.gapfilled,
-            groups = global.tdwg3,
-            process.dir = "output/nullmodel_global/gapfilled/",
-            iterations = 1000,
-            mc.cores = num.cores,
-            subset = subset,
-            verbose = verbose,
-            random.groups = TRUE
-            )
-
-global.unfilled <-
-  NullModel(trait.matrix = traits.unfilled,
-            pres.abs.matrix = pres.abs.unfilled,
-            groups = global.tdwg3,
-            process.dir = "output/nullmodel_global/unfilled/",
-            iterations = 1000,
-            mc.cores = num.cores,
-            subset = subset,
-            verbose = verbose,
-            random.groups = TRUE
-            )
-
-
-############################################################
-# Use null model output to convert raw FD values to z-scores
-############################################################
-cat("Applying regional null model to raw FD indices...\n")
-
-# Load raw FD indices
-# -------------------
-fd.gapfilled <- read.csv(file = "output/FD_indices_gapfilled.csv",
-                      header = TRUE,
-                      row.names = 1
-                      )
-fd.unfilled <- read.csv(file = "output/FD_indices_unfilled.csv",
-                        header = TRUE,
-                        row.names = 1
-                        )
-
-# Convert FD to z-cores and save output
+# Function to run the global null model
 # -------------------------------------
-fd.global.gapfilled <- NullTransform(fd.gapfilled, global.gapfilled)
-  write.csv(fd.global.gapfilled,
-            file = "output/FD_z_scores_global_gapfilled.csv",
+RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
+#   id: a unique identifier, used for naming the produced files.
+#       should match the id used for the observed FD file
+
+  # Run null model for the given dataset
+  global.gapfilled <-
+    NullModel(trait.matrix = trait.matrix,
+              pres.abs.matrix = pres.abs.matrix,
+              groups = global.tdwg3,
+              process.dir = nm.dir,
+              iterations = 1000,
+              mc.cores = num.cores,
+              subset = subset,
+              verbose = verbose,
+              random.groups = TRUE
+              )
+
+  # Using the null model output, find the z-scores (SES) for the observed FD
+  # first, load observed FD indices
+  fd.observed <- read.csv(file = paste0("output/observed_FD/",
+                                        "observed_FD_",
+                                        id,
+                                        ".csv"
+                                        ),
+                          header = TRUE,
+                          row.names = 1
+                          )
+  # Second, calculate the z-scores
+  fd.global <- NullTransform(fd.observed, global.gapfilled)
+  # Finally, save results
+  cat("Saving output...\n")
+  write.csv(fd.global,
+            file = paste0(output.dir,
+                          "FD_z_scores_global_",
+                          id,
+                          ".csv"
+                          ),
             eol = "\r\n",
             row.names = TRUE
             )
-fd.global.unfilled <- NullTransform(fd.unfilled, global.unfilled)
-  write.csv(fd.global.unfilled,
-            file = "output/FD_z_scores_global_unfilled.csv",
-            eol = "\r\n",
-            row.names = TRUE
-            )
 
-###############################
-# Visualize z-score convergence
-###############################
-cat("Visualizing z-score convergence...\n")
-# For a few carefully chosen communities, we can visualize the convergence
-# of their z-scores as the number of iterations increases.
-# How? By computing the z-score incrementally.
-# Which communities? The ones with highest/lowest raw FRic and FDis.
-# That's MLY, WAU, SCZ and TCI, respectively.
-areas <- sort(c("MLY", "WAU", "SCZ", "TCI"))
-#
-# For practical purposes, we can focus only on the all-traits FD for the gapfilled
-# dataset. The unfilled and single-trait data is assumed to converge in a similar
-# fashion.
-
-# Subset data to a form usable by ZScore()
-# FRic:
-temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 1]
-raw.FRic.subset <- structure(temp, names = areas)
-null.FRic.subset <-
-  global.gapfilled[[1]] [[1]] [, colnames(global.gapfilled[[1]] [[1]]) %in%
-                                   areas]
-# FDis:
-temp <- fd.gapfilled[rownames(fd.gapfilled) %in% areas, 5]
-raw.FDis.subset <- structure(temp, names = areas)
-null.FDis.subset <-
-  global.gapfilled[[2]] [[1]] [, colnames(global.gapfilled[[2]] [[1]]) %in%
-                                   areas]
-
-# Initialize output
-# z.scores require at least 2 iterations, so the first one doesn't count
-z.scores.FRic <- matrix(ncol = length(areas),
-                        nrow = nrow(null.FRic.subset) - 1,
-                        dimnames = list(row = seq_len(nrow(null.FRic.subset) - 1),
-                                        col = areas
-                                        )
-                        )
-z.scores.FDis <- matrix(ncol = length(areas),
-                        nrow = nrow(null.FDis.subset) - 1,
-                        dimnames = list(row = seq_len(nrow(null.FDis.subset) - 1),
-                                        col = areas
-                                        )
-                        )
-
-# calculate incremental means
-# Instead of NullTransform() we use ZScore() directly.
-# z.scores require at least 2 iterations, so the first one doesn't count
-for (i in seq_len(nrow(null.FRic.subset))[-1]) {
-  z.scores.FRic[(i - 1), ] <-
-    ZScore(raw.FRic.subset, null.FRic.subset[(1:i), ,drop = FALSE])
-}
-for (i in seq_len(nrow(null.FDis.subset))[-1]) {
-  z.scores.FDis[(i - 1), ] <-
-    ZScore(raw.FDis.subset, null.FDis.subset[(1:i), ,drop = FALSE])
-}
-
-# Visualize results
-MyPlot <- function(z.scores, index) {
-  par(mfrow = c(2, 2))
-  for (i in seq_along(areas)) {
-    Scatterplot(x = seq_len(nrow(z.scores)),
-                y = z.scores[, i],
-                xlab = "iterations",
-                ylab = "z.score",
-                title = paste(index,
-                              "z.score convergence in",
-                              colnames(z.scores)[i]
-                              )
-                )
+  # When all is completed, delete the process.dir
+  if (file.exists(paste0(output.dir,
+                          "FD_z_scores_global_",
+                          id,
+                          ".csv"
+                          )
+                   )
+      ) {
+    unlink(nm.dir, recursive = TRUE)
   }
+
+  return (0)
 }
-GraphSVG(MyPlot(z.scores.FRic, "FRic"),
-         file = "graphs/nullmodel_global_z_convergence_FRic.svg",
-         width = 8,
-         height = 8
-         )
-GraphSVG(MyPlot(z.scores.FDis, "FDis"),
-         file = "graphs/nullmodel_global_z_convergence_FDis.svg",
-         width = 8,
-         height = 8
-         )
+
+
+# Global null model for genus-mean filled data
+# --------------------------------------------
+# This is time-consuming: run only if the output does not yet exist
+cat("For genus-mean filled dataset:\n")
+id <- "genus_mean"
+  if (!file.exists(paste0(output.dir,
+                          "FD_z_scores_global_",
+                          id,
+                          ".csv"
+                          )
+                   )
+      ) {
+    RunGlobal(trait.matrix = traits.mean,
+              pres.abs.matrix = pres.abs.matrix,
+              id = id
+              )
+  }
+
 
 cat("Done.\n")
 
