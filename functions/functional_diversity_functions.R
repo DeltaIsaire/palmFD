@@ -27,10 +27,14 @@ library(reshape2)
 library(parallel)
 
 
+source(file = "functions/faster_FD_function.R")
+
+
 RunFD <- function(trait.matrix,
                   pres.abs.matrix,
                   subset = FALSE,
-                  verbose = TRUE
+                  verbose = TRUE,
+                  fast = FALSE
                   ) {
 # A convenient wrapper for the function 'FD::dbFD', which automatically selects
 # arguments suitable for our data.
@@ -45,9 +49,11 @@ RunFD <- function(trait.matrix,
 #  subset: Logical indicating whether to subset the data to only the first 10
 #          tdwg3 units. This speeds up code execution, for testing purposes.
 #  verbose: Logical indicating whether to print progress messages.
+#  fast: use custom faster version of FD::dbFD, tailored to our data?
 #
 # Returns:
-#   A list with the output of function 'FD:dbFD' applied to the provided dataset.
+#   A list with the output of function 'FD:dbFD' applied to the provided dataset;
+#   or if fast = TRUE, a list of length 2 with FRic and FDis.
   if (subset) {
     pres.abs <- pres.abs.matrix[1:10, ]
     orphaned.species <-
@@ -76,19 +82,23 @@ RunFD <- function(trait.matrix,
   # The 'Zero distance(s)' warning means some species within the same community
   # had identical coordinates in functional space. This is not a problem,
   # so we can ignore these warnings.
-  output.all <- suppressWarnings(dbFD(x = traits,
-                                      a = pres.abs,
-                                      w.abun = FALSE,
-                                      stand.x = TRUE,
-                                      corr = "cailliez",  # Is this the best option?
-                                      calc.FRic = TRUE,
-                                      m = "max",
-                                      stand.FRic = FALSE,  # Would this be useful?
-                                      calc.CWM = TRUE,
-                                      calc.FDiv = FALSE,
-                                      messages = verbose
-                                      )
-                                 )
+  if (fast) {
+    output.all <- FastFD(trait.matrix = traits, pres.abs.matrix = pres.abs)
+  } else {
+    output.all <- suppressWarnings(dbFD(x = traits,
+                                        a = pres.abs,
+                                        w.abun = FALSE,
+                                        stand.x = TRUE,
+                                        corr = "cailliez",
+                                        calc.FRic = TRUE,
+                                        m = "max",
+                                        stand.FRic = FALSE,
+                                        calc.CWM = TRUE,
+                                        calc.FDiv = FALSE,
+                                        messages = verbose
+                                        )
+                                   )
+  }
   output.all
 }
 
@@ -96,7 +106,8 @@ RunFD <- function(trait.matrix,
 SingleFD <- function(trait.matrix,
                      pres.abs.matrix,
                      subset = FALSE,
-                     verbose = TRUE
+                     verbose = TRUE,
+                     fast = FALSE
                      ) {
 # A convenient wrapper for the function 'FD::dbFD', which automatically selects
 # arguments suitable for our data. SingleFD calculates FD indices for each trait
@@ -112,6 +123,7 @@ SingleFD <- function(trait.matrix,
 #  subset: Logical indicating whether to subset the data to only the first 10
 #          tdwg3 units. This speeds up code execution, for testing purposes.
 #  verbose: Logical indicating whether to print progress messages.
+#  fast: use custom faster version of FD::dbFD, tailored to our data?
 #
 # Returns:
 #   A list of the same length as the number of traits in the trait matrix,
@@ -153,7 +165,8 @@ SingleFD <- function(trait.matrix,
     output.list[[i]] <- RunFD(trait.matrix = subset.matrix,
                               pres.abs.matrix = pres.abs,
                               subset = FALSE,
-                              verbose = verbose
+                              verbose = verbose,
+                              fast = fast
                               )
   }
   names(output.list) <- colnames(trait.matrix)
@@ -324,7 +337,8 @@ NullModel <- function(trait.matrix,
                       subset = FALSE,
                       verbose = TRUE,
                       random.groups = TRUE,
-                      single.traits = TRUE
+                      single.traits = TRUE,
+                      fast = FALSE
                       ) {
 # Generate a null model for the given dataset, returning functional richness
 # (FRic) and functional dispersion (FDis) computed for all traits and for each
@@ -353,6 +367,7 @@ NullModel <- function(trait.matrix,
 #   random.groups: logical indicating whether 'groups' contains groups. Also
 #                  passed to argument 'groups' of function 'RandomSpecies'
 #   single.traits: Include calculation of FD indices for single traits?
+#  fast: use custom faster version of FD::dbFD, tailored to our data?
 #
 # Returns:
 #   A nested list with dataframes containing sampled FD indices for each
@@ -491,7 +506,8 @@ NullModel <- function(trait.matrix,
       output.all <- RunFD(trait.matrix.subset,
                           nm.pres.abs,
                           subset = subset,
-                          verbose = verbose
+                          verbose = verbose,
+                          fast = fast
                           )
       # FD for single traits
       if (single.traits) {
@@ -501,7 +517,8 @@ NullModel <- function(trait.matrix,
         output.single <- SingleFD(trait.matrix.subset,
                                   nm.pres.abs,
                                   subset = subset,
-                                  verbose = verbose
+                                  verbose = verbose,
+                                  fast = fast
                                   )
         # gather results
         fd.indices <- c(list(all.traits = output.all), output.single)
@@ -516,7 +533,7 @@ NullModel <- function(trait.matrix,
       }
       # Minimize clutter, so generate one file from a single dataframe
       trait.names <- colnames(trait.matrix)
-      result <- data.frame(community          = names(fd.indices[[1]]$nbsp),
+      result <- data.frame(community          = names(fd.indices[[1]]$FRic),
                            all.traits.FRic    = fd.indices[[1]]$FRic,
                            all.traits.FDis    = fd.indices[[1]]$FDis
                            )

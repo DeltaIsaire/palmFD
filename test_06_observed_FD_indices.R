@@ -221,12 +221,14 @@ SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
   output.all <- RunFD(trait.matrix,
                       pres.abs.matrix,
                       subset = subset,
-                      verbose = verbose
+                      verbose = verbose,
+                      fast = FALSE
                       )
   output.single <- SingleFD(trait.matrix,
                             pres.abs.matrix,
                             subset = subset,
-                            verbose = verbose
+                            verbose = verbose,
+                            fast = FALSE
                             )
   output.combined <- c(list(all.traits = output.all), output.single)
 
@@ -255,7 +257,7 @@ SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
                            FDis.stem.height  = output.combined[[2]]$FDis,
                            FDis.blade.length = output.combined[[3]]$FDis,
                            FDis.fruit.length = output.combined[[4]]$FDis,
-                           row.names = names(output.combined[[1]]$nbsp)
+                           row.names = names(output.combined[[1]]$FRic)
                            )
   write.csv(fd.indices,
             file = paste0(fd.dir, "test_observed_FD_", id, ".csv"),

@@ -174,7 +174,8 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
               mc.cores = num.cores,
               subset = subset,
               verbose = verbose,
-              random.groups = TRUE
+              random.groups = TRUE,
+              fast = TRUE
               )
 
   # Using the null model output, find the z-scores (SES) for the observed FD
