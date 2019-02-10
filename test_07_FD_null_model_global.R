@@ -181,7 +181,7 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
   # Using the null model output, find the z-scores (SES) for the observed FD
   # first, load observed FD indices
   fd.observed <- read.csv(file = paste0("output/test/observed_FD/",
-                                        "test_observed_FD_",
+                                        "test_FD_observed_",
                                         id,
                                         ".csv"
                                         ),

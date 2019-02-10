@@ -260,7 +260,7 @@ SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
                            row.names = names(output.combined[[1]]$FRic)
                            )
   write.csv(fd.indices,
-            file = paste0(fd.dir, "test_observed_FD_", id, ".csv"),
+            file = paste0(fd.dir, "test_FD_observed_", id, ".csv"),
             eol = "\r\n",
             row.names = TRUE
             )

@@ -57,6 +57,9 @@ source(file = "test_05_stochastic_genus_gapfilling.R")
 cat("Calculating observed functional diversity indices:\n")
 source(file = "test_06_observed_FD_indices.R")
 
+cat("Running null modal \"global\":\n")
+source( file = "test_07_FD_null_model_global.R")
+
 
 cat("Finished running all test scripts.\n")
 
