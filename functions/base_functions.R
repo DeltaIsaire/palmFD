@@ -16,6 +16,7 @@
 # CountObserved
 # IntervalRnorm
 # StochasticFill
+# DetectOS
 
 
 library(plyr)
@@ -269,6 +270,30 @@ StochasticFill <- function(trait, genus, distribution) {
     }
   }
   output
+}
+
+
+DetectOS <- function() {
+# Detect the operating system for this R session, which can be useful for choosing 
+# OS-specific methods. 
+# Function code based on an R-bloggers post by "will":
+# https://www.r-bloggers.com/identifying-the-os-from-r/
+#
+# Returns:
+#   character vector of length 1 with value in c("osx", "linux", "windows")
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)){
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "osx"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)[[1]]
 }
 
 

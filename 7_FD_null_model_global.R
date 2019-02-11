@@ -33,9 +33,9 @@ source(file = "functions/functional_diversity_functions.R")
 subset <- FALSE
 # Enable verbose reporting in the FD calculation?
 verbose <- TRUE
-# Null model processing directory
+# Null model processing directory (with trailing slash)
 nm.dir <- "output/null_model_processing/"
-# Null model output directory
+# Null model output directory (with trailing slash)
 output.dir <- "output/null_model_global/"
 # Number of cores to use for parallel processing. Default is 90% of available cores.
 num.cores <- 
@@ -210,7 +210,12 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
                           )
                    )
       ) {
-    unlink(nm.dir, recursive = TRUE)
+    if (identical(DetectOS(), "windows")) {
+      remove.dir <- substr(nm.dir, (nchar(nm.dir) - 1))
+    } else {
+      remove.dir <- nm.dir
+    }
+    unlink(remove.dir, recursive = TRUE)
   }
 
   return (0)

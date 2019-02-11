@@ -717,4 +717,5 @@ function (x, a, w, w.abun = TRUE, stand.x = TRUE, ord = c("podani",
     }
     invisible(res)
 }
+<bytecode: 0x7a343d8>
 <environment: namespace:FD>

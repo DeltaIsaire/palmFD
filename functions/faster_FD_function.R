@@ -10,7 +10,7 @@
 library(FD)
 
 
-test <- FALSE
+test <- TRUE
 
 # Extract original source code
 # ----------------------------
@@ -45,36 +45,27 @@ if (test) {
 # We only need two outputs: FRic and FDis
 
 FastFD <- function(trait.matrix, pres.abs.matrix) {
-  # No checks. Assume input is valid.
-  # Trait.matrix: a matrix with trait values in columns, and rownames as species.
-  # pres.abs.matrix: a matrix with presence (1) and absense (0) of species
-  #                  (colnames) in tdwg3 units (rownames).
-  # nrow(trait.matrix) must equal ncol(pres.abs.matrix)
-  # rownames(trait.matrix) must equal colnames(pres.abs.matrix)
-  # Neither matrix should have NAs.
-  # No community should have zero species, and all species should occur somewhere.
-  # There shall be exactly 3 traits, all numeric.
-  # All traits will be standardized to mean 0 and unit variance.
-  # All communities must have > 3 species with unique trait combinations
-  x <- trait.matrix
-  a <- pres.abs.matrix
+# No checks. Assume input is valid.
+# Trait.matrix: a matrix with trait values in columns, and rownames as species.
+# pres.abs.matrix: a matrix with presence (1) and absense (0) of species
+#                  (colnames) in tdwg3 units (rownames).
+# nrow(trait.matrix) must equal ncol(pres.abs.matrix)
+# rownames(trait.matrix) must equal colnames(pres.abs.matrix)
+# Neither matrix should have NAs.
+# No community should have zero species, and all species should occur somewhere.
+# There shall be exactly 3 traits, all numeric.
+# All traits will be standardized to mean 0 and unit variance.
+# All communities must have > 3 species with unique trait combinations
+#
+# NOTE: The FRic convex hull calculation uses 'joggling' to handle precision errors,
+#       by passing option 'QJ' to the qhull algorithm called in convhulln().
+#       see http://www.qhull.org/html/qh-impre.htm for more information.
+  x.rn <- rownames(trait.matrix)
 
-  s.x <- dim(x)[1]
-  t.x <- dim(x)[2]
-  x.rn <- row.names(x)
+  c <- dim(pres.abs.matrix)[1]
 
-  c <- dim(a)[1]
-  s.a <- dim(a)[2]
-  ab.t <- t(a)
-  ab.t.row <- row.names(ab.t)
-
-  abun.sum <- rowSums(a)
-  abun.sum2 <- colSums(a)
-
-  w <- rep(1, t.x) / sum(rep(1, t.x))
-
-  x <- data.frame(x)
-  x.s <- apply(x, 2, scale, center = TRUE, scale = TRUE)
+  trait.matrix <- data.frame(trait.matrix)
+  x.s <- apply(trait.matrix, 2, scale, center = TRUE, scale = TRUE)
   x.dist <- dist(x.s)
   attr(x.dist, "Labels") <- x.rn
   x.dist2 <- x.dist
@@ -90,22 +81,22 @@ FastFD <- function(trait.matrix, pres.abs.matrix) {
     traits.FRic <- x.pco$li
   }
   
-  disp <- fdisp(x.dist, a)
+  disp <- fdisp(x.dist, pres.abs.matrix)
   FDis <- disp$FDis
   
   FRic <- rep(NA, c)
-  names(FRic) <- row.names(a)
+  names(FRic) <- row.names(pres.abs.matrix)
   
   for (i in seq_len(c)) {
-    sppres <- which(a[i, ] > 0)
+    sppres <- which(pres.abs.matrix[i, ] > 0)
     S <- length(sppres)
     tr <- data.frame(traits[sppres, ])
     tr.FRic <- data.frame(traits.FRic[sppres, ])
-    ab <- as.matrix(a[i, sppres])
+    ab <- as.matrix(pres.abs.matrix[i, sppres])
     abundrel <- ab / sum(ab)
     if (dim(tr.FRic)[2] > 1) {
       thresh <- 3
-      convhull <- convhulln(tr.FRic, "FA")
+      convhull <- convhulln(tr.FRic, options = c("FA", "QJ"))
       FRic[i] <- convhull$vol
     }
     if (dim(tr.FRic)[2] == 1) {
@@ -149,7 +140,9 @@ if (test) {
   #   user  system elapsed 
   #  0.048   0.004   0.052 
 
-  identical(new, old)
+  cat("New output matches old output EXACTLY:", identical(new, old), "\n")
+  cat("New output matches old output NEARLY:", isTRUE(all.equal(new, old)), "\n")
+  # FALSE
   # TRUE
 
   # Evaluation:

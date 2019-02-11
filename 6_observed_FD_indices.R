@@ -34,9 +34,9 @@ source(file = "functions/functional_diversity_functions.R")
 subset <- FALSE
 # Enable verbose reporting in the FD calculation?
 verbose <- TRUE
-# Directory for saved FD outputs
+# Directory for saved FD outputs (with trailing slash)
 fd.dir <- "output/observed_FD/"
-# Directory for saved trait matrices
+# Directory for saved trait matrices (with trailing slash)
 trait.dir <- "output/trait_matrices/"
 # Number of cores to use for parallel processing. Default is 80% of available cores.
 num.cores <- 
