@@ -622,12 +622,21 @@ ZScore <- function(x, y) {
 #      x (but do not need to be in the same order).
 #
 # Returns:
-#   A vector with the same length and names as x, containing null model z-scores
-#   for the FD index.
-  result <- x
+#   A dataframe with for each row (community) the z.score, nullmodel mean
+#   and nullmodel sd.
+  result <- data.frame(z.score     = numeric(length = length(x)),
+                       sample.mean = numeric(length = length(x)),
+                       sample.sd   = numeric(length = length(x)),
+                       row.names   = names(x)
+                       )
+  result[, "z.score"] <- x
   for (i in seq_along(x)) {
     column <- match(names(x)[i], colnames(y))
-    result[i] <- (x[i] - mean(y[, column])) / sd(y[, column])
+    mean <- mean(y[, column])
+    sd <- sd(y[, column])
+    result[, "z.score"][i] <- (x[i] - mean) / sd
+    result[, "sample.mean"][i] <- mean
+    result[, "sample.sd"][i] <- sd
   }
   result
 }
@@ -654,14 +663,18 @@ NullTransform <- function(raw.fd, null.model) {
     null.list <- null.model
   }
   # Apply ZScore to each combination of raw and null model data
-  result <- raw.fd
+  result <- rep(list(raw.fd), 3)
+  names(result) <- c("z.scores", "means", "sds")
   for (i in seq_along(raw.fd)) {
-    result[, i] <- ZScore(x = structure(raw.fd[, i], names = rownames(raw.fd)),
-                          y = null.list[[match(colnames(raw.fd)[i],
-                                               names(null.list)
-                                               )
-                                         ]]
-                          )
+    model <- ZScore(x = structure(raw.fd[, i], names = rownames(raw.fd)),
+                    y = null.list[[match(colnames(raw.fd)[i],
+                                         names(null.list)
+                                         )
+                                   ]]
+                    )
+    result[["z.scores"]] [, i] <- model[, "z.score"]
+    result[["means"]] [, i] <- model[, "sample.mean"]
+    result[["sds"]] [, i] <- model[, "sample.sd"]
   }
   result
 }

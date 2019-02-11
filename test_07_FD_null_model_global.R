@@ -191,23 +191,31 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
   # Second, calculate the z-scores
   fd.global <- NullTransform(fd.observed, global.gapfilled)
   # Finally, save results
+  # remember fd.global is a list
   cat("Saving output...\n")
-  write.csv(fd.global,
-            file = paste0(output.dir,
-                          "test_FD_z_scores_global_",
-                          id,
-                          ".csv"
-                          ),
-            eol = "\r\n",
-            row.names = TRUE
-            )
+  for (i in seq_along(fd.global)) {
+    write.csv(fd.global[[i]],
+              file = paste0(output.dir,
+                            "test_FD_z_scores_global_",
+                            id,
+                            "_",
+                            names(fd.global)[i],
+                            ".csv"
+                            ),
+              eol = "\r\n",
+              row.names = TRUE
+              )
+  }
 
   # When all is completed, delete the process.dir
+  # test for existence of the LAST file saved (the sd output)
   if (file.exists(paste0(output.dir,
-                          "test_FD_z_scores_global_",
-                          id,
-                          ".csv"
-                          )
+                         "test_FD_z_scores_global_",
+                         id,
+                         "_",
+                         names(fd.global)[length(fd.global)],
+                         ".csv"
+                         )
                    )
       ) {
     if (identical(DetectOS(), "windows")) {
@@ -230,6 +238,8 @@ id <- "genus_mean"
   if (!file.exists(paste0(output.dir,
                           "test_FD_z_scores_global_",
                           id,
+                          "_",
+                          "sds",
                           ".csv"
                           )
                    )
