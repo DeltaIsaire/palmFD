@@ -37,10 +37,10 @@ verbose <- TRUE
 nm.dir <- "output/test/null_model_processing/"
 # Null model output directory (with trailing slash!)
 output.dir <- "output/test/null_model_global/"
-# Number of cores to use for parallel processing. Default is 90% of available cores.
+# Number of cores to use for parallel processing. Default is 95% of available cores.
 num.cores <- 
   if (!is.na(detectCores())) {
-    floor(detectCores() * 0.9)
+    floor(detectCores() * 0.95)
   } else {
     1
     warning("unable to detect cores. Parallel processing is NOT used!")
@@ -235,6 +235,31 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id) {
 # This is time-consuming: run only if the output does not yet exist
 cat("For genus-mean filled dataset:\n")
 id <- "genus_mean"
+if (!file.exists(paste0(output.dir,
+                        "test_FD_z_scores_global_",
+                        id,
+                        "_",
+                        "sds",
+                        ".csv"
+                        )
+                 )
+    ) {
+  RunGlobal(trait.matrix = traits.mean,
+            pres.abs.matrix = pres.abs.matrix,
+            id = id
+            )
+}
+cat("Done.\n")
+
+# Global null model for stochastic genus-level filled data
+# --------------------------------------------------------
+# Run how many samples? (max 100)
+samples <- 10
+# This is time-consuming: run only if the output does not yet exist
+cat("For stochastic genus-level filled data:\n")
+for (i in seq_len(samples)) {
+  cat("Sample", i, "\n")
+  id <- i
   if (!file.exists(paste0(output.dir,
                           "test_FD_z_scores_global_",
                           id,
@@ -244,11 +269,12 @@ id <- "genus_mean"
                           )
                    )
       ) {
-    RunGlobal(trait.matrix = traits.mean,
+    RunGlobal(trait.matrix = traits.gapfilled[[i]],
               pres.abs.matrix = pres.abs.matrix,
               id = id
               )
   }
+}
 
 
 cat("Done.\n")
