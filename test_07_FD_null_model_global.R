@@ -13,7 +13,7 @@
 #   output/test/observed_FD/test_community_trait_means_genus_mean.csv
 #   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
-#   "output/test/tdwg3_info.csv"
+#   output/test/tdwg3_info.csv
 #   < output dir specified below, with 100 FD z-score files >
 #   < nullmodel processing dir specified below, containing for each iteration
 #     1 file with null FD values >
@@ -154,8 +154,8 @@ if (!dir.exists(output.dir)) {
   dir.create(output.dir)
 }
 
-# Define grouping of tdwg3 units into realms
-# ------------------------------------------
+# Define species pools: one global species pool
+# ---------------------------------------------
 global.tdwg3 <- list(global = tdwg3.info[, "tdwg3.code"])
 
 # Function to run the global null model
