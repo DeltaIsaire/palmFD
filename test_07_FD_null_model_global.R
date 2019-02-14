@@ -1,6 +1,6 @@
-#############################################################
-# Palm FD project: Functional Diversity calculation test code
-#############################################################
+###################################################
+# Palm FD project: Global null model for FD indices
+###################################################
 #
 # In which we generate FD null model one, based on 
 # Random communities sampled from the same species pool.
