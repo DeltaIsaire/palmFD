@@ -1,26 +1,21 @@
-#############################################################
-# Palm FD project: Functional Diversity calculation test code
-#############################################################
+##################################################
+# Palm FD project: Local null model for FD indices
+##################################################
 #
 # In which we generate FD null model three, based on 
 # Random communities sampled from the same species pool.
-# The definiton of species pool for this null model is all palm species
-# occurring in the TDWG3 unit + all neighbouring TDWG3 units.
-# Which could be the called the "local" null model.
+# The definiton of species pool for this null model is the Assemblage
+# Dispersion Field (ADF) weighted by proportion of shared species.
+# This could be the called the "local" null model.
 #
 # Input files:
-#   output/test/tdwg3_info.csv
+#   dir 'output/test/observed_FD/' with 100 observed FD files
+#   output/test/observed_FD/test_community_trait_means_genus_mean.csv
 #   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
-#   output/test/test_palm_tdwg3_pres_abs_unfilled.csv
-#   output/test/test_palm_traits_transformed_gapfilled.csv
-#   output/test/test_palm_traits_transformed_unfilled.csv
-#   data/tdwg/TDWG_level3_Coordinates
-#   output/test/test_fd_indices_gapfilled.csv
-#   output/test/test_fd_indices_unfilled.csv
 # Generated output files:
-#   Null model processing directory: output/test/nullmodel_local/
-#   output/test/test_fd_z_scores_local_gapfilled.csv
-#   output/test/test_fd_z_scores_local_unfilled.csv
+#   < output dir specified below, with 100 FD z-score files >
+#   < nullmodel processing dir specified below, containing for each iteration
+#     1 file with null FD values >
 
 
 cat("Loading required packages and functions...\n")
@@ -29,22 +24,29 @@ library(plyr)
 library(FD)
 library(parallel)
 library(reshape2)
-library(sf)
-library(spdep)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
+source(file = "functions/weighted_ADF_null_model_functions.R")
 
 
-# Enable verbose reporting in the null model procedure?
-verbose <- TRUE
-# Number of cores to use for parallel processing (via parallel::mclapply).
-# Default is 1 less than the number of available cores (so your computer
-# doesn't lock up completely while running the code), and should work on most
-# machines.
-num.cores <- if (is.na(detectCores())) { 1 } else { max(1, detectCores() - 1) }
 # Subset FD input for quick code testing?
-subset <- FALSE
+subset <- TRUE
+# Enable verbose reporting in the FD calculation?
+verbose <- TRUE
+# Null model processing directory (with trailing slash!)
+nm.dir <- "output/test/null_model_processing/"
+# Null model output directory (with trailing slash!)
+output.dir <- "output/test/null_model_local/"
+# Number of cores to use for parallel processing. Default is 95% of available cores.
+num.cores <- 
+  if (!is.na(detectCores())) {
+    floor(detectCores() * 0.95)
+  } else {
+    1
+    warning("unable to detect cores. Parallel processing is NOT used!")
+    cat("unable to detect cores. Parallel processing is NOT used!")
+  }
 
 
 ##################
@@ -54,34 +56,51 @@ cat("Preparing data...\n")
 
 # Information on tdwg3 units
 # --------------------------
-tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv")
+tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv", header = TRUE)
+# data frame with 368 observations of 9 variables:
+# $tdwg3.code   - 3-letter code for each botanical country (tdwg3 unit).
+# $tdwg3.name   - Name of the botanical country.
+# $realm        - Factor with 3 levels "NewWorld", "OWEast", "OWWest".
+# $flora.region - Floristic region to which the botanical country belongs
+# $lat          - Latitude.
+# $lon          - #Longitude
+# is.island     - binary factor indicating whether botanical country is an island
+# has.palms     - binary factor indicating whether botanical country has palms
+# palm.richness - Palm species richness in the botanical country, including
+#                 known absence (richness 0).
 
-# Load datasets
-# -------------
-pres.abs.gapfilled <- 
+
+# Load transformed gapfilled trait matrices
+# -----------------------------------------
+traits.mean <-
+  read.csv(file = "output/test/trait_matrices/palm_trait_matrix_genus_mean.csv",
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
+# This will be useful:
+trait.names <- colnames(traits.mean)
+traits.gapfilled <- vector("list", length = 100)
+for (i in seq_along(traits.gapfilled)) {
+  traits.gapfilled[[i]] <-
+    read.csv(file = paste0("output/test/trait_matrices/palm_trait_matrix_filled_",
+                           i,
+                           ".csv"
+                           ),
+             row.names = 1,
+             check.names = FALSE
+             ) %>%
+    as.matrix()
+}
+
+# Load presence/absence matrix
+# ----------------------------
+pres.abs.matrix <- 
   read.csv(file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
   as.matrix()
-pres.abs.unfilled <- 
-  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_unfilled.csv",
-           row.names = 1,
-           check.names = FALSE
-           ) %>%
-  as.matrix()
-traits.gapfilled <- 
-  read.csv(file = "output/test/test_palm_traits_transformed_gapfilled.csv",
-           row.names = 1
-           ) %>%
-  as.matrix()
-traits.unfilled <- 
-  read.csv(file = "output/test/test_palm_traits_transformed_unfilled.csv",
-           row.names = 1
-           ) %>%
-  as.matrix()
-# This will be useful:
-trait.names <- colnames(traits.gapfilled)
 
 
 #######################
@@ -89,20 +108,17 @@ trait.names <- colnames(traits.gapfilled)
 #######################
 cat("Creating Local null model... (this will take a moment)\n")
 
-# New method: probabilistic Assemblage Dispersion Fields
-# The ADF is all communities that share species with a focal community.
-#
-# custom function WeightedADF()
+if (!dir.exists(output.dir)) {
+  cat("creating directory:", output.dir, "\n")
+  dir.create(output.dir)
+}
 
-# All species in gapfilled:HAW are endemic to this community
-# All species in gapfilled:NFK are endemic to this community
-# All species in gapfilled:NWC are endemic to this community
-# All species in gapfilled:SEY are endemic to this community
+# Define species pools using weighted Assemblage Dispersion Fields (ADF)
+# ----------------------------------------------------------------------
+# That entails a unique species pool for each botanical country.
 #
-# All species in unfilled:HAW are endemic to this community
-# All species in unfilled:NFK are endemic to this community
-# All species in unfilled:NWC are endemic to this community
-# All species in unfilled:SEY are endemic to this community
+# TDWG3 units HAW, NFK, NWC and SEY need to be excluded. These areas have 100%
+# endemic palm assemblages, for which a weighted ADF cannot be defined.
 #
 # That's Hawaii, Norfolk Island (Oceania), New Caledonia and Seychelles.
 # All of them islands, and HAW + NWC have fairly high palm species richness.
@@ -111,117 +127,161 @@ cat("Creating Local null model... (this will take a moment)\n")
 # NWC has 39 species in 10 genera, not all genera unique to NWC.
 # SEY has 6 species in 6 genera, most genera are unique to SEY.
 #
-# Unless you want the z-scores of these communities to be guaranteed 0 because
-# they are compared against themselves, maybe they should be removed?
+# Subset the datasets:
+pres.abs.matrix %<>% .[!row.names(.) %in% c("HAW", "NFK", "NWC", "SEY", "MAU", "MDG", "REU"), ]
+pres.abs.matrix %<>% .[, colSums(.) > 0]
+traits.mean %<>% .[rownames(.) %in% colnames(pres.abs.matrix), ]
+traits.gapfilled <-
+  llply(traits.gapfilled,
+        function(x) {
+          x[rownames(x) %in% colnames(pres.abs.matrix), ]
+        }
+        )
+
+# Determine weighted species pools:
+communities <- rownames(pres.abs.matrix)
+adf <- ADF(communities, pres.abs.matrix)
+species.pools <- WeighADF(adf, pres.abs.matrix)
+
+# Checksum: are all the species pools large enough?
+test <- data.frame(richness = rowSums(pres.abs.matrix),
+                   pool.size = unlist(llply(species.pools, nrow)),
+                   row.names = rownames(pres.abs.matrix)
+                   )
+test[which(test[, "richness"] > test[, "pool.size"]), ]
+#     richness pool.size
+# MAU        7         6
+# MDG      195        70
+# That's Madagascar and Mauritius...
+# And excluding those causes Réunion (REU) to have only endemic species...
 
 
 
 
 
 
-# Define neighbourhood for each TDWG3 unit
-# ----------------------------------------
-# Load spatial map:
-tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
-                    layer = "TDWG_level3_Coordinates")
-tdwg.spatial <- as(tdwg.map, "Spatial")
-# Find neighbours:
-local <- poly2nb(tdwg.spatial, queen = TRUE)
-# we don't want a fancy neighbour object, just a list
-class(local) <- "list"
-# This is a list of TDWG3 ID numbers. We can find the corresponding TDWG3 codes:
-tdwg3.code <- as.data.frame(tdwg.map)[, "LEVEL_3_CO"]
-# Then do substitution magic
-local.tdwg3 <- llply(local, function(x) { tdwg3.code[x] } )
-names(local.tdwg3) <- tdwg3.code
-# Species pool includes not only neighbours, but also the area itself,
-# so add these to the groups
-for (i in seq_along(local.tdwg3)) {
-  local.tdwg3[[i]] <- c(local.tdwg3[[i]], names(local.tdwg3)[i])
-  local.tdwg3[[i]] %<>% .[order(.)]
+
+
+
+
+# Function to run the local null model
+# ------------------------------------
+RunLocal <- function(trait.matrix, pres.abs.matrix, id) {
+#   id: a unique identifier, used for naming the produced files.
+#       should match the id used for the observed FD file
+
+  # Run null model for the given dataset
+  local.gapfilled <-
+    NullADF(trait.matrix = trait.matrix,
+            pres.abs.matrix = pres.abs.matrix,
+            species.pools = species.pools,
+            process.dir = nm.dir,
+            iterations = 1000,
+            mc.cores = num.cores,
+            subset = subset,
+            verbose = verbose,
+            single.traits = TRUE,
+            fast = TRUE
+            )
+
+  # Using the null model output, find the z-scores (SES) for the observed FD
+  # first, load observed FD indices
+  fd.observed <- read.csv(file = paste0("output/test/observed_FD/",
+                                        "test_FD_observed_",
+                                        id,
+                                        ".csv"
+                                        ),
+                          header = TRUE,
+                          row.names = 1
+                          )
+  # Second, calculate the z-scores
+  fd.local <- NullTransform(fd.observed, local.gapfilled)
+  # Finally, save results
+  # remember fd.local is a list
+  cat("Saving output...\n")
+  for (i in seq_along(fd.local)) {
+    write.csv(fd.local[[i]],
+              file = paste0(output.dir,
+                            "test_FD_z_scores_local_",
+                            id,
+                            "_",
+                            names(fd.local)[i],
+                            ".csv"
+                            ),
+              eol = "\r\n",
+              row.names = TRUE
+              )
+  }
+
+  # When all is completed, delete the process.dir
+  # test for existence of the LAST file saved (the sd output)
+  if (file.exists(paste0(output.dir,
+                         "test_FD_z_scores_local_",
+                         id,
+                         "_",
+                         names(fd.local)[length(fd.local)],
+                         ".csv"
+                         )
+                   )
+      ) {
+    if (identical(DetectOS(), "windows")) {
+      remove.dir <- substr(nm.dir, 1, (nchar(nm.dir) - 1))
+    } else {
+      remove.dir <- nm.dir
+    }
+    unlink(remove.dir, recursive = TRUE)
+  }
+
+  return (0)
 }
-# Not done yet: species pool should include at least one neighbour, not solely
-# the tdwg3 unit itself. This happens for islands, which have no direct
-# borders and therefore no neighbours.
-# Solution: for each tdwg3 unit with length (species pool) == 1, include
-# the nearest neighbour.
-near.neigh <- 
-  coordinates(tdwg.spatial) %>%
-  knearneigh(., k = 1) %>%
-  knn2nb()
-class(near.neigh) <- "list"
-# And merge:
-for (i in seq_along(local.tdwg3)) {
-  if (identical(length(local.tdwg3[[i]]), as.integer(1))) {
-    local.tdwg3[[i]] %<>%
-      c(., tdwg3.code[near.neigh[[i]]]) %>%
-      unique()
+
+
+# Local null model for genus-mean filled data
+# -------------------------------------------
+# This is time-consuming: run only if the output does not yet exist
+cat("For genus-mean filled dataset:\n")
+id <- "genus_mean"
+if (!file.exists(paste0(output.dir,
+                        "test_FD_z_scores_local_",
+                        id,
+                        "_",
+                        "sds",
+                        ".csv"
+                        )
+                 )
+    ) {
+  RunLocal(trait.matrix = traits.mean,
+           pres.abs.matrix = pres.abs.matrix,
+           id = id
+           )
+}
+cat("Done.\n")
+
+# Local null model for stochastic genus-level filled data
+# -------------------------------------------------------
+# Run how many samples? (max 100)
+samples <- 10
+# This is time-consuming: run only if the output does not yet exist
+cat("For stochastic genus-level filled data:\n")
+for (i in seq_len(samples)) {
+  cat("Sample", i, "\n")
+  id <- i
+  if (!file.exists(paste0(output.dir,
+                          "test_FD_z_scores_local_",
+                          id,
+                          "_",
+                          "sds",
+                          ".csv"
+                          )
+                   )
+      ) {
+    RunLocal(trait.matrix = traits.gapfilled[[i]],
+             pres.abs.matrix = pres.abs.matrix,
+             id = id
+             )
   }
 }
 
-local.tdwg3
-# List of 368:
-#   For each of the 368 TDWG3 units, a character vector giving the names of the
-#   TDWG3 unit plus the surrounding TDWG3 units OR the nearest neighbouring
-#   TDWG3 unit.
-
-# Run the null model simulations
-# ------------------------------
-local.gapfilled <-
-  NullModel(trait.matrix = traits.gapfilled,
-            pres.abs.matrix = pres.abs.gapfilled,
-            groups = local.tdwg3,
-            process.dir = "output/test/nullmodel_local/gapfilled/",
-            iterations = 100,
-            mc.cores = num.cores,
-            subset = subset,
-            verbose = verbose,
-            random.groups = FALSE
-            )
-
-local.unfilled <-
-  NullModel(trait.matrix = traits.unfilled,
-            pres.abs.matrix = pres.abs.unfilled,
-            groups = local.tdwg3,
-            process.dir = "output/test/nullmodel_local/unfilled/",
-            iterations = 100,
-            mc.cores = num.cores,
-            subset = subset,
-            verbose = verbose,
-            random.groups = FALSE
-            )
-
-
-############################################################
-# Use null model output to convert raw FD values to z-scores
-############################################################
-cat("Applying regional null model to raw FD indices...\n")
-
-# Load raw FD indices
-# -------------------
-fd.gapfilled <- read.csv(file = "output/test/test_fd_indices_gapfilled.csv",
-                      header = TRUE,
-                      row.names = 1
-                      )
-fd.unfilled <- read.csv(file = "output/test/test_fd_indices_unfilled.csv",
-                        header = TRUE,
-                        row.names = 1
-                        )
-
-# Convert FD to z-cores and save output
-# -------------------------------------
-fd.local.gapfilled <- NullTransform(fd.gapfilled, local.gapfilled)
-  write.csv(fd.local.gapfilled,
-            file = "output/test/test_fd_z_scores_local_gapfilled.csv",
-            eol = "\r\n",
-            row.names = TRUE
-            )
-fd.local.unfilled <- NullTransform(fd.unfilled, local.unfilled)
-  write.csv(fd.local.unfilled,
-            file = "output/test/test_fd_z_scores_local_unfilled.csv",
-            eol = "\r\n",
-            row.names = TRUE
-            )
 
 cat("Done.\n")
 
