@@ -35,7 +35,7 @@ subset <- TRUE
 # Enable verbose reporting in the FD calculation?
 verbose <- TRUE
 # Null model processing directory (with trailing slash!)
-nm.dir <- "output/test/null_model_processing/"
+nm.dir <- "output/test/null_model_local/iterations/"
 # Null model output directory (with trailing slash!)
 output.dir <- "output/test/null_model_local/"
 # Number of cores to use for parallel processing. Default is 95% of available cores.
@@ -117,27 +117,6 @@ if (!dir.exists(output.dir)) {
 # ----------------------------------------------------------------------
 # That entails a unique species pool for each botanical country.
 #
-# TDWG3 units HAW, NFK, NWC and SEY need to be excluded. These areas have 100%
-# endemic palm assemblages, for which a weighted ADF cannot be defined.
-#
-# That's Hawaii, Norfolk Island (Oceania), New Caledonia and Seychelles.
-# All of them islands, and HAW + NWC have fairly high palm species richness.
-# All HAW species are in genus Pritchardia, which is unique to HAW.
-# NFK has 5 species in 4 genera, all genera unique to NFK.
-# NWC has 39 species in 10 genera, not all genera unique to NWC.
-# SEY has 6 species in 6 genera, most genera are unique to SEY.
-#
-# Subset the datasets:
-pres.abs.matrix %<>% .[!row.names(.) %in% c("HAW", "NFK", "NWC", "SEY", "MAU", "MDG", "REU"), ]
-pres.abs.matrix %<>% .[, colSums(.) > 0]
-traits.mean %<>% .[rownames(.) %in% colnames(pres.abs.matrix), ]
-traits.gapfilled <-
-  llply(traits.gapfilled,
-        function(x) {
-          x[rownames(x) %in% colnames(pres.abs.matrix), ]
-        }
-        )
-
 # Determine weighted species pools:
 communities <- rownames(pres.abs.matrix)
 adf <- ADF(communities, pres.abs.matrix)
@@ -148,20 +127,9 @@ test <- data.frame(richness = rowSums(pres.abs.matrix),
                    pool.size = unlist(llply(species.pools, nrow)),
                    row.names = rownames(pres.abs.matrix)
                    )
-test[which(test[, "richness"] > test[, "pool.size"]), ]
-#     richness pool.size
-# MAU        7         6
-# MDG      195        70
-# That's Madagascar and Mauritius...
-# And excluding those causes Réunion (REU) to have only endemic species...
-
-
-
-
-
-
-
-
+if (any(test[, "richness"] > test[, "pool.size"])) {
+  stop("Some ADF species pools are too small")
+}
 
 
 # Function to run the local null model

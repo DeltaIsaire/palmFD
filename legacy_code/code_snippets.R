@@ -244,3 +244,34 @@ SixScatter <- function() {
           )
   }
 }
+
+
+
+
+
+
+
+
+
+# TDWG3 units HAW, NFK, NWC and SEY need to be excluded. These areas have 100%
+# endemic palm assemblages, for which a weighted ADF cannot be defined.
+#
+# That's Hawaii, Norfolk Island (Oceania), New Caledonia and Seychelles.
+# All of them islands, and HAW + NWC have fairly high palm species richness.
+# All HAW species are in genus Pritchardia, which is unique to HAW.
+# NFK has 5 species in 4 genera, all genera unique to NFK.
+# NWC has 39 species in 10 genera, not all genera unique to NWC.
+# SEY has 6 species in 6 genera, most genera are unique to SEY.
+#
+# Subset the datasets:
+pres.abs.matrix %<>% .[!row.names(.) %in% c("HAW", "NFK", "NWC", "SEY", "MAU", "MDG", "REU"), ]
+pres.abs.matrix %<>% .[, colSums(.) > 0]
+traits.mean %<>% .[rownames(.) %in% colnames(pres.abs.matrix), ]
+traits.gapfilled <-
+  llply(traits.gapfilled,
+        function(x) {
+          x[rownames(x) %in% colnames(pres.abs.matrix), ]
+        }
+        )
+
+

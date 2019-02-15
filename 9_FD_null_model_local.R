@@ -1,17 +1,17 @@
-#####################################################
-# Palm FD project: Regional null model for FD indices
-#####################################################
+##################################################
+# Palm FD project: Local null model for FD indices
+##################################################
 #
-# In which we generate FD null model two, based on 
+# In which we generate FD null model three, based on 
 # Random communities sampled from the same species pool.
-# The definiton of species pool for this null model is all species
-# occurring in the same realm (New World, Old World East or Old World West).
-# Which could be the called the "regional" null model.
+# The definiton of species pool for this null model is the Assemblage
+# Dispersion Field (ADF) weighted by proportion of shared species.
+# This could be the called the "local" null model.
 #
 # Input files:
-#   dir 'output/test/observed_FD/' with 100 observed FD files
-#   output/test/observed_FD/test_community_trait_means_genus_mean.csv
-#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
+#   dir 'output/observed_FD/' with 100 observed FD files
+#   output/observed_FD/community_trait_means_genus_mean.csv
+#   output/palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
 #   < output dir specified below, with 100 FD z-score files >
 #   < nullmodel processing dir specified below, containing for each iteration
@@ -27,6 +27,7 @@ library(reshape2)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
+source(file = "functions/weighted_ADF_null_model_functions.R")
 
 
 # Subset FD input for quick code testing?
@@ -34,9 +35,9 @@ subset <- FALSE
 # Enable verbose reporting in the FD calculation?
 verbose <- TRUE
 # Null model processing directory (with trailing slash!)
-nm.dir <- "output/null_model_regional/iterations/"
+nm.dir <- "output/null_model_local/iterations/"
 # Null model output directory (with trailing slash!)
-output.dir <- "output/null_model_regional/"
+output.dir <- "output/null_model_local/"
 # Number of cores to use for parallel processing. Default is 95% of available cores.
 num.cores <- 
   if (!is.na(detectCores())) {
@@ -102,45 +103,54 @@ pres.abs.matrix <-
   as.matrix()
 
 
-#########################
-# The Regional Null Model
-#########################
-cat("Creating Regional null model... (this will take a while)\n")
+#######################
+# The Local Null Model
+#######################
+cat("Creating Local null model... (this will take a moment)\n")
 
 if (!dir.exists(output.dir)) {
   cat("creating directory:", output.dir, "\n")
   dir.create(output.dir)
 }
 
-# Define species pools: grouping of tdwg3 units into realms
-# ---------------------------------------------------------
-realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
-                                           "tdwg3.code"],
-                    old.world.west = tdwg3.info[tdwg3.info$realm == "OWWest",
-                                                "tdwg3.code"],
-                    old.world.east = tdwg3.info[tdwg3.info$realm == "OWEast",
-                                                "tdwg3.code"]
-                    )
+# Define species pools using weighted Assemblage Dispersion Fields (ADF)
+# ----------------------------------------------------------------------
+# That entails a unique species pool for each botanical country.
+#
+# Determine weighted species pools:
+communities <- rownames(pres.abs.matrix)
+adf <- ADF(communities, pres.abs.matrix)
+species.pools <- WeighADF(adf, pres.abs.matrix)
 
-# Function to run the regional null model
-# ---------------------------------------
-RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
+# Checksum: are all the species pools large enough?
+test <- data.frame(richness = rowSums(pres.abs.matrix),
+                   pool.size = unlist(llply(species.pools, nrow)),
+                   row.names = rownames(pres.abs.matrix)
+                   )
+if (any(test[, "richness"] > test[, "pool.size"])) {
+  stop("Some ADF species pools are too small")
+}
+
+
+# Function to run the local null model
+# ------------------------------------
+RunLocal <- function(trait.matrix, pres.abs.matrix, id) {
 #   id: a unique identifier, used for naming the produced files.
 #       should match the id used for the observed FD file
 
   # Run null model for the given dataset
-  regional.gapfilled <-
-    NullModel(trait.matrix = trait.matrix,
-              pres.abs.matrix = pres.abs.matrix,
-              groups = realm.tdwg3,
-              process.dir = nm.dir,
-              iterations = 1000,
-              mc.cores = num.cores,
-              subset = subset,
-              verbose = verbose,
-              random.groups = TRUE,
-              fast = TRUE
-              )
+  local.gapfilled <-
+    NullADF(trait.matrix = trait.matrix,
+            pres.abs.matrix = pres.abs.matrix,
+            species.pools = species.pools,
+            process.dir = nm.dir,
+            iterations = 1000,
+            mc.cores = num.cores,
+            subset = subset,
+            verbose = verbose,
+            single.traits = TRUE,
+            fast = TRUE
+            )
 
   # Using the null model output, find the z-scores (SES) for the observed FD
   # first, load observed FD indices
@@ -153,17 +163,17 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
                           row.names = 1
                           )
   # Second, calculate the z-scores
-  fd.regional <- NullTransform(fd.observed, regional.gapfilled)
+  fd.local <- NullTransform(fd.observed, local.gapfilled)
   # Finally, save results
-  # remember fd.regional is a list
+  # remember fd.local is a list
   cat("Saving output...\n")
-  for (i in seq_along(fd.regional)) {
-    write.csv(fd.regional[[i]],
+  for (i in seq_along(fd.local)) {
+    write.csv(fd.local[[i]],
               file = paste0(output.dir,
-                            "FD_z_scores_regional_",
+                            "FD_z_scores_local_",
                             id,
                             "_",
-                            names(fd.regional)[i],
+                            names(fd.local)[i],
                             ".csv"
                             ),
               eol = "\r\n",
@@ -174,10 +184,10 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
   # When all is completed, delete the process.dir
   # test for existence of the LAST file saved (the sd output)
   if (file.exists(paste0(output.dir,
-                         "FD_z_scores_regional_",
+                         "FD_z_scores_local_",
                          id,
                          "_",
-                         names(fd.regional)[length(fd.regional)],
+                         names(fd.local)[length(fd.local)],
                          ".csv"
                          )
                    )
@@ -194,13 +204,13 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
 }
 
 
-# Regional null model for genus-mean filled data
-# ----------------------------------------------
+# Local null model for genus-mean filled data
+# -------------------------------------------
 # This is time-consuming: run only if the output does not yet exist
 cat("For genus-mean filled dataset:\n")
 id <- "genus_mean"
 if (!file.exists(paste0(output.dir,
-                        "FD_z_scores_regional_",
+                        "FD_z_scores_local_",
                         id,
                         "_",
                         "sds",
@@ -208,15 +218,15 @@ if (!file.exists(paste0(output.dir,
                         )
                  )
     ) {
-  RunRegional(trait.matrix = traits.mean,
-              pres.abs.matrix = pres.abs.matrix,
-              id = id
-              )
+  RunLocal(trait.matrix = traits.mean,
+           pres.abs.matrix = pres.abs.matrix,
+           id = id
+           )
 }
 cat("Done.\n")
 
-# Regional null model for stochastic genus-level filled data
-# ----------------------------------------------------------
+# Local null model for stochastic genus-level filled data
+# -------------------------------------------------------
 # Run how many samples? (max 100)
 samples <- 30
 # This is time-consuming: run only if the output does not yet exist
@@ -225,7 +235,7 @@ for (i in seq_len(samples)) {
   cat("Sample", i, "\n")
   id <- i
   if (!file.exists(paste0(output.dir,
-                          "FD_z_scores_regional_",
+                          "FD_z_scores_local_",
                           id,
                           "_",
                           "sds",
@@ -233,10 +243,10 @@ for (i in seq_len(samples)) {
                           )
                    )
       ) {
-    RunRegional(trait.matrix = traits.gapfilled[[i]],
-                pres.abs.matrix = pres.abs.matrix,
-                id = id
-                )
+    RunLocal(trait.matrix = traits.gapfilled[[i]],
+             pres.abs.matrix = pres.abs.matrix,
+             id = id
+             )
   }
 }
 

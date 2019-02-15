@@ -34,7 +34,7 @@ subset <- TRUE
 # Enable verbose reporting in the FD calculation?
 verbose <- TRUE
 # Null model processing directory (with trailing slash!)
-nm.dir <- "output/test/null_model_processing/"
+nm.dir <- "output/test/null_model_global/iterations/"
 # Null model output directory (with trailing slash!)
 output.dir <- "output/test/null_model_global/"
 # Number of cores to use for parallel processing. Default is 95% of available cores.

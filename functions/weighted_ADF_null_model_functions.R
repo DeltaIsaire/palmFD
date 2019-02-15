@@ -61,17 +61,18 @@ ADF <- function(communities, pres.abs.matrix) {
       rownames(pres.abs.matrix)[row.indices]
   }
   # 4. Remove focal community from the adf
-  for (i in seq_along(adf)) {
-    adf[[i]] %<>% .[!. %in% names(adf)[i]]
-  }
+  # UPDATE: better to not exclude.
+  # for (i in seq_along(adf)) {
+  #   adf[[i]] %<>% .[!. %in% names(adf)[i]]
+  # }
+
   # Integrity check
   adf.lengths <- unlist(llply(adf, length))
   if (any(adf.lengths < 1)) {
     names <- as.character(communities)[which(adf.lengths < 1)]
     stop(paste("Communities {",
                paste(names, collapse = " "),
-               "} have an ADF of zero communities.",
-               "Are their species assemblages 100% endemic?"
+               "} have an ADF of zero communities."
                )
          )
   }
@@ -152,7 +153,7 @@ WeighADF <- function(adf, pres.abs.matrix) {
 }
 
 
-SampleADF <- function(species.pool, n) {
+SampleADF <- function(species.pool, n, trait.matrix) {
 # Draw a null community from a given species pool, without replacement.
 #
 # Args:
@@ -160,14 +161,48 @@ SampleADF <- function(species.pool, n) {
 #                    names, and a column 'weights' with sampling weights for
 #                    those species.
 #   n: number of species to draw for the null community
+#   trait.matrix: A matrix with observed numerical trait values in columns,
+#                 without NAs, and rownames with species names. Used to
+#                 verify the S > T criterion.
 # Returns:
 #   A character vector with the species names in the null community
-  sample(x = species.pool[, "species"],
-         size = n,
-         replace = FALSE,
-         prob = species.pool[, "weights"]
-         ) %>%
-  as.character()
+  do.sample <- TRUE
+  sampling.iterations <- 0
+  while (do.sample) {
+    null.community <- sample(x = species.pool[, "species"],
+                             size = n,
+                             replace = FALSE,
+                             prob = species.pool[, "weights"]
+                             ) %>%
+                             as.character()
+    # Hold your horses: check if the community has at least 4 functionally
+    # unique species, as required for FRic calculation.
+    # 1. subset trait matrix to sampled species
+    sample.traits <-
+      trait.matrix[rownames(trait.matrix) %in% null.community, ] %>%
+      as.data.frame()                 
+    # 2. Count unique trait combinations
+    sample.count <- nrow(count(sample.traits))
+    # 3. evaluate
+    if (sample.count < 4) {
+      do.sample <- TRUE
+    }
+    # 4. Similarly, check if each single trait has at least 2 unique values
+    sample.trait.counts <-
+      colwise(function(x) { length(unique(x)) } ) (sample.traits)
+    # 5. Evaluate
+    if (any(sample.trait.counts < 2)) {
+      do.sample <- TRUE
+    } else {
+      do.sample <- FALSE
+    }
+    # wrap up
+    sampling.iterations %<>% + 1
+    if (sampling.iterations > 99) {
+      stop("Unable to satisfy criterion S > T within 99 sampling attempts")
+    }
+  }
+  null.community
 }
 
 
@@ -272,7 +307,10 @@ NullADF <- function(trait.matrix,
       nm.species <- vector("list", length = length(species.pools))
       names(nm.species) <- names(species.pools)
       for (i in seq_along(species.pools)) {
-        nm.species[[i]] <- SampleADF(species.pools[[i]], richness[i, "richness"])
+        nm.species[[i]] <- SampleADF(species.pools[[i]],
+                                     richness[i, "richness"],
+                                     trait.matrix
+                                     )
       }
       # 2. Convert to presence/absence matrix
       nm.species %<>% melt(., value.name = "species")
