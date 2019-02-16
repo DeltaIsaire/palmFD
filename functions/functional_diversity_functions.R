@@ -17,6 +17,7 @@
 # ZScore
 # NullTransform
 # ResampleTest
+# StochasticMeans
 
 
 library(plyr)
@@ -862,4 +863,75 @@ ResampleTest <- function(pres.abs.matrix, trait.matrix, groups,
 }
 
 
+StochasticMeans <- function(stat, samples, output.dir, header) {
+# Function to assemble the mean over n null model output runs.
+# For averaging the null model output of the 100 stochastic runs.
+#
+# Args:
+#   stat: statistic to assemble the means for: a character string in
+#         c("means", "sds", "z.scores")
+#   samples: single integer giving the number of runs to average over.
+#   output.dir: directory path (with a trailing slash) where the null model
+#               output files are located.
+#   header: character string giving the first part of the filename shared by all
+#           output files.
+# Returns:
+#   A matrix with means. The matrix is also saved to the output.dir
+
+  # Load first sample as template, and construct an array
+  template <- read.csv(file = paste0(output.dir,
+                                     header,
+                                     "1_",
+                                     stat,
+                                     ".csv"
+                                     ),
+                       header = TRUE,
+                       row.names = 1
+                       )
+  means.array <- array(data = NA,
+                       dim = c(nrow(template),
+                               ncol(template),
+                               samples
+                               ),
+                       dimnames = list(row = rownames(template),
+                                       col = colnames(template),
+                                       sample = seq_len(samples)
+                                       )
+                       )
+  # Fill array with the data
+  for (i in seq_len(samples)) {
+    means.array[, , i] <-
+      read.csv(file = paste0(output.dir,
+                             header,
+                             i,
+                             "_",
+                             stat,
+                             ".csv"
+                             ),
+               header = TRUE,
+               row.names = 1
+               ) %>%
+      as.matrix()
+  }
+  # Collapse array into matrix by averaging over the samples
+  mat <- means.array[, , 1]
+  for (row in seq_len(nrow(mat))) {
+    for (col in seq_len(ncol(mat))) {
+      mat[row, col] <- mean(means.array[row, col, ])
+    }
+  }
+  # Save result
+  write.csv(mat,
+            file = paste0(output.dir,
+                          header,
+                          "stochastic_mean_of_",
+                          stat,
+                          ".csv"
+                          ),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+  # return result
+  mat
+}
 

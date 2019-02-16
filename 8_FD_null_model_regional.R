@@ -37,6 +37,8 @@ verbose <- TRUE
 nm.dir <- "output/null_model_regional/iterations/"
 # Null model output directory (with trailing slash!)
 output.dir <- "output/null_model_regional/"
+# Common first part of filename for all output files:
+header <- "FD_z_scores_regional_"
 # Number of cores to use for parallel processing. Default is 95% of available cores.
 num.cores <- 
   if (!is.na(detectCores())) {
@@ -124,9 +126,11 @@ realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
 
 # Function to run the regional null model
 # ---------------------------------------
-RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
+RunRegional <- function(trait.matrix, pres.abs.matrix, id, header) {
 #   id: a unique identifier, used for naming the produced files.
 #       should match the id used for the observed FD file
+#   header: character string giving common first part of the name for all
+#           output files
 
   # Run null model for the given dataset
   regional.gapfilled <-
@@ -160,7 +164,7 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
   for (i in seq_along(fd.regional)) {
     write.csv(fd.regional[[i]],
               file = paste0(output.dir,
-                            "FD_z_scores_regional_",
+                            header,
                             id,
                             "_",
                             names(fd.regional)[i],
@@ -174,7 +178,7 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
   # When all is completed, delete the process.dir
   # test for existence of the LAST file saved (the sd output)
   if (file.exists(paste0(output.dir,
-                         "FD_z_scores_regional_",
+                         header,
                          id,
                          "_",
                          names(fd.regional)[length(fd.regional)],
@@ -200,7 +204,7 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id) {
 cat("For genus-mean filled dataset:\n")
 id <- "genus_mean"
 if (!file.exists(paste0(output.dir,
-                        "FD_z_scores_regional_",
+                        header,
                         id,
                         "_",
                         "sds",
@@ -218,14 +222,14 @@ cat("Done.\n")
 # Regional null model for stochastic genus-level filled data
 # ----------------------------------------------------------
 # Run how many samples? (max 100)
-samples <- 30
+samples <- 20
 # This is time-consuming: run only if the output does not yet exist
 cat("For stochastic genus-level filled data:\n")
 for (i in seq_len(samples)) {
   cat("Sample", i, "\n")
   id <- i
   if (!file.exists(paste0(output.dir,
-                          "FD_z_scores_regional_",
+                          header,
                           id,
                           "_",
                           "sds",
@@ -238,6 +242,20 @@ for (i in seq_len(samples)) {
                 id = id
                 )
   }
+}
+
+# Average null model outputs for the stochastic genus-level filled data
+# ---------------------------------------------------------------------
+cat("Averaging results over", samples, "stochastic runs...\n")
+# To get the mean means, mean sds and mean z-scores over the (up to) 100
+# stochastic datasets.
+
+for (stat in c("means", "sds", "z.scores")) {
+  StochasticMeans(stat = stat,
+                  samples = samples,
+                  output.dir = output.dir,
+                  header = header
+                  )
 }
 
 
