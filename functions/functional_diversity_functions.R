@@ -877,11 +877,16 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
 #           output files.
 # Returns:
 #   A matrix with means. The matrix is also saved to the output.dir
+  if (!identical(stat, "")) {
+    if(!identical(substr(stat, 1, 1), "_")) {
+      stat <- paste0("_", stat)
+    }
+  }
 
   # Load first sample as template, and construct an array
   template <- read.csv(file = paste0(output.dir,
                                      header,
-                                     "1_",
+                                     "1",
                                      stat,
                                      ".csv"
                                      ),
@@ -904,7 +909,6 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
       read.csv(file = paste0(output.dir,
                              header,
                              i,
-                             "_",
                              stat,
                              ".csv"
                              ),
@@ -924,7 +928,7 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
   write.csv(mat,
             file = paste0(output.dir,
                           header,
-                          "stochastic_mean_of_",
+                          "stochastic_mean_of",
                           stat,
                           ".csv"
                           ),

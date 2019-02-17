@@ -321,6 +321,15 @@ SampleFD(trait.matrix = traits.mean,
          id = "genus_mean"
          )
 
+# Summarize results of the 100 stochastic gapfilled datasets
+# ----------------------------------------------------------
+  StochasticMeans(stat = "",
+                  samples = 100,
+                  output.dir = "output/observed_FD/",
+                  header = "FD_observed_"
+                  )
+
+
 
 cat("Done.\n")
 
