@@ -239,7 +239,8 @@ for (i in seq_len(samples)) {
       ) {
     RunRegional(trait.matrix = traits.gapfilled[[i]],
                 pres.abs.matrix = pres.abs.matrix,
-                id = id
+                id = id,
+                header = header
                 )
   }
 }

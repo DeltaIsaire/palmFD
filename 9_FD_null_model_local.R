@@ -232,7 +232,7 @@ cat("Done.\n")
 # Local null model for stochastic genus-level filled data
 # -------------------------------------------------------
 # Run how many samples? (max 100)
-samples <- 30
+samples <- 50
 # This is time-consuming: run only if the output does not yet exist
 cat("For stochastic genus-level filled data:\n")
 for (i in seq_len(samples)) {
@@ -249,7 +249,8 @@ for (i in seq_len(samples)) {
       ) {
     RunLocal(trait.matrix = traits.gapfilled[[i]],
              pres.abs.matrix = pres.abs.matrix,
-             id = id
+             id = id,
+             header = header
              )
   }
 }

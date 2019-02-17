@@ -6,14 +6,14 @@
 # are summarized and visualized.
 #
 # Input files:
-#   output/test/observed_FD/test_FD_observed_genus_mean.csv
-#   output/test/observed_FD/test_FD_observed_stochastic_mean_of.csv
-#   output/test/null_model_global/test_FD_z_scores_global_genus_mean_z.scores.csv
-#   output/test/null_model_global/test_FD_z_scores_global_stochastic_mean_of_z.scores.csv
-#   output/test/null_model_regional/test_FD_z_scores_regional_genus_mean_z.scores.csv
-#   output/test/null_model_regional/test_FD_z_scores_regional_stochastic_mean_of_z.scores.csv
-#   output/test/tdwg3_info.csv
-#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
+#   output/observed_FD/FD_observed_genus_mean.csv
+#   output/observed_FD/FD_observed_stochastic_mean_of.csv
+#   output/null_model_global/FD_z_scores_global_genus_mean_z.scores.csv
+#   output/null_model_global/FD_z_scores_global_stochastic_mean_of_z.scores.csv
+#   output/null_model_regional/FD_z_scores_regional_genus_mean_z.scores.csv
+#   output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores.csv
+#   output/tdwg3_info.csv
+#   output/palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
 #   d
 
@@ -29,7 +29,7 @@ source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
 
 # Directory for saving plots (with a trailing slash):
-plot.dir = "graphs/test/FD_distributions/"
+plot.dir = "graphs/FD_distributions/"
 
 
 ###################
@@ -38,13 +38,13 @@ plot.dir = "graphs/test/FD_distributions/"
 
 # Info on tdwg3 units
 # -------------------
-tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv")
+tdwg3.info <- read.csv(file = "output/tdwg3_info.csv")
 # The column 'palm.richness' reflects the full known palm richness.
 # However, our data analysis uses a subset of all palm species, so the experimental
 # richness values are lower.
 # Add those as a new column:
 pres.abs.matrix <- 
-  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
+  read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
@@ -89,12 +89,12 @@ Temp <- function(x) {
 # Observed FD
 # -----------
 fd.observed.mean <-
-  read.csv(file = "output/test/observed_FD/test_FD_observed_genus_mean.csv",
+  read.csv(file = "output/observed_FD/FD_observed_genus_mean.csv",
            row.names = 1
            ) %>%
   Temp()
 fd.observed.stochastic <-
-  read.csv(file = "output/test/observed_FD/test_FD_observed_stochastic_mean_of.csv",
+  read.csv(file = "output/observed_FD/FD_observed_stochastic_mean_of.csv",
            row.names = 1
            ) %>%
   Temp()
@@ -102,12 +102,12 @@ fd.observed.stochastic <-
 # Global null model z-scores
 # --------------------------
 fd.global.mean <-
-  read.csv(file = "output/test/null_model_global/test_FD_z_scores_global_genus_mean_z.scores.csv",
+  read.csv(file = "output/null_model_global/FD_z_scores_global_genus_mean_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
 fd.global.stochastic <-
-  read.csv(file = "output/test/null_model_global/test_FD_z_scores_global_stochastic_mean_of_z.scores.csv",
+  read.csv(file = "output/null_model_global/FD_z_scores_global_stochastic_mean_of_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
@@ -115,12 +115,12 @@ fd.global.stochastic <-
 # Regional null model z-scores
 # ----------------------------
 fd.regional.mean <-
-  read.csv(file = "output/test/null_model_regional/test_FD_z_scores_regional_genus_mean_z.scores.csv",
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_genus_mean_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
 fd.regional.stochastic <-
-  read.csv(file = "output/test/null_model_regional/test_FD_z_scores_regional_stochastic_mean_of_z.scores.csv",
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
@@ -128,12 +128,12 @@ fd.regional.stochastic <-
 # Local null model z-scores
 # -------------------------
 fd.local.mean <-
-  read.csv(file = "output/test/null_model_local/test_FD_z_scores_local_genus_mean_z.scores.csv",
+  read.csv(file = "output/null_model_local/FD_z_scores_local_genus_mean_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
 fd.local.stochastic <-
-  read.csv(file = "output/test/null_model_local/test_FD_z_scores_local_stochastic_mean_of_z.scores.csv",
+  read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_z.scores.csv",
            row.names = 1
            ) %>%
   Temp()
