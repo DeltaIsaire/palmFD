@@ -65,8 +65,7 @@ FastFD <- function(trait.matrix, pres.abs.matrix) {
   c <- dim(pres.abs.matrix)[1]
 
   trait.matrix <- data.frame(trait.matrix)
-  x.s <- apply(trait.matrix, 2, scale, center = TRUE, scale = TRUE)
-  x.dist <- dist(x.s)
+  x.dist <- dist(trait.matrix)
   attr(x.dist, "Labels") <- x.rn
   x.dist2 <- x.dist
 
@@ -126,7 +125,7 @@ if (test) {
     old <- dbFD(x = trait.matrix,
                 a = pres.abs.matrix,
                 w.abun = FALSE,
-                stand.x = TRUE,
+                stand.x = FALSE,
                 corr = "cailliez",
                 calc.FRic = TRUE,
                 m = "max",

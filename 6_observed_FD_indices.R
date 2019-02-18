@@ -166,7 +166,25 @@ traits.mean %<>% .[-indices, ]
 # NOTE: this subsetting excludes 20 species.
 # The remaining dataset is 2539 species in 131 botanical countries.
 
-# Save pres/abs matrix and all trait matrices.
+
+# Standardize trait matrices
+# --------------------------
+# All three traits should be standardized to mean 0 and unit variance.
+traits.mean.std <- apply(traits.mean, 2, scale, center = TRUE, scale = TRUE)
+rownames(traits.mean.std) <- rownames(traits.mean)
+
+traits.gapfilled.std <-
+  llply(traits.gapfilled,
+        function(x) {
+          output <- apply(x, 2, scale, center = TRUE, scale = TRUE)
+          rownames(output) <- rownames(x)
+          output
+        }
+        )
+
+
+# Save all resulting matrices
+# ---------------------------
 # We will need them later for the null models.
 write.csv(pres.abs.matrix,
           file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
@@ -178,15 +196,36 @@ if (!dir.exists(trait.dir)) {
   cat("creating directory:", trait.dir, "\n")
   dir.create(trait.dir)
 }
+
 write.csv(traits.mean,
           file = paste0(trait.dir, "palm_trait_matrix_genus_mean.csv"),
           eol = "\r\n",
           row.names = TRUE
           )
+
+write.csv(traits.mean.std,
+          file = paste0(trait.dir, "palm_trait_matrix_genus_mean_standardized.csv"),
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+
 for (i in seq_along(traits.gapfilled)) {
   write.csv(traits.gapfilled[[i]],
             file = paste0(trait.dir, 
                           "palm_trait_matrix_filled_",
+                          i,
+                          ".csv"
+                          ),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+}
+
+for (i in seq_along(traits.gapfilled.std)) {
+  write.csv(traits.gapfilled.std[[i]],
+            file = paste0(trait.dir, 
+                          "palm_trait_matrix_filled_standardized_",
                           i,
                           ".csv"
                           ),
@@ -299,12 +338,12 @@ clusterEvalQ(cluster,
              }
              )
 
-# Parallel apply SampleFD to each sample gapfilled trait dataset
+# Parallel apply SampleFD to each STANDARDIZED sample gapfilled trait dataset
 parLapply(cluster,
           sample.list,
           function(x) {
             cat("sample 1\n")
-            SampleFD(trait.matrix = traits.gapfilled[[x]],
+            SampleFD(trait.matrix = traits.gapfilled.std[[x]],
                      pres.abs.matrix = pres.abs.matrix,
                      id = x
                      )
@@ -316,7 +355,7 @@ stopCluster(cluster)
 
 # SampleFD for genus-mean filled data
 # -----------------------------------
-SampleFD(trait.matrix = traits.mean,
+SampleFD(trait.matrix = traits.mean.std,
          pres.abs.matrix = pres.abs.matrix,
          id = "genus_mean"
          )

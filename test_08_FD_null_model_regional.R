@@ -10,7 +10,7 @@
 #
 # Input files:
 #   dir 'output/test/observed_FD/' with 100 observed FD files
-#   output/test/observed_FD/test_community_trait_means_genus_mean.csv
+#   output/test/observed_FD/test_community_trait_means_genus_mean_standardized.csv
 #   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
 #   < output dir specified below, with 100 FD z-score files >
@@ -74,7 +74,7 @@ tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv", header = TRUE)
 # Load transformed gapfilled trait matrices
 # -----------------------------------------
 traits.mean <-
-  read.csv(file = "output/test/trait_matrices/palm_trait_matrix_genus_mean.csv",
+  read.csv(file = "output/test/trait_matrices/palm_trait_matrix_genus_mean_standardized.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
@@ -84,7 +84,7 @@ trait.names <- colnames(traits.mean)
 traits.gapfilled <- vector("list", length = 100)
 for (i in seq_along(traits.gapfilled)) {
   traits.gapfilled[[i]] <-
-    read.csv(file = paste0("output/test/trait_matrices/palm_trait_matrix_filled_",
+    read.csv(file = paste0("output/test/trait_matrices/palm_trait_matrix_filled_standardized_",
                            i,
                            ".csv"
                            ),

@@ -88,7 +88,7 @@ RunFD <- function(trait.matrix,
     output.all <- suppressWarnings(dbFD(x = traits,
                                         a = pres.abs,
                                         w.abun = FALSE,
-                                        stand.x = TRUE,
+                                        stand.x = FALSE,  # Do NOT use this!
                                         corr = "cailliez",
                                         calc.FRic = TRUE,
                                         m = "max",

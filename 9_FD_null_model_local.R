@@ -10,7 +10,7 @@
 #
 # Input files:
 #   dir 'output/observed_FD/' with 100 observed FD files
-#   output/observed_FD/community_trait_means_genus_mean.csv
+#   output/observed_FD/community_trait_means_genus_mean_standardized.csv
 #   output/palm_tdwg3_pres_abs_gapfilled.csv
 # Generated output files:
 #   < output dir specified below, with 100 FD z-score files >
@@ -75,7 +75,7 @@ tdwg3.info <- read.csv(file = "output/tdwg3_info.csv", header = TRUE)
 # Load transformed gapfilled trait matrices
 # -----------------------------------------
 traits.mean <-
-  read.csv(file = "output/trait_matrices/palm_trait_matrix_genus_mean.csv",
+  read.csv(file = "output/trait_matrices/palm_trait_matrix_genus_mean_standardized.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
@@ -85,7 +85,7 @@ trait.names <- colnames(traits.mean)
 traits.gapfilled <- vector("list", length = 100)
 for (i in seq_along(traits.gapfilled)) {
   traits.gapfilled[[i]] <-
-    read.csv(file = paste0("output/trait_matrices/palm_trait_matrix_filled_",
+    read.csv(file = paste0("output/trait_matrices/palm_trait_matrix_filled_standardized_",
                            i,
                            ".csv"
                            ),
@@ -232,7 +232,7 @@ cat("Done.\n")
 # Local null model for stochastic genus-level filled data
 # -------------------------------------------------------
 # Run how many samples? (max 100)
-samples <- 50
+samples <- 10
 # This is time-consuming: run only if the output does not yet exist
 cat("For stochastic genus-level filled data:\n")
 for (i in seq_len(samples)) {
