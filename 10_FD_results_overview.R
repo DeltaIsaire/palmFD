@@ -23,6 +23,8 @@ library(magrittr)
 library(plyr)
 library(sf)
 library(ggplot2)
+library(scales)
+
 theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
@@ -138,6 +140,17 @@ fd.local.stochastic <-
            ) %>%
   Temp()
 
+# Community mean trait values
+# ---------------------------
+# Keep in mind these are log10-transformed
+cwm.observed.mean <- read.csv(file = "output/test/observed_FD/test_community_trait_means_genus_mean.csv",
+                              row.names = 1
+                              ) %>%
+  Temp()
+cwm.observed.stochastic <- read.csv(file = "output/test/observed_FD/test_community_trait_means_genus_mean.csv",
+                                    row.names = 1
+                                    ) %>%
+  Temp()
 
 
 ##############################################
@@ -159,32 +172,44 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, title = NULL,
                         subtitle = NULL) {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
-#         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units)
+#         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
+#         Data must be a continuous numeric variable.
 # vector.name: character string giving name for the vector (used in legend)
   tdwg.map$vector <- vector
   subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-  tdwg.plot <- ggplot(data = tdwg.map) + 
-                 geom_sf(size = 0.15, color = "black") +
-                 # This magically only adds axes:
-                 geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-                 # While this does NOT add axes but does add points:
-                 geom_point(data = subset,
-                            mapping = aes(x = Long,
-                                          y = Lat,
-                                          fill = vector
-                                          ),
-                            size = 3,
-                            shape = 21) +
-                 labs(fill = vector.name,
-                      x = NULL,
-                      y = NULL,
-                      title = title,
-                      subtitle = subtitle
-                      ) +
-                 scale_fill_viridis_c(option = "C")
-  tdwg.plot
+  min <- ifelse(min(vector, na.rm = TRUE) < 0,
+                min(vector, na.rm = TRUE),
+                0 - 2 * .Machine$double.eps
+                )
+  max <- ifelse(max(vector, na.rm = TRUE) > 0,
+                max(vector, na.rm = TRUE),
+                0 + 2 * .Machine$double.eps
+                )
+  ggplot(data = tdwg.map) + 
+         geom_sf(size = 0.15, color = "black") +
+         # This magically only adds axes:
+         geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+         # While this does NOT add axes but does add points:
+         geom_point(data = subset,
+                    mapping = aes(x = Long, y = Lat, fill = vector),
+                    size = 3,
+                    shape = 21) +
+         labs(fill = vector.name,
+              x = NULL,
+              y = NULL,
+              title = title,
+              subtitle = subtitle
+              ) +
+         scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
+                              values = rescale(c(min, 
+                                                 0 - .Machine$double.eps,
+                                                 0,
+                                                 0 + .Machine$double.eps,
+                                                 max
+                                                 )
+                                               )
+                              )
 }
-
 
 # Alternative plotting function using filled polygons instead of points
 # ---------------------------------------------------------------------
@@ -195,7 +220,7 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
 # vector.name: character string giving name for the vector (used in legend)
   tdwg.map$vector <- vector
   tdwg.plot <- ggplot(data = tdwg.map) + 
-                 geom_sf(color = "black", aes(fill = vector)) +
+                 geom_sf(size = 0.15, color = "black", aes(fill = vector)) +
                  labs(fill = vector.name) +
                  ggtitle(title) +
                  # This magically only adds axes:
@@ -274,6 +299,59 @@ MakePlots <- function() {
     }
   }
   return (0)
+}
+
+MakePlots()
+
+
+##################
+# Additional plots
+##################
+cat("Creating additional plots...\n")
+
+# Three Realms
+# ------------
+ggsave(plot = SpatialPlotFill(tdwg.map,
+                              vector = tdwg3.info[, "realm"],
+                              vector.name = "Realm",
+                              title = "Assignment of TDWG3 units to realms"
+                              ),
+       filename = paste0(plot.dir,
+                         "TDWG3_realm_distribution",
+                         ".png"
+                         ),
+       width = 8,
+       height = 4
+       )
+
+# Community average trait values
+# ------------------------------
+MakePlots <- function() {
+  for (trait in c("stem.height", "blade.length", "fruit.length")) {
+    for (source in c("genus_mean", "stochastic_mean")) {
+      if (source == "genus_mean") {
+        objname <- paste0("cwm.observed.mean")
+      } else {
+        objname <- paste0("cwm.observed.stochastic")
+      }
+
+  ggsave(plot = SpatialPlot(tdwg.map,
+                            vector = get(objname)[, trait],
+                            vector.name = paste0("log10(", trait, ")"),
+                            title = paste("Community mean", trait)
+                            ),
+         filename = paste0(plot.dir,
+                           "TDWG3_cwm_",
+                           source,
+                           "_",
+                           trait,
+                           ".png"
+                           ),
+         width = 8,
+         height = 4
+         )
+    }
+  }
 }
 
 MakePlots()

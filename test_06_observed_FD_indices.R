@@ -330,6 +330,12 @@ SampleFD(trait.matrix = traits.mean,
                   header = "test_FD_observed_"
                   )
 
+  StochasticMeans(stat = "",
+                  samples = 100,
+                  output.dir = "output/test/observed_FD/",
+                  header = "test_community_trait_means_"
+                  )
+
 
 cat("Done.\n")
 
