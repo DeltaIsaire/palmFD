@@ -225,8 +225,8 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
                  ggtitle(title) +
                  # This magically only adds axes:
                  geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-                 xlab("Longitude") +
-                 ylab("Latitude")
+                 xlab(NULL) +
+                 ylab(NULL)
   tdwg.plot
 }
 
@@ -338,7 +338,8 @@ MakePlots <- function() {
   ggsave(plot = SpatialPlot(tdwg.map,
                             vector = get(objname)[, trait],
                             vector.name = paste0("log10(", trait, ")"),
-                            title = paste("Community mean", trait)
+                            title = paste("Community mean", trait),
+                            subtitle = paste(source, "filled data")
                             ),
          filename = paste0(plot.dir,
                            "TDWG3_cwm_",
