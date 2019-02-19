@@ -275,3 +275,15 @@ traits.gapfilled <-
         )
 
 
+
+
+  # Community weighted mean trait values
+  # Not weighted in our case, so just the mean
+  # KEEP IN MIND THESE ARE LOG10-TRANSFORMED VALUES
+  community.means <- output.combined[[1]]$CWM
+  write.csv(community.means,
+            file = paste0(fd.dir, "test_community_trait_means_", id, ".csv"),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+

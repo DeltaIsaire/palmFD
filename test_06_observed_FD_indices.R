@@ -302,15 +302,7 @@ SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
             eol = "\r\n",
             row.names = TRUE
             )
-  # Community weighted mean trait values
-  # Not weighted in our case, so just the mean
-  # KEEP IN MIND THESE ARE LOG10-TRANSFORMED VALUES
-  community.means <- output.combined[[1]]$CWM
-  write.csv(community.means,
-            file = paste0(fd.dir, "test_community_trait_means_", id, ".csv"),
-            eol = "\r\n",
-            row.names = TRUE
-            )
+
   return (0)
 }
 
@@ -362,17 +354,64 @@ SampleFD(trait.matrix = traits.mean.std,
 
 # Summarize results of the 100 stochastic gapfilled datasets
 # ----------------------------------------------------------
-  StochasticMeans(stat = "",
-                  samples = 100,
-                  output.dir = "output/test/observed_FD/",
-                  header = "test_FD_observed_"
-                  )
+StochasticMeans(stat = "",
+                samples = 100,
+                output.dir = "output/test/observed_FD/",
+                header = "test_FD_observed_"
+                )
 
-  StochasticMeans(stat = "",
-                  samples = 100,
-                  output.dir = "output/test/observed_FD/",
-                  header = "test_community_trait_means_"
-                  )
+
+#######################
+# Community trait means
+#######################
+# In addition to FD, it is useful to have community average trait values.
+# Based on the log-transformed, non-standardized trait matrices.
+
+# Calculate the trait means with a function
+# -----------------------------------------
+TraitMean <- function(trait.matrix, pres.abs.matrix) {
+  mat <- matrix(nrow = nrow(pres.abs.matrix),
+                ncol = ncol(trait.matrix),
+                dimnames = list(row = rownames(pres.abs.matrix),
+                                col = colnames(trait.matrix)
+                                ),
+                data = NA
+                )
+  for (community in seq_len(nrow(pres.abs.matrix))) {
+    species <- colnames(pres.abs.matrix)[pres.abs.matrix[community, ] > 0]
+    traits.subset <- trait.matrix[rownames(trait.matrix) %in% species, ]
+    mat[community, ] <- apply(traits.subset, 2, mean)
+  }
+  mat
+}
+
+traitmeans.mean <- TraitMean(traits.mean, pres.abs.matrix)
+traitmeans.stochastic <-
+  llply(traits.gapfilled, TraitMean, pres.abs.matrix = pres.abs.matrix)
+
+# Save results
+# ------------
+write.csv(traitmeans.mean,
+          file = paste0(fd.dir, "test_community_trait_means_genus_mean.csv"),
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+for (id in seq_along(traitmeans.stochastic)) {
+  write.csv(traitmeans.stochastic[[id]],
+            file = paste0(fd.dir, "test_community_trait_means_", id, ".csv"),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+}
+
+# Summarize trait means of the 100 stochastic gapfilled datasets
+# --------------------------------------------------------------
+StochasticMeans(stat = "",
+                samples = 100,
+                output.dir = "output/test/observed_FD/",
+                header = "test_community_trait_means_"
+                )
 
 
 cat("Done.\n")
