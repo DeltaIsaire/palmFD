@@ -224,7 +224,8 @@ if (!file.exists(paste0(output.dir,
     ) {
   RunLocal(trait.matrix = traits.mean,
            pres.abs.matrix = pres.abs.matrix,
-           id = id
+           id = id,
+           header = header
            )
 }
 cat("Done.\n")
