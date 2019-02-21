@@ -29,6 +29,7 @@
 library(magrittr)
 library(plyr)
 
+source(file = "functions/base_functions.R")
 source(file = "functions/functional_diversity_functions.R")
 
 
@@ -330,9 +331,26 @@ NullADF <- function(trait.matrix,
                             presence = TRUE,
                             value = FALSE
                             )
-      trait.matrix.subset <- trait.matrix[indices, ]
-      trait.matrix.subset %<>% .[order(rownames(.)), ]
-  
+#################################
+#      trait.matrix.subset <- trait.matrix[indices, ]
+#      trait.matrix.subset %<>% .[order(rownames(.)), ]
+  # no subsetting:
+  trait.matrix.subset <- trait.matrix
+  # pad nm.pres.abs to include all species in the trait.matrix
+  mat <- 
+    matrix(ncol = sum(!rownames(trait.matrix) %in% colnames(pres.abs.matrix)),
+           nrow = nrow(pres.abs.matrix),
+           data = 0,
+           dimnames = list(NULL, rownames(trait.matrix)[!rownames(trait.matrix)
+                                                        %in%
+                                                        colnames(pres.abs.matrix)
+                                                        ]
+                           )
+           )
+  nm.pres.abs <- cbind(nm.pres.abs, mat)
+  nm.pres.abs <- nm.pres.abs[, order(colnames(nm.pres.abs)), drop = FALSE]
+################################################ 
+
       # Calculating Functional Diversity
       # --------------------------------
       if (verbose) {

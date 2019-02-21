@@ -9,6 +9,8 @@
 
 library(FD)
 
+source(file = "functions/edited_fdisp_function.R")
+
 
 test <- FALSE
 
@@ -80,7 +82,7 @@ FastFD <- function(trait.matrix, pres.abs.matrix) {
     traits.FRic <- x.pco$li
   }
   
-  disp <- fdisp(x.dist, pres.abs.matrix)
+  disp <- CustomFdisp(x.dist, pres.abs.matrix)
   FDis <- disp$FDis
   
   FRic <- rep(NA, c)
