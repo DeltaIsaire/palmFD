@@ -338,12 +338,12 @@ NullADF <- function(trait.matrix,
   trait.matrix.subset <- trait.matrix
   # pad nm.pres.abs to include all species in the trait.matrix
   mat <- 
-    matrix(ncol = sum(!rownames(trait.matrix) %in% colnames(pres.abs.matrix)),
+    matrix(ncol = sum(!rownames(trait.matrix) %in% colnames(nm.pres.abs)),
            nrow = nrow(pres.abs.matrix),
            data = 0,
            dimnames = list(NULL, rownames(trait.matrix)[!rownames(trait.matrix)
                                                         %in%
-                                                        colnames(pres.abs.matrix)
+                                                        colnames(nm.pres.abs)
                                                         ]
                            )
            )
