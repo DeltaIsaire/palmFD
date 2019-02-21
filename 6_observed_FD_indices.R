@@ -41,7 +41,7 @@ trait.dir <- "output/trait_matrices/"
 # Number of cores to use for parallel processing. Default is 80% of available cores.
 num.cores <- 
   if (!is.na(detectCores())) {
-    floor(detectCores() * 0.8)
+    floor(detectCores() * 0.95)
   } else {
     1
     warning("unable to detect cores. Parallel processing is NOT used!")
