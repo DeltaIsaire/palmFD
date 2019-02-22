@@ -133,10 +133,62 @@ if (any(test[, "richness"] > test[, "pool.size"])) {
   stop("Some ADF species pools are too small")
 }
 
+# For future reference, a matrix giving the sample probabilities for each ADF.
+# Rows are focal TDWG3 units, columns are ADF TDWG3 units.
+# You can tell because the rowSums will add to 1, but the colSums won't.
+adf.weight.matrix <-
+  matrix(nrow = nrow(pres.abs.matrix),
+         ncol = nrow(pres.abs.matrix),
+         dimnames = list(focal = rownames(pres.abs.matrix),
+                         adf = rownames(pres.abs.matrix)
+                         ),
+         data = 0  # countries not in the ADF have weight 0, not NA.
+         )
+for (i in seq_along(adf)) {
+  # Get species in focal community
+  focal.species <-
+    pres.abs.matrix[match(names(adf)[i], rownames(pres.abs.matrix)),
+                     ,
+                    drop = FALSE
+                    ] %>%
+    { colnames(.)[. > 0] }
+  # Get species in each ADF community
+  community.species <-
+    alply(adf[[i]],
+          .margins = 1,
+          function(x) {
+            pres.abs.matrix[match(x, rownames(pres.abs.matrix)),
+                             ,
+                            drop = FALSE
+                            ] %>%
+              { colnames(.)[. > 0] }
+          }
+          )
+    names(community.species) <- adf[[i]]
+  # Define weights as number of shared species, and convert to probabilities
+  community.weights <-
+    llply(community.species, function(x) { sum(x %in% focal.species) } ) %>%
+    unlist()
+  community.chances <- community.weights / sum(community.weights)
+  # Add this data to the matrix
+  columns <- CrossCheck(x = colnames(adf.weight.matrix),
+                        y = names(community.chances),
+                        presence = TRUE,
+                        value = FALSE
+                        )
+  adf.weight.matrix[i, columns] <- community.chances
+}
+write.csv(adf.weight.matrix,
+          file = "output/adf_weight_matrix.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
 
 # Function to run the local null model
 # ------------------------------------
-RunLocal <- function(trait.matrix, pres.abs.matrix, id, header) {
+RunLocal <- function(trait.matrix, pres.abs.matrix, id, header, pcoa.traits,
+                     pcoa.traits.single) {
 #   id: a unique identifier, used for naming the produced files.
 #       should match the id used for the observed FD file
 #   header: character string giving common first part of the name for all
@@ -146,6 +198,8 @@ RunLocal <- function(trait.matrix, pres.abs.matrix, id, header) {
   local.gapfilled <-
     NullADF(trait.matrix = trait.matrix,
             pres.abs.matrix = pres.abs.matrix,
+            pcoa.traits = pcoa.traits,
+            pcoa.traits.single = pcoa.traits.single,
             species.pools = species.pools,
             process.dir = nm.dir,
             iterations = 1000,
@@ -222,10 +276,30 @@ if (!file.exists(paste0(output.dir,
                         )
                  )
     ) {
+  pcoa.traits <- read.csv(file = "output/observed_FD/pcoa_traits_mean.csv",
+                          header = TRUE,
+                          row.names = 1
+                          )
+  pcoa.traits.single <-
+    vector("list", length = ncol(traits.mean))
+  names(pcoa.traits.single) <- colnames(traits.mean)
+  for (i in seq_along(pcoa.traits.single)) {
+    pcoa.traits.single[[i]] <-
+      read.csv(file = paste0("output/observed_FD/",
+                             "pcoa_traits_mean_",
+                             names(pcoa.traits.single)[i],
+                             ".csv"
+                             ),
+                header = TRUE,
+                row.names = 1
+                )
+  }
   RunLocal(trait.matrix = traits.mean,
            pres.abs.matrix = pres.abs.matrix,
            id = id,
-           header = header
+           header = header,
+           pcoa.traits = pcoa.traits,
+           pcoa.traits.single = pcoa.traits.single
            )
 }
 cat("Done.\n")
@@ -248,10 +322,37 @@ for (i in seq_len(samples)) {
                           )
                    )
       ) {
+    pcoa.traits <- 
+      read.csv(file = paste0("output/observed_FD/",
+                             "pcoa_traits_gapfilled_",
+                             i,
+                             ".csv"
+                             ),
+               header = TRUE,
+               row.names = 1,
+               )
+    pcoa.traits.single <-
+      vector("list", length = ncol(traits.gapfilled[[i]]))
+    names(pcoa.traits.single) <- colnames(traits.gapfilled[[i]])
+    for (x in seq_along(pcoa.traits.single)) {
+      pcoa.traits.single[[x]] <-
+        read.csv(file = paste0("output/observed_FD/",
+                               "pcoa_traits_gapfilled_",
+                               i,
+                               "_",
+                               names(pcoa.traits.single)[x],
+                               ".csv"
+                               ),
+                 header = TRUE,
+                 row.names = 1
+                 )
+    }
     RunLocal(trait.matrix = traits.gapfilled[[i]],
              pres.abs.matrix = pres.abs.matrix,
              id = id,
-             header = header
+             header = header,
+             pcoa.traits = pcoa.traits,
+             pcoa.traits.single = pcoa.traits.single
              )
   }
 }

@@ -235,23 +235,118 @@ for (i in seq_along(traits.gapfilled.std)) {
 }
 
 
-##################################
-# Calculating Functional Diversity
-##################################
-cat("Calculating Functional Diversity indices... (this may take a while)\n")
+########################################
+# Precompute PcoA-traits for null models
+########################################
+  cat("Precomputing pcoa traits...\n")
 
 if (!dir.exists(fd.dir)) {
   cat("creating directory:", fd.dir, "\n")
   dir.create(fd.dir)
 }
 
-SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
+# For genus mean data
+# -------------------
+if (!file.exists(paste0(fd.dir, "pcoa_traits_mean_fruit.length.csv"))) {
+  # for all traits
+  pcoa.traits.mean <-
+    dist(traits.mean.std) %>%
+    dudi.pco(., scannf = FALSE, full = TRUE) %>%
+    .$li
+  write.csv(pcoa.traits.mean,
+            file = paste0(fd.dir, "pcoa_traits_mean.csv"),
+            eol = "\r\n",
+            row.names = TRUE
+            )
+  # for single traits
+  for (trait in colnames(traits.mean.std)) {
+    subset.matrix <- traits.mean.std[, trait, drop = FALSE]
+    pcoa.single <-
+      dist(subset.matrix) %>%
+      dudi.pco(., scannf = FALSE, full = TRUE) %>%
+      .$li
+    write.csv(pcoa.single,
+              file = paste0(fd.dir, "pcoa_traits_mean_", trait, ".csv"),
+              eol = "\r\n",
+              row.names = TRUE
+              )
+  }
+}
+
+# For stochastic gapfilled data
+# -----------------------------
+if (!file.exists(paste0(fd.dir, "pcoa_traits_gapfilled_100_fruit.length.csv"))) {
+  cluster <- makeCluster(num.cores)
+  sample.list <-
+    seq_along(traits.gapfilled.std) %>%
+    as.array() %>%
+    t() %>%
+    as.list()
+  clusterExport(cluster, ls())
+  clusterEvalQ(cluster,
+               {
+                 library(magrittr)
+                 library(plyr)
+                 library(FD)
+               }
+               )
+  parLapply(cluster,
+            sample.list,
+            function(x) {
+              # For all traits
+              pcoa.stochastic <-
+                dist(traits.gapfilled.std[[x]]) %>%
+                dudi.pco(., scannf = FALSE, full = TRUE) %>%
+                .$li
+              write.csv(pcoa.stochastic,
+                        file = paste0(fd.dir,
+                                      "pcoa_traits_gapfilled_",
+                                      x,
+                                      ".csv"
+                                      ),
+                        eol = "\r\n",
+                        row.names = TRUE
+                        )
+              # For single traits
+              for (trait in colnames(traits.gapfilled.std[[1]])) {
+                subset.matrix <- traits.gapfilled.std[[1]] [, trait, drop = FALSE]
+                pcoa.single <-
+                  dist(subset.matrix) %>%
+                  dudi.pco(., scannf = FALSE, full = TRUE) %>%
+                  .$li
+                write.csv(pcoa.single,
+                          file = paste0(fd.dir,
+                                        "pcoa_traits_gapfilled_",
+                                        x,
+                                        "_",
+                                        trait,
+                                        ".csv"
+                                        ),
+                          eol = "\r\n",
+                          row.names = TRUE
+                          )
+              }
+              return (0)
+            }
+            )
+  stopCluster(cluster)
+}
+
+##################################
+# Calculating Functional Diversity
+##################################
+cat("Calculating Functional Diversity indices... (this may take a while)\n")
+
+SampleFD <- function(trait.matrix, pres.abs.matrix, id, pcoa.traits,
+                     pcoa.traits.single) {
 # Function to calculate all FD output for a single gapfilled trait matrix.
 #
 # Args:
 #   trait.matrix: the trait matrix version to calculate FD for
 #   pres.abs.matrix: the presence/absence matrix
 #   id: a unique identifier, used for naming the produced files.
+#   pcoa.traits: matrix giving pcoa.traits
+#   pcoa.traits.single: list of matrices giving pcoa.traits for each single trait
 #
 # Returns: nothing. The function saves one file with the FD indices and one file
 #          with the community mean trait values.
@@ -261,13 +356,15 @@ SampleFD <- function(trait.matrix, pres.abs.matrix, id) {
                       pres.abs.matrix,
                       subset = subset,
                       verbose = verbose,
-                      fast = FALSE
+                      fast = TRUE,
+                      pcoa.traits = pcoa.traits
                       )
   output.single <- SingleFD(trait.matrix,
                             pres.abs.matrix,
                             subset = subset,
                             verbose = verbose,
-                            fast = FALSE
+                            fast = TRUE,
+                            pcoa.traits.single = pcoa.traits.single
                             )
   output.combined <- c(list(all.traits = output.all), output.single)
 
@@ -334,10 +431,37 @@ clusterEvalQ(cluster,
 parLapply(cluster,
           sample.list,
           function(x) {
-            cat("sample 1\n")
+            pcoa.traits <- 
+              read.csv(file = paste0(fd.dir,
+                                     "pcoa_traits_gapfilled_",
+                                     x,
+                                     ".csv"
+                                     ),
+                       header = TRUE,
+                       row.names = 1,
+                       check.names = FALSE
+                       )
+            pcoa.traits.single <-
+              vector("list", length = ncol(traits.gapfilled.std[[x]]))
+            names(pcoa.traits.single) <- colnames(traits.gapfilled.std[[x]])
+            for (i in seq_along(pcoa.traits.single)) {
+              pcoa.traits.single[[i]] <-
+                read.csv(file = paste0(fd.dir,
+                                       "pcoa_traits_gapfilled_",
+                                       x,
+                                       "_",
+                                       names(pcoa.traits.single)[i],
+                                       ".csv"
+                                       ),
+                          header = TRUE,
+                          row.names = 1
+                          )
+            }
             SampleFD(trait.matrix = traits.gapfilled.std[[x]],
                      pres.abs.matrix = pres.abs.matrix,
-                     id = x
+                     id = x,
+                     pcoa.traits = pcoa.traits,
+                     pcoa.traits.single = pcoa.traits.single
                      )
           }
           )
@@ -347,16 +471,38 @@ stopCluster(cluster)
 
 # SampleFD for genus-mean filled data
 # -----------------------------------
+pcoa.traits.mean <-
+  read.csv(file = paste0(fd.dir, "pcoa_traits_mean.csv"),
+           header = TRUE,
+           row.names = 1,
+           check.names = FALSE
+           )
+pcoa.traits.single <-
+  vector("list", length = ncol(traits.mean.std))
+names(pcoa.traits.single) <- colnames(traits.mean.std)
+for (i in seq_along(pcoa.traits.single)) {
+  pcoa.traits.single[[i]] <-
+    read.csv(file = paste0(fd.dir,
+                           "pcoa_traits_mean_",
+                           names(pcoa.traits.single)[i],
+                           ".csv"
+                           ),
+              header = TRUE,
+              row.names = 1
+              )
+}
 SampleFD(trait.matrix = traits.mean.std,
          pres.abs.matrix = pres.abs.matrix,
-         id = "genus_mean"
+         id = "genus_mean",
+         pcoa.traits = pcoa.traits.mean,
+         pcoa.traits.single = pcoa.traits.single
          )
 
 # Summarize results of the 100 stochastic gapfilled datasets
 # ----------------------------------------------------------
 StochasticMeans(stat = "",
                 samples = 100,
-                output.dir = "output/observed_FD/",
+                output.dir = fd.dir,
                 header = "FD_observed_"
                 )
 
@@ -364,6 +510,7 @@ StochasticMeans(stat = "",
 #######################
 # Community trait means
 #######################
+cat("Calculating community trait means...\n")
 # In addition to FD, it is useful to have community average trait values.
 # Based on the log-transformed, non-standardized trait matrices.
 
@@ -409,10 +556,9 @@ for (id in seq_along(traitmeans.stochastic)) {
 # --------------------------------------------------------------
 StochasticMeans(stat = "",
                 samples = 100,
-                output.dir = "output/observed_FD/",
+                output.dir = fd.dir,
                 header = "community_trait_means_"
                 )
-
 
 
 cat("Done.\n")

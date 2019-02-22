@@ -209,6 +209,8 @@ SampleADF <- function(species.pool, n, trait.matrix) {
 
 NullADF <- function(trait.matrix,
                     pres.abs.matrix,
+                    pcoa.traits = NULL,
+                    pcoa.traits.single = NULL,
                     species.pools,
                     process.dir,
                     iterations = 1000,
@@ -364,7 +366,8 @@ NullADF <- function(trait.matrix,
                           nm.pres.abs,
                           subset = subset,
                           verbose = verbose,
-                          fast = fast
+                          fast = fast,
+                          pcoa.traits = pcoa.traits
                           )
       # FD for single traits
       if (single.traits) {
@@ -373,6 +376,7 @@ NullADF <- function(trait.matrix,
         }
         output.single <- SingleFD(trait.matrix.subset,
                                   nm.pres.abs,
+                                  pcoa.traits.single = pcoa.traits.single,
                                   subset = subset,
                                   verbose = verbose,
                                   fast = fast

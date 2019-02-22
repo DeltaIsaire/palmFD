@@ -11,7 +11,7 @@
 # FUNCTION LIST:
 # Scatterplot
 # GraphPDF
-# graphSVG
+# GraphSVG
 # GraphPNG
 # MultiScatter
 # BarPlot

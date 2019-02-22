@@ -32,6 +32,7 @@ source(file = "functions/faster_FD_function.R")
 
 RunFD <- function(trait.matrix,
                   pres.abs.matrix,
+                  pcoa.traits = NULL,
                   subset = FALSE,
                   verbose = TRUE,
                   fast = FALSE
@@ -83,7 +84,10 @@ RunFD <- function(trait.matrix,
   # had identical coordinates in functional space. This is not a problem,
   # so we can ignore these warnings.
   if (fast) {
-    output.all <- FastFD(trait.matrix = traits, pres.abs.matrix = pres.abs)
+    output.all <- FastFD(trait.matrix = traits,
+                         pres.abs.matrix = pres.abs,
+                         pcoa.traits = pcoa.traits
+                         )
   } else {
     output.all <- suppressWarnings(dbFD(x = traits,
                                         a = pres.abs,
@@ -105,6 +109,7 @@ RunFD <- function(trait.matrix,
 
 SingleFD <- function(trait.matrix,
                      pres.abs.matrix,
+                     pcoa.traits.single = NULL,
                      subset = FALSE,
                      verbose = TRUE,
                      fast = FALSE
@@ -162,8 +167,17 @@ SingleFD <- function(trait.matrix,
       cat("Calculating FD for trait", colnames(trait.matrix)[i], "...\n")
     }
     subset.matrix <- traits[, i, drop = FALSE]
+    if (!is.null(pcoa.traits.single)) {
+      pcoa.traits <- pcoa.traits.single[[match(colnames(trait.matrix)[i],
+                                               names(pcoa.traits.single)
+                                               )
+                                         ]]
+    } else {
+      pcoa.traits <- pcoa.traits.single
+    }
     output.list[[i]] <- RunFD(trait.matrix = subset.matrix,
                               pres.abs.matrix = pres.abs,
+                              pcoa.traits = pcoa.traits,
                               subset = FALSE,
                               verbose = verbose,
                               fast = fast
@@ -326,6 +340,8 @@ RandomSpecies <- function(communities, richness, species, trait.matrix,
 
 NullModel <- function(trait.matrix,
                       pres.abs.matrix,
+                      pcoa.traits = NULL,
+                      pcoa.traits.single = NULL,
                       groups = list(group = rownames(pres.abs.matrix)),
                       process.dir,
                       iterations = 100,
@@ -519,7 +535,8 @@ NullModel <- function(trait.matrix,
                           nm.pres.abs,
                           subset = subset,
                           verbose = verbose,
-                          fast = fast
+                          fast = fast,
+                          pcoa.traits = pcoa.traits
                           )
       # FD for single traits
       if (single.traits) {
@@ -528,6 +545,7 @@ NullModel <- function(trait.matrix,
         }
         output.single <- SingleFD(trait.matrix.subset,
                                   nm.pres.abs,
+                                  pcoa.traits.single = pcoa.traits.single,
                                   subset = subset,
                                   verbose = verbose,
                                   fast = fast

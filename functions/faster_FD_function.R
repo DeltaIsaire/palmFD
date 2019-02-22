@@ -46,7 +46,7 @@ if (test) {
 # ----------------
 # We only need two outputs: FRic and FDis
 
-FastFD <- function(trait.matrix, pres.abs.matrix) {
+FastFD <- function(trait.matrix, pres.abs.matrix, pcoa.traits = NULL) {
 # No checks. Assume input is valid.
 # Trait.matrix: a matrix with trait values in columns, and rownames as species.
 # pres.abs.matrix: a matrix with presence (1) and absense (0) of species
@@ -62,6 +62,8 @@ FastFD <- function(trait.matrix, pres.abs.matrix) {
 # NOTE: The FRic convex hull calculation uses 'joggling' to handle precision errors,
 #       by passing option 'QJ' to the qhull algorithm called in convhulln().
 #       see http://www.qhull.org/html/qh-impre.htm for more information.
+#
+# pcoa.traits: precomputed PcoA-traits to use for FRic calculation.
   x.rn <- rownames(trait.matrix)
 
   c <- dim(pres.abs.matrix)[1]
@@ -69,17 +71,20 @@ FastFD <- function(trait.matrix, pres.abs.matrix) {
   trait.matrix <- data.frame(trait.matrix)
   x.dist <- dist(trait.matrix)
   attr(x.dist, "Labels") <- x.rn
-  x.dist2 <- x.dist
 
-  x.pco <- dudi.pco(x.dist2, scannf = FALSE, full = TRUE)
-  traits <- round(x.pco$li, .Machine$double.exponent)
+  if (is.null(pcoa.traits)) {
+    x.pco <- dudi.pco(x.dist, scannf = FALSE, full = TRUE)
+    traits <- round(x.pco$li, .Machine$double.exponent)
+  } else {
+    traits <- pcoa.traits
+  }
 
-  if (x.pco$nf == 1) {
-    traits.FRic <- x.pco$li
+  if (ncol(traits) == 1) {
+    traits.FRic <- traits
     cat("FRic: Only one continuous trait or dimension in 'x'. FRic was measured as the range, NOT as the convex hull volume.\n")
   }
-  if (x.pco$nf > 1) {
-    traits.FRic <- x.pco$li
+  if (ncol(traits) > 1) {
+    traits.FRic <- traits
   }
   
   disp <- CustomFdisp(x.dist, pres.abs.matrix)

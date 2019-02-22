@@ -162,7 +162,8 @@ global.tdwg3 <- list(global = tdwg3.info[, "tdwg3.code"])
 
 # Function to run the global null model
 # -------------------------------------
-RunGlobal <- function(trait.matrix, pres.abs.matrix, id, header) {
+RunGlobal <- function(trait.matrix, pres.abs.matrix, id, header, pcoa.traits,
+                      pcoa.traits.single) {
 #   id: a unique identifier, used for naming the produced files.
 #       should match the id used for the observed FD file
 #   header: character string giving common first part of the name for all
@@ -172,6 +173,8 @@ RunGlobal <- function(trait.matrix, pres.abs.matrix, id, header) {
   global.gapfilled <-
     NullModel(trait.matrix = trait.matrix,
               pres.abs.matrix = pres.abs.matrix,
+              pcoa.traits = pcoa.traits,
+              pcoa.traits.single = pcoa.traits.single,
               groups = global.tdwg3,
               process.dir = nm.dir,
               iterations = 1000,
@@ -248,10 +251,30 @@ if (!file.exists(paste0(output.dir,
                         )
                  )
     ) {
+  pcoa.traits <- read.csv(file = "output/observed_FD/pcoa_traits_mean.csv",
+                          header = TRUE,
+                          row.names = 1
+                          )
+  pcoa.traits.single <-
+    vector("list", length = ncol(traits.mean))
+  names(pcoa.traits.single) <- colnames(traits.mean)
+  for (i in seq_along(pcoa.traits.single)) {
+    pcoa.traits.single[[i]] <-
+      read.csv(file = paste0("output/observed_FD/",
+                             "pcoa_traits_mean_",
+                             names(pcoa.traits.single)[i],
+                             ".csv"
+                             ),
+                header = TRUE,
+                row.names = 1
+                )
+  }
   RunGlobal(trait.matrix = traits.mean,
             pres.abs.matrix = pres.abs.matrix,
             id = id,
-            header = header
+            header = header,
+            pcoa.traits = pcoa.traits,
+            pcoa.traits.single = pcoa.traits.single
             )
 }
 cat("Done.\n")
@@ -274,10 +297,37 @@ for (i in seq_len(samples)) {
                           )
                    )
       ) {
+    pcoa.traits <- 
+      read.csv(file = paste0("output/observed_FD/",
+                             "pcoa_traits_gapfilled_",
+                             i,
+                             ".csv"
+                             ),
+               header = TRUE,
+               row.names = 1,
+               )
+    pcoa.traits.single <-
+      vector("list", length = ncol(traits.gapfilled[[i]]))
+    names(pcoa.traits.single) <- colnames(traits.gapfilled[[i]])
+    for (x in seq_along(pcoa.traits.single)) {
+      pcoa.traits.single[[x]] <-
+        read.csv(file = paste0("output/observed_FD/",
+                               "pcoa_traits_gapfilled_",
+                               i,
+                               "_",
+                               names(pcoa.traits.single)[x],
+                               ".csv"
+                               ),
+                 header = TRUE,
+                 row.names = 1
+                 )
+    }
     RunGlobal(trait.matrix = traits.gapfilled[[i]],
               pres.abs.matrix = pres.abs.matrix,
               id = id,
-              header = header
+              header = header,
+              pcoa.traits = pcoa.traits,
+              pcoa.traits.single = pcoa.traits.single
               )
   }
 }
