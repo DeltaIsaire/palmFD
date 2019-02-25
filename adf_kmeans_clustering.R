@@ -23,13 +23,13 @@ cat("Preparing data...\n")
 
 # Info on tdwg3 units
 # -------------------
-tdwg3.info <- read.csv(file = "output/test/tdwg3_info.csv")
+tdwg3.info <- read.csv(file = "output/tdwg3_info.csv")
 # The column 'palm.richness' reflects the full known palm richness.
 # However, our data analysis uses a subset of all palm species, so the experimental
 # richness values are lower.
 # Add those as a new column:
 pres.abs.matrix <- 
-  read.csv(file = "output/test/test_palm_tdwg3_pres_abs_gapfilled.csv",
+  read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
            row.names = 1,
            check.names = FALSE
            ) %>%
@@ -237,8 +237,11 @@ clusters[rows, "cluster"] <- adf.clusters
 # Plotting Clusters
 ###################
 
-SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters")
-
+ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_24.png"),
+       width = 8,
+       height = 4
+       )
 
 
 cat("Done.\n")

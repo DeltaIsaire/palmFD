@@ -143,11 +143,11 @@ fd.local.stochastic <-
 # Community mean trait values
 # ---------------------------
 # Keep in mind these are log10-transformed
-cwm.observed.mean <- read.csv(file = "output/test/observed_FD/test_community_trait_means_genus_mean.csv",
+cwm.observed.mean <- read.csv(file = "output/observed_FD/community_trait_means_genus_mean.csv",
                               row.names = 1
                               ) %>%
   Temp()
-cwm.observed.stochastic <- read.csv(file = "output/test/observed_FD/test_community_trait_means_genus_mean.csv",
+cwm.observed.stochastic <- read.csv(file = "output/observed_FD/community_trait_means_genus_mean.csv",
                                     row.names = 1
                                     ) %>%
   Temp()
@@ -225,8 +225,8 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
                  ggtitle(title) +
                  # This magically only adds axes:
                  geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-                 xlab("Longitude") +
-                 ylab("Latitude")
+                 xlab(NULL) +
+                 ylab(NULL)
   tdwg.plot
 }
 
@@ -283,7 +283,7 @@ MakePlots <- function() {
                                                                  )
                                                         ],
                                   vector.name = index,
-                                  title = paste("Observed", index.long),
+                                  title = paste(model, index.long),
                                   subtitle = paste(source, "filled data")
                                   ),
                filename = paste0(plot.dir,
@@ -338,7 +338,8 @@ MakePlots <- function() {
   ggsave(plot = SpatialPlot(tdwg.map,
                             vector = get(objname)[, trait],
                             vector.name = paste0("log10(", trait, ")"),
-                            title = paste("Community mean", trait)
+                            title = paste("Community mean", trait),
+                            subtitle = paste(source, "filled data")
                             ),
          filename = paste0(plot.dir,
                            "TDWG3_cwm_",
