@@ -204,6 +204,87 @@ cwm.observed.stochastic <- read.csv(file = "output/observed_FD/community_trait_m
 # according to some metrics. These low values are real, not erroneous.
 
 
+#############################
+# Summary files of FD indices
+#############################
+cat("Saving summary file of FD indices...\n")
+# Create and save a dataframe with all all-traits FRic values for each TDWG3 unit,
+# including null model means and SDs. Using data from stochastic gapfilling.
+
+# Load null model means and SDs:
+global.means <-
+  read.csv(file = "output/null_model_global/FD_z_scores_global_stochastic_mean_of_means.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+global.sds <-
+  read.csv(file = "output/null_model_global/FD_z_scores_global_stochastic_mean_of_sds.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+regional.means <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_means.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+regional.sds <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_sds.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+local.means <-
+  read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_means.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+local.sds <-
+  read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_sds.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+
+summary.FRic <-
+  data.frame(palm.richness    = tdwg3.info[, "experimental.richness"],
+             FRic.observed    = fd.observed.stochastic[, "FRic.all.traits"],
+             FRic.global.SES  = fd.global.stochastic[, "FRic.all.traits"],
+             FRic.global.mean = global.means[, "FRic.all.traits"],
+             FRic.global.sd   = global.sds[, "FRic.all.traits"],
+             FRic.realm.SES   = fd.regional.stochastic[, "FRic.all.traits"],
+             FRic.realm.mean  = regional.means[, "FRic.all.traits"],
+             FRic.realm.sd    = regional.sds[, "FRic.all.traits"],
+             FRic.adf.SES     = fd.local.stochastic[, "FRic.all.traits"],
+             FRic.adf.mean    = local.means[, "FRic.all.traits"],
+             FRic.adf.sd      = local.means[, "FRic.all.traits"],
+             row.names = fd.observed.stochastic[, "tdwg3.code"]
+             )
+write.csv(summary.FRic,
+          file = "output/FD_summary_FRic.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+# And the same thing for FDis:
+summary.FDis <-
+  data.frame(palm.richness    = tdwg3.info[, "experimental.richness"],
+             FDis.observed    = fd.observed.stochastic[, "FDis.all.traits"],
+             FDis.global.SES  = fd.global.stochastic[, "FDis.all.traits"],
+             FDis.global.mean = global.means[, "FDis.all.traits"],
+             FDis.global.sd   = global.sds[, "FDis.all.traits"],
+             FDis.realm.SES   = fd.regional.stochastic[, "FDis.all.traits"],
+             FDis.realm.mean  = regional.means[, "FDis.all.traits"],
+             FDis.realm.sd    = regional.sds[, "FDis.all.traits"],
+             FDis.adf.SES     = fd.local.stochastic[, "FDis.all.traits"],
+             FDis.adf.mean    = local.means[, "FDis.all.traits"],
+             FDis.adf.sd      = local.means[, "FDis.all.traits"],
+             row.names = fd.observed.stochastic[, "tdwg3.code"]
+             )
+write.csv(summary.FDis,
+          file = "output/FD_summary_FDis.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+
 ##############################################
 # Generalized tdwg3 spatial plotting functions
 ##############################################

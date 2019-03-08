@@ -3,7 +3,9 @@
 ###########################################
 #
 # In which environmental data at the resolution of botanical countries (TDWG3
-# units) is prepared for regression analysis.
+# units) is prepared for regression analysis. This includes assessment of extreme
+# values, testing for approximate normality and transforming if required, and
+# standardizing the (transformed) predictors to mean 0 and unit variance.
 #
 #
 # Input files:
@@ -26,10 +28,10 @@ source(file = "functions/plotting_functions.R")
 plot.dir = "graphs/environmental/"
 
 
-###################################
-# Load and parse environmental data
-###################################
-cat("Loading and parsing environmental data...\n")
+#####################################
+# Load and process environmental data
+#####################################
+cat("Loading and processing environmental data...\n")
 
 # First, load included TDWG3 units, for subsetting
 # ------------------------------------------------
@@ -84,6 +86,11 @@ env.nonclim <-
 # canopy height range is right-skewed.
 #
 # None of these variables have clear outliers or faulty values.
+#
+# Transform the skewed variables:
+env.nonclim[, "srtm_alt_mean"] %<>% log()
+env.nonclim[, "alt_range"] %<>% sqrt()
+
 
 # Contemporary climate
 # --------------------
@@ -133,141 +140,117 @@ env.clim <-
 # Most extreme values are linked to CHT (Tibet), WHM (West Himalaya),
 # or SCZ (Santa Cruz Is.)
 # Likely all extremes are real values.
+#
+# Transform the skewed variables:
+env.clim[, "bio1_mean"] %<>% . ^ 2
+env.clim[, "bio4_mean"] %<>% log()
+env.clim[, "bio9_mean"] %<>% . ^ 2
+env.clim[, "bio14_mean"] %<>% sqrt()
+env.clim[, "bio17_mean"] %<>% sqrt()
+env.clim[, "bio18_mean"] %<>% sqrt()
+env.clim[, "bio19_mean"] %<>% sqrt()
 
 
 # LGM climate (anomaly)
 # ---------------------
 env.lgm <-
-  env.new[, c("LEVEL_3_CO", "lgm_ens_Tmean", "lgm_ens_Pmean")] %>%
+  data.frame(env.new[, c("LEVEL_3_CO", "lgm_ens_Tmean", "lgm_ens_Pmean")],
+             lgm_Tano = (env.new[, "lgm_ens_Tmean"] / 10) - env.new[, "bio1_mean"],
+             lgm_Pano = (env.new[, "lgm_ens_Pmean"] / 10) - env.new[, "bio12_mean"]
+             ) %>%
   .[.$LEVEL_3_CO %in% tdwg3.included, ]
 # The old data was based only on CCSM and MIROC, while the new data
 # includes more sources. So new should be 'better', and some deviations are
 # to be expected, which is OK.
 # The new data is in K * 10 while the old data is in K.
 # They do however have the same SD, which is mildly weird.
-#
 # NOTE: The new LGM data for FIJ (Fiji) is faulty due to calculation glitches.
 env.lgm[match("FIJ", env.lgm$LEVEL_3_CO), -1] <- NA
 #
 # LGM mean temperature is right-skewed, with 2 extreme values on the low end.
 #   These extremes are CHT (Tibet) and WHM (West himalaya), which makes sense.
 # LGM Mean precipitation is slightly bimodal but otherwise fine.
+# LGM temperature anomaly has two extremely high values. These are CHT (Tibet)
+# and WHM (West Himalaya).
+# LGM Precipitation anomaly has three extremely low values. These are
+# SCZ (Santa Cruz Is.), BIS (Bismarck Archipelago), CRL (Caroline Is.).
+#
+# No transformations necessary. These outliers are a little troubling however.
 
 
-#######################################
-# Exploratory PCA on environmental data
-#######################################
-# Just to get some idea of collinearities.
+##############################################################
+# Gather and standardize the (transformed) predictor variables
+##############################################################
+cat("Standardizing and saving predictor variables...\n")
+# Note that standardized values here are mostly for reference.
+# In downstream analyses, certain TDWG3 units may be excluded, at which point
+# standardized values would have to be recalculated.
+
+# Gather predictors and pad rows to include all TDWG3 units
+predictors <-
+  merge(env.nonclim, env.clim, by = "LEVEL_3_CO") %>%
+  merge(., env.lgm, by = "LEVEL_3_CO") %>%
+  merge(.,
+        tdwg3.info[, "tdwg3.code", drop = FALSE],
+        by.x = "LEVEL_3_CO",
+        by.y = "tdwg3.code",
+        all.y = TRUE,
+        sort = TRUE
+        )
+rownames(predictors) <- predictors[, "LEVEL_3_CO"]
+predictors %<>% .[, -1]
+
+# Standardize all predictors
+predictors.std <- apply(predictors, 2, scale, center = TRUE, scale = TRUE)
+rownames(predictors.std) <- rownames(predictors)
+
+# save both versions
+write.csv(predictors,
+          file = "output/tdwg3_environmental_predictors.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+write.csv(predictors.std,
+          file = "output/tdwg3_environmental_predictors_standardized.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+
+#################################
+# Exploratory PCA and Correlogram
+#################################
+cat("Performing exploratory PCA...\n")
+
+# Principal Components Analysis
+# -----------------------------
 # We will use PCA based on a correlation matrix, i.e. with standardization of 
 # variables. This is suitable for environmental variables.
 
-# PCA on non-climatic environmental variables
-# -------------------------------------------
-pca.nonclim <- rda(env.nonclim[complete.cases(env.nonclim), -1], scale = TRUE)
-summary(pca.nonclim)
-OrdinationPlot(pca.nonclim)
-# Looks like mean altitude and altitude range are strongly related.
-# Canopy Height mean and range are also related.
-# For both altitude and canopy height, pick either range or mean. For our study,
-# the range might make the most sense.
-
-# PCA on contemporary climate variables
-# -------------------------------------
-pca.clim <- rda(env.clim[complete.cases(env.clim), -1], scale = TRUE)
-summary(pca.clim)
-# From this, it looks like only 4-6 axes define most (88-97%) variation in
-# contemporary climate. So for future regressions, we may have to focus on
-# a rather limited subset of the 19 bioclim variables.
-OrdinationPlot(pca.clim)
-# This plot suggests a more nuanced view. Additional collinearity analysis will
-# be needed.
-# The climatic variables cluster roughly around two axes, related to
-# (1) temperature (mean and extremes)
-# (2) everything else: precipitation, and temperature seasonality.
-
-# PCA on LGM climate
-# ------------------
-# These are only two variables, but still interesting to see a PCA of it.
-pca.lgm <- rda(env.lgm[complete.cases(env.lgm), -1], scale = TRUE)
-summary(pca.lgm)
-OrdinationPlot(pca.lgm)
-# That does not look like a correlation at all. Which is good.
-
-# PCA on combined environmental data
-# ----------------------------------
-env.all <- merge(env.nonclim, merge(env.clim, env.lgm))
-pca.all <- rda(env.all[complete.cases(env.all), -1], scale = TRUE)
-summary(pca.all)
-# >95% of variation is explained with 8 variables, which is a rough initial
-# indication of how many predictors could be important, at most.
-OrdinationPlot(pca.all)
-# The only new insight here is that the LGM climate is likely strongly correlated
-# with contemporary climate, especially precipitation.
+pca.env <- rda(predictors[complete.cases(predictors), ], scale = TRUE)
+summary(pca.env)
+# >95% of variation is explained with 9 axes, which is a rough indication of how many
+# predictors could be important, at most, in a full model.
+# OrdinationPlot(pca.env)
 
 
-###################################################
-# Assessing collinearity in environmental variables
-###################################################
-# Correlation matrix
-# ------------------
-corr.matrix <- 
-  cor(env.all[complete.cases(env.all), -1]) %>%
-  round(., digits = 2)
-# Predictably, this is a mess. Going through it is entirely possible, but it might
-# be easier to create a correlogram.
-corrplot(corr.matrix, method = "square", order = "FPC")
-# Pay attention to the dark blue and dark red.
-# Clear collinearities are the following:
-# Mean altitude is strongly negatively related to temperature, LGM temperature
-#   and quarter temperatures (bio6, bio 8-11).
-# Altitude range shows similar correlations, but less strong.
-# Mean annual temperature is strongly related to mean altitude, LGM temperature
-#   and quarter temperatures (bio6, bio 8-11)
-# mean diurnal range (bio2) is related to annual temperature range (bio7),
-#   annual precipitation and LGM precipitation.
-# Temperature seasonality is related to bio6-7 and bio11
-# Temperature of coldest month is related to temperature of warmest quarter.
-# annual temperature range is strongly related to temperature of coldest month
-# bio8-11 are moderately correlated with each other.
-# bio 12-19 are weakly to moderately correlated with each other, especially
-#  bio15 (precipitation seasonality) with bio14 and bio17.
-# LGM temperature is strongly related to mean altitude, mean annual temperature
-#   and bio8-11.
-# LGM precipitation is strongly related to annual precipitation, and to
-#  bio13-19 (all precipitation-related).
-#
-# In summary, keeping in mind the PCA results, we can tentatively identify
-# The following variables as containing the main variation:
-# - Mean annual temperature (related to lgm Temperature, bio6, 8-11, mean
-#   altitude, and to a lesser extent temperature range and temperature seasonality)
-# - annual precipitation (related to LGM precipitation and other prec variables)
-# - Precipitation seasonality
-# - Temperature seasonality (related to bio2, bio 6-7)
-# - canopy height mean
-# - canopy height range
-# - soil count
-# - bio3 (isothermality)
-#
-# So altitude is not in there (makes sense),
-# LGM climate is not in there (sort of understandable),
-# And the variation in temperature and precipitation is captured pretty well
-# with the primary variables mean temp/precip and seasonality of temp/precip.
-
-
-
-
-# In addition to simple collinearity, there might be some multicollinearity, which
-# is hard to find from a correlogram or a correlation matrix. Using VIF will be
-# a good complement.
-
-
-# Variance Inflation Factor (VIF)
+# Correlations between predictors
 # -------------------------------
-# TODO: go selection based on VIF, with a threshold of 2-3 (zuur et al 2010), or
-# 5 if you're feeling generous.
-# NOTE: VIF works on regression model output, so it will have to wait until we
-#       start running regressions.
+cat("Creating correlation plot of predictors...\n")
 
+corr.matrix <- 
+  predictors[complete.cases(predictors), ] %>%
+  apply(., 2, scale, center = TRUE, scale = TRUE) %>%
+  cor()
+
+round(corr.matrix, digits = 2)
+# Predictably, this is a mess. Going through it is entirely possible, but it is
+# easier to create a correlogram.
+GraphSVG(corrplot(corr.matrix, method = "square", order = "FPC"),
+         file = "graphs/environmental_predictors_corrplot.svg",
+         width = 8,
+         height = 8
+         )
 
 
 cat("Done.\n")
