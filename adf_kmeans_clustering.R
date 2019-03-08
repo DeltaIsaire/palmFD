@@ -11,6 +11,7 @@ theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
+source(file = "functions/weighted_ADF_null_model_functions.R")
 
 # Directory for saving plots (with a trailing slash):
 plot.dir = "graphs/ADF_kmeans/"
@@ -44,6 +45,22 @@ experimental.richness <-
         ) %>%
   .[, "richness"]
 tdwg3.info$experimental.richness <- experimental.richness
+
+# We can also get full species richness from the original distribution data
+palmdist <- read.csv(file = "data/palms_in_tdwg3.csv")
+palm.richness <- count(palmdist$Area_code_L3)
+names(palm.richness) <- c("tdwg3.code", "palm.richness")
+palm.richness <- merge(palm.richness,
+                       tdwg3.info[, "tdwg3.code", drop = FALSE],
+                       all.y = TRUE,
+                       by = "tdwg3.code"
+                       )
+# And the full presence / absence matrix:
+pres.abs.all <- 
+  table(palmdist) %>%
+  as.data.frame.matrix() %>%
+  as.matrix()
+
 
 # Spatial map of tdwg3 units
 # --------------------------
@@ -119,6 +136,53 @@ adf.weight.matrix <- read.csv(file = "output/adf_weight_matrix.csv",
 # The following is based on 
 # https://www.r-bloggers.com/finding-optimal-number-of-clusters/
 
+# For all palm data:
+communities <- rownames(pres.abs.all)
+adf <- ADF(communities, pres.abs.all)
+weights.all <-
+  matrix(nrow = nrow(pres.abs.all),
+         ncol = nrow(pres.abs.all),
+         dimnames = list(focal = rownames(pres.abs.all),
+                         adf = rownames(pres.abs.all)
+                         ),
+         data = 0  # countries not in the ADF have weight 0, not NA.
+         )
+for (i in seq_along(adf)) {
+  # Get species in focal community
+  focal.species <-
+    pres.abs.all[match(names(adf)[i], rownames(pres.abs.all)),
+                     ,
+                    drop = FALSE
+                    ] %>%
+    { colnames(.)[. > 0] }
+  # Get species in each ADF community
+  community.species <-
+    alply(adf[[i]],
+          .margins = 1,
+          function(x) {
+            pres.abs.all[match(x, rownames(pres.abs.all)),
+                             ,
+                            drop = FALSE
+                            ] %>%
+              { colnames(.)[. > 0] }
+          }
+          )
+    names(community.species) <- adf[[i]]
+  # Define weights as number of shared species, and convert to probabilities
+  community.weights <-
+    llply(community.species, function(x) { sum(x %in% focal.species) } ) %>%
+    unlist()
+  community.chances <- community.weights / sum(community.weights)
+  # Add this data to the matrix
+  columns <- CrossCheck(x = colnames(weights.all),
+                        y = names(community.chances),
+                        presence = TRUE,
+                        value = FALSE
+                        )
+  weights.all[i, columns] <- community.chances
+}
+
+
 set.seed(999)
 
 if (!dir.exists(plot.dir)) {
@@ -159,6 +223,32 @@ GraphSVG(plot(x = 2:100,
 # is more or less arbitrary. At best, this graph narrows the search space.
 # The optimal k is likely within 5 - 20.
 
+# For all palms:
+ssq.all <- numeric(length = length(2:100))
+names(ssq.all) <- 2:100
+for (i in seq_along(ssq.all)) {
+  clust <- kmeans(weights.all,
+                  centers = (i + 1),
+                  nstart = 100,
+                  iter.max = 100
+                  )
+  ssq.all[i] <- clust[["tot.withinss"]]
+}
+GraphSVG(plot(x = 2:100,
+              y = ssq.all,
+              type = "b",
+              pch = 19,
+              frame = FALSE,
+              xlab = "Number of clusters K",
+              ylab = "Total within-clusters sum of squares"
+              ),
+          file = paste0(plot.dir, "kmeans_k_ssq_all_palms.svg"),
+          width = 8,
+          height = 4
+          )
+# Looks like somewhere in the 20-30 area is optimal for this one
+
+
 # Bayesian method
 # ---------------
 cat("Bayesian method...\n")
@@ -167,6 +257,13 @@ bayes.clust$BIC
 # First I picked max G of 20, but then 20 was the best fit. If the best fit
 # is the biggest chosen k, then checking larger k is warranted.
 # Based on BIC, the optimal k is 24 followed by 23 or 20.
+
+# for all palms:
+bayes.clust.all <- Mclust(weights.all, G = 5:40)
+bayes.clust.all$BIC
+# Based on BIC, the optimal k here is 12, followed by 13 or 11.
+# But for k > 13 all values are NA, so we cannot be completely certain.
+
 
 # NbClust method
 # --------------
@@ -217,6 +314,50 @@ GraphSVG(nb.clust <- NbClust(adf.weight.matrix,
 #
 # Based on that, I consider k = 24 to be a reasonable number.
 
+
+# For all palms:
+result2 <- matrix(nrow = length(clust.indices),
+                  ncol = 2,
+                  dimnames = list(clust.indices, c("number_clusters", "Value_Index")),
+                  data = NA
+                  )
+for (i in seq_along(clust.indices)) {
+  cat(clust.indices[i], "\n")
+  nb.clust <- NbClust(weights.all,
+                      distance = "euclidean",
+                      method = "kmeans",
+                      min.nc = 2,
+                      max.nc = 30,
+                      index = clust.indices[i]
+                      )
+  result2[i, ] <- nb.clust$Best.nc
+}
+result2
+# These results are also not conclusive.
+# We can try the Dindex method:
+GraphSVG(nb.clust <- NbClust(weights.all,
+                             distance = "euclidean",
+                             method = "kmeans",
+                             min.nc = 2,
+                             max.nc = 30,
+                             index = "dindex"
+                             ),
+         file = paste0(plot.dir, "kmeans_k_dindex_all_palms.svg"),
+         width = 8,
+         height = 4
+         )
+# 25 scores pretty high here. 
+# All in all, that is consistent with the Elbow graph, and many of the indices
+# in result 2 being in the 20-30 range. 
+
+# We should do two graphs, with k = 12 and k = 25.
+# Actually, let's do 24 because the other one is also 24.
+
+
+
+###################
+# Plotting Clusters
+###################
 set.seed(999)
 
 adf.clusters <-
@@ -232,13 +373,48 @@ rows <- CrossCheck(x = clusters$tdwg3.code,
                    )
 clusters[rows, "cluster"] <- adf.clusters
 
-
-###################
-# Plotting Clusters
-###################
-
 ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
        filename = paste0(plot.dir, "adf_kmeans_clustering_24.png"),
+       width = 8,
+       height = 4
+       )
+
+clust.all.12 <-
+  kmeans(weights.all, centers = 12, nstart = 100, iter.max = 100) %>%
+  .[["cluster"]]
+clust.all.12 %<>% .[-match("VNA", names(.))]
+clusters <- data.frame(tdwg3.code = tdwg3.info$tdwg3.code,
+                       cluster = rep(NA, nrow(tdwg3.info))
+                       )
+rows <- CrossCheck(x = clusters$tdwg3.code,
+                   y = names(clust.all.12),
+                   presence = TRUE,
+                   value = FALSE
+                   )
+clusters[rows, "cluster"] <- clust.all.12
+
+ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_12.png"),
+       width = 8,
+       height = 4
+       )
+
+clust.all.24 <-
+  kmeans(weights.all, centers = 24, nstart = 100, iter.max = 100) %>%
+  .[["cluster"]]
+clust.all.24 %<>% .[-match("VNA", names(.))]
+clusters <- data.frame(tdwg3.code = tdwg3.info$tdwg3.code,
+                       cluster = rep(NA, nrow(tdwg3.info))
+                       )
+rows <- CrossCheck(x = clusters$tdwg3.code,
+                   y = names(clust.all.24),
+                   presence = TRUE,
+                   value = FALSE
+                   )
+clusters[rows, "cluster"] <- clust.all.24
+
+ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_24.png"),
        width = 8,
        height = 4
        )
