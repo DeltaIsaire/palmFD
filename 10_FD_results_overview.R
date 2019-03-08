@@ -87,6 +87,9 @@ Temp <- function(x) {
         sort = TRUE
         )
 }
+# Concurrently, I have assessed the shape of the FD distributions, and presence
+# of outliers, using Histogram() and Multihist().
+
 
 # Observed FD
 # -----------
@@ -100,6 +103,13 @@ fd.observed.stochastic <-
            row.names = 1
            ) %>%
   Temp()
+# FRic: no exceptionally extreme values. Single-trait FRic is roughly normally
+#       distributed, although stem height and blade length are somewhat bimodal.
+#       All-traits FRic is strongly one-tailed.
+# FDis: no exceptionally extreme values. Both single-trait and all-traits FRic
+#       is roughly normally distributed.
+# Mean and Stochastic data are not qualitatively different.
+
 
 # Global null model z-scores
 # --------------------------
@@ -113,6 +123,12 @@ fd.global.stochastic <-
            row.names = 1
            ) %>%
   Temp()
+# FRic: no exceptionally extreme values. Both single-trait and all-traits FRic
+#       are roughly normal, although blade length is bimodal.
+# FDis: no exceptionally extreme values. Both single-triat and all-traits FDis are
+#       roughly normal.
+# Mean and stochastic data are not qualitatively different.
+
 
 # Regional null model z-scores
 # ----------------------------
@@ -126,6 +142,14 @@ fd.regional.stochastic <-
            row.names = 1
            ) %>%
   Temp()
+# FRic: no exceptionally extreme values. Both all-traits and single-traits FRic
+#       are roughly normally distributed, but stem height and blade length are
+#       somewhat left-tailed.
+# FDis: Both all-traits and single-traits FRic are roughly normally distributed.
+#       there are a few especially low values for all-traits FDis, for CUB and
+#       MDG (Cuba and Madagascar). Values not problematically extreme, just notable.
+# Mean and stochastic data are not qualitatively different.
+
 
 # Local null model z-scores
 # -------------------------
@@ -139,6 +163,23 @@ fd.local.stochastic <-
            row.names = 1
            ) %>%
   Temp()
+# Clean infinities from the data (there can be infinities for HAW, NFK, NWC and SEY
+# because these have 100% endemic palm communities)
+fd.local.mean <-
+  lapply(fd.local.mean, function(x) { replace(x, is.infinite(x), NA) } ) %>%
+  as.data.frame()
+fd.local.stochastic <-
+  lapply(fd.local.stochastic, function(x) { replace(x, is.infinite(x), NA) } ) %>%
+  as.data.frame()
+# Fric: both single-trait and all-traits FRic are roughly normally distributed.
+#       There are a few very low values for stem height: CUB and MDG (Cuba  and
+#       Madagscar) and all.traits: MDG (Madagascar).
+#       In the stochastic data, there is also an extreme low value for blade length,
+#       for MDG (Madagascar).
+# FDis: both single-trait and all-traits FDis are roughly normally distributed.
+#       There are a few very low values for fruit length and all.traits, for both
+#       mean and stochastic datasets. These values belong to MDG (Madagascar).
+
 
 # Community mean trait values
 # ---------------------------
@@ -147,10 +188,20 @@ cwm.observed.mean <- read.csv(file = "output/observed_FD/community_trait_means_g
                               row.names = 1
                               ) %>%
   Temp()
-cwm.observed.stochastic <- read.csv(file = "output/observed_FD/community_trait_means_genus_mean.csv",
+cwm.observed.stochastic <- read.csv(file = "output/observed_FD/community_trait_means_stochastic_mean_of.csv",
                                     row.names = 1
                                     ) %>%
   Temp()
+# These are all roughly normally distributed, without extreme values, except for
+# a rather large mean fruit size in MLI (Mali).
+
+
+# Summary of normality and outlier assessment
+# -------------------------------------------
+# Overall, it looks like no transformations are necessary to use these data in
+# regression models. 
+# CUB and MDG (cuba and Madagascar) have unusually low functional diversity,
+# according to some metrics. These low values are real, not erroneous.
 
 
 ##############################################
@@ -177,14 +228,26 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, title = NULL,
 # vector.name: character string giving name for the vector (used in legend)
   tdwg.map$vector <- vector
   subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-  min <- ifelse(min(vector, na.rm = TRUE) < 0,
-                min(vector, na.rm = TRUE),
-                0 - 2 * .Machine$double.eps
-                )
-  max <- ifelse(max(vector, na.rm = TRUE) > 0,
-                max(vector, na.rm = TRUE),
-                0 + 2 * .Machine$double.eps
-                )
+
+  if (min(vector, na.rm = TRUE) >= 0) {
+    color.scale <- scale_fill_gradient(low = "yellow", high = "red")
+  } else {
+    if (max(vector, na.rm = TRUE) <= 0) {
+      color.scale <- scale_fill_gradient(low = "blue", high = "cyan")
+    } else {
+      color.scale <-
+        scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
+                             values = rescale(c(min(vector, na.rm = TRUE),
+                                                -1e-10,
+                                                0,
+                                                1e-10,
+                                                max(vector, na.rm = TRUE)
+                                                )
+                                              )
+                             )
+    }
+  }
+
   ggplot(data = tdwg.map) + 
          geom_sf(size = 0.15, color = "black") +
          # This magically only adds axes:
@@ -200,15 +263,7 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, title = NULL,
               title = title,
               subtitle = subtitle
               ) +
-         scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
-                              values = rescale(c(min, 
-                                                 0 - .Machine$double.eps,
-                                                 0,
-                                                 0 + .Machine$double.eps,
-                                                 max
-                                                 )
-                                               )
-                              )
+         color.scale
 }
 
 # Alternative plotting function using filled polygons instead of points
@@ -234,7 +289,7 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
 ##########################################################
 # Plots of FRic and FDis: observed and null model z-scores
 ##########################################################
-cat("Plotting FRic distributions...\n")
+cat("Plotting Functional Diversity distributions...\n")
 
 if (!dir.exists(plot.dir)) {
   cat("creating directory:", plot.dir, "\n")

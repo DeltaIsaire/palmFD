@@ -16,6 +16,7 @@
 # MultiScatter
 # BarPlot
 # Histogram
+# OrdinationPlot
 
 
 library(magrittr)
@@ -295,7 +296,7 @@ Histogram <- function(x, set.mar = TRUE, main = NULL,
   if (isTRUE(set.mar)) {
     par(mar = c(4.1, 4.1, .5, .5))
   }
-  hist(x = x,
+  hist(x = x[complete.cases(x)],
        breaks = breaks,
        main = NULL,
        col = rgb(220, 220, 220, max = 255),  # very light grey
@@ -304,7 +305,8 @@ Histogram <- function(x, set.mar = TRUE, main = NULL,
 }
 
 
-MultiHist <- function(data, id, xlab, xlim = round(range(data)), xaxt = "n", ...) {
+MultiHist <- function(data, id = NULL, xlab = NULL,
+                      xlim = round(range(data)), xaxt = "n", ...) {
 # Wrapper function for Histogram(). Takes multi-dimensional input, creats
 # a histogram for each dimension, and plots these histograms stacked
 # vertically.
@@ -316,6 +318,13 @@ MultiHist <- function(data, id, xlab, xlim = round(range(data)), xaxt = "n", ...
 #   xlab: Character vector of length 1 giving x-axis label
   if (is.matrix(data)) {
     data %<>% as.data.frame()
+  }
+  if (any(is.na(data))) {
+    data <- lapply(as.list(data), function(x) { x[complete.cases(x)] } )
+    xlim <- round(range(data))
+  }
+  if (is.null(id)) {
+    id <- names(data)
   }
   dims <- 
     seq_along(data)[-1] %>%
@@ -340,4 +349,23 @@ MultiHist <- function(data, id, xlab, xlim = round(range(data)), xaxt = "n", ...
             ...
             )
 }
+
+
+
+OrdinationPlot <- function(x) {
+# Create a neatly formatted ordination plot, using results from e.g. a PCA.
+#
+# Args:
+#   x: an object of class "rda" or "cca"
+  scale <- 3
+  par(mar = c(4.1, 4.1, .5, .5))
+  # Init plot
+  plot(x, type = "n", scaling = scale)
+  # Plot site scores as points
+  points(x, display = "sites", scaling = scale, pch = 21)
+  # Add species scores points and labels
+  points(x, display = "species", scaling = scale, pch = 3, col = "darkred")
+  text(x, display = "species", scaling = scale, cex = 0.8, col = "red", pos = 3)
+}
+
 
