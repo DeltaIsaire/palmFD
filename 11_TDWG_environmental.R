@@ -24,9 +24,6 @@ library(car)
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
 
-# Directory for saving plots (with a trailing slash):
-plot.dir = "graphs/environmental/"
-
 
 #####################################
 # Load and process environmental data
