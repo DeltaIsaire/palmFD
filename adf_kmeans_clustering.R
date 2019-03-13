@@ -381,42 +381,62 @@ ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
        height = 4
        )
 
-clust.all.12 <-
-  kmeans(weights.all, centers = 12, nstart = 100, iter.max = 100) %>%
+clust.all.3 <-
+  kmeans(weights.all, centers = 3, nstart = 100, iter.max = 100) %>%
   .[["cluster"]]
-clust.all.12 %<>% .[-match("VNA", names(.))]
+clust.all.3 %<>% .[-match("VNA", names(.))]
 clusters <- data.frame(tdwg3.code = tdwg3.info$tdwg3.code,
                        cluster = rep(NA, nrow(tdwg3.info))
                        )
 rows <- CrossCheck(x = clusters$tdwg3.code,
-                   y = names(clust.all.12),
+                   y = names(clust.all.3),
                    presence = TRUE,
                    value = FALSE
                    )
-clusters[rows, "cluster"] <- clust.all.12
+clusters[rows, "cluster"] <- clust.all.3
 
 ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
-       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_12.png"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_3.png"),
        width = 8,
        height = 4
        )
 
-clust.all.24 <-
-  kmeans(weights.all, centers = 24, nstart = 100, iter.max = 100) %>%
+clust.all.5 <-
+  kmeans(weights.all, centers = 5, nstart = 100, iter.max = 100) %>%
   .[["cluster"]]
-clust.all.24 %<>% .[-match("VNA", names(.))]
+clust.all.5 %<>% .[-match("VNA", names(.))]
 clusters <- data.frame(tdwg3.code = tdwg3.info$tdwg3.code,
                        cluster = rep(NA, nrow(tdwg3.info))
                        )
 rows <- CrossCheck(x = clusters$tdwg3.code,
-                   y = names(clust.all.24),
+                   y = names(clust.all.5),
                    presence = TRUE,
                    value = FALSE
                    )
-clusters[rows, "cluster"] <- clust.all.24
+clusters[rows, "cluster"] <- clust.all.5
 
 ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
-       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_24.png"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_5.png"),
+       width = 8,
+       height = 4
+       )
+
+clust.all.7 <-
+  kmeans(weights.all, centers = 7, nstart = 100, iter.max = 100) %>%
+  .[["cluster"]]
+clust.all.7 %<>% .[-match("VNA", names(.))]
+clusters <- data.frame(tdwg3.code = tdwg3.info$tdwg3.code,
+                       cluster = rep(NA, nrow(tdwg3.info))
+                       )
+rows <- CrossCheck(x = clusters$tdwg3.code,
+                   y = names(clust.all.7),
+                   presence = TRUE,
+                   value = FALSE
+                   )
+clusters[rows, "cluster"] <- clust.all.7
+
+ggsave(plot = SpatialPlotFactor(tdwg.map, clusters$cluster, "ADF clusters"),
+       filename = paste0(plot.dir, "adf_kmeans_clustering_all_palms_7.png"),
        width = 8,
        height = 4
        )

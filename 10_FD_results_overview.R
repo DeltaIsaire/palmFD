@@ -34,12 +34,10 @@ source(file = "functions/plotting_functions.R")
 plot.dir = "graphs/FD_distributions/"
 
 
-###################
-# Load spatial data
-###################
-
+cat("Preparing data...\n")
+#####################
 # Info on tdwg3 units
-# -------------------
+#####################
 tdwg3.info <- read.csv(file = "output/tdwg3_info.csv")
 # The column 'palm.richness' reflects the full known palm richness.
 # However, our data analysis uses a subset of all palm species, so the experimental
@@ -62,8 +60,41 @@ experimental.richness <-
   .[, "richness"]
 tdwg3.info$experimental.richness <- experimental.richness
 
-# Spatial map of tdwg3 units
-# --------------------------
+
+# For comparison: Palm community percent endemism
+# -----------------------------------------------
+cat("Calculating endemism percentage of palm communities...\n")
+
+endemism <- numeric(length = nrow(pres.abs.matrix))
+for (row in seq_len(nrow(pres.abs.matrix))) {
+  sp.indices <- pres.abs.matrix[row, ] > 0
+  total.species = sum(sp.indices)
+
+  subset <- pres.abs.matrix[-row, sp.indices]
+  endemics <- sum(colSums(subset) == 0)
+  endemism[row] <- endemics / total.species
+}
+tdwg3.info <-
+  merge(x = tdwg3.info,
+        y = data.frame(tdwg3.code = rownames(pres.abs.matrix),
+                       endemism   = endemism
+                       ),
+        by = "tdwg3.code",
+        all.x = TRUE
+        )
+
+# Save new tdwg3.info
+# -------------------
+write.csv(tdwg3.info,
+          file = "output/tdwg3_info_v2.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+
+###################
+# Load spatial data
+###################
 tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
                     layer = "TDWG_level3_Coordinates")
 # Note I am using the 'sf' spatial format instead of 'SpatialPolygonsDataFrame'.
@@ -74,8 +105,6 @@ tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
 ####################
 # Load FD index data
 ####################
-cat("Preparing data...\n")
-
 # After loading, immediately pad the data to include all tdwg3 units.
 # This is helpful for plotting the data.
 Temp <- function(x) {
@@ -244,7 +273,10 @@ local.sds <-
   Temp()
 
 summary.FRic <-
-  data.frame(palm.richness    = tdwg3.info[, "experimental.richness"],
+  data.frame(tdwg3.name       = tdwg3.info[, "tdwg3.name"],
+             tdwg3.realm      = tdwg3.info[, "realm"],
+             palm.richness    = tdwg3.info[, "experimental.richness"],
+             percent.endemism = tdwg3.info[, "endemism"],
              FRic.observed    = fd.observed.stochastic[, "FRic.all.traits"],
              FRic.global.SES  = fd.global.stochastic[, "FRic.all.traits"],
              FRic.global.mean = global.means[, "FRic.all.traits"],
@@ -265,7 +297,10 @@ write.csv(summary.FRic,
 
 # And the same thing for FDis:
 summary.FDis <-
-  data.frame(palm.richness    = tdwg3.info[, "experimental.richness"],
+  data.frame(tdwg3.name       = tdwg3.info[, "tdwg3.name"],
+             tdwg3.realm      = tdwg3.info[, "realm"],
+             palm.richness    = tdwg3.info[, "experimental.richness"],
+             percent.endemism = tdwg3.info[, "endemism"],
              FDis.observed    = fd.observed.stochastic[, "FDis.all.traits"],
              FDis.global.SES  = fd.global.stochastic[, "FDis.all.traits"],
              FDis.global.mean = global.means[, "FDis.all.traits"],
@@ -300,16 +335,22 @@ write.csv(summary.FDis,
 
 # Main plotting function
 # ----------------------
-SpatialPlot <- function(tdwg.map, vector, vector.name, title = NULL,
-                        subtitle = NULL) {
+SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
+                        title = NULL, subtitle = NULL) {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
 #         Data must be a continuous numeric variable.
 # vector.name: character string giving name for the vector (used in legend)
   tdwg.map$vector <- vector
-  subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-
+  if (!is.null(vector.size)) {
+    tdwg.map$vector.size <- vector.size
+    subset <- tdwg.map[!is.na(tdwg.map$vector), ]
+    size <- rescale(subset$vector.size) * 10
+  } else {
+    subset <- tdwg.map[!is.na(tdwg.map$vector), ]
+    size <- 3
+  }
   if (min(vector, na.rm = TRUE) >= 0) {
     color.scale <- scale_fill_gradient(low = "yellow", high = "red")
   } else {
@@ -336,7 +377,7 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, title = NULL,
          # While this does NOT add axes but does add points:
          geom_point(data = subset,
                     mapping = aes(x = Long, y = Lat, fill = vector),
-                    size = 3,
+                    size = size,
                     shape = 21) +
          labs(fill = vector.name,
               x = NULL,
@@ -492,6 +533,37 @@ MakePlots <- function() {
 }
 
 MakePlots()
+
+# Community endemism proportion
+# -----------------------------
+ggsave(plot = SpatialPlot(tdwg.map,
+                          vector = tdwg3.info[, "endemism"],
+                          vector.name = "endemism",
+                          vector.size = tdwg3.info[, "experimental.richness"],
+                          title = "Proportion of endemic palm species",
+                          subtitle = "(points scaled by species richness)"
+                          ),
+       filename = paste0(plot.dir,
+                         "TDWG3_community_endemism_scaled",
+                         ".png"
+                         ),
+       width = 8,
+       height = 4
+       )
+
+ggsave(plot = SpatialPlot(tdwg.map,
+                          vector = tdwg3.info[, "endemism"],
+                          vector.name = "endemism",
+                          title = "Proportion of endemic palm species",
+                          subtitle = " "
+                          ),
+       filename = paste0(plot.dir,
+                         "TDWG3_community_endemism",
+                         ".png"
+                         ),
+       width = 8,
+       height = 4
+       )
 
 
 cat("Done.\n")
