@@ -254,7 +254,7 @@ summary.FRic <-
              FRic.realm.sd    = regional.sds[, "FRic.all.traits"],
              FRic.adf.SES     = fd.local.stochastic[, "FRic.all.traits"],
              FRic.adf.mean    = local.means[, "FRic.all.traits"],
-             FRic.adf.sd      = local.means[, "FRic.all.traits"],
+             FRic.adf.sd      = local.sds[, "FRic.all.traits"],
              row.names = fd.observed.stochastic[, "tdwg3.code"]
              )
 write.csv(summary.FRic,
@@ -275,7 +275,7 @@ summary.FDis <-
              FDis.realm.sd    = regional.sds[, "FDis.all.traits"],
              FDis.adf.SES     = fd.local.stochastic[, "FDis.all.traits"],
              FDis.adf.mean    = local.means[, "FDis.all.traits"],
-             FDis.adf.sd      = local.means[, "FDis.all.traits"],
+             FDis.adf.sd      = local.sds[, "FDis.all.traits"],
              row.names = fd.observed.stochastic[, "tdwg3.code"]
              )
 write.csv(summary.FDis,

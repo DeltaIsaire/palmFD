@@ -70,48 +70,6 @@ tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
 # The sf package with function sf::read_sf is more modern than using rgdal::readOGR.
 # That modernity translates into improved performance.
 
-##############################################
-# Generalized tdwg3 spatial plotting functions
-##############################################
-# CODING NOTE:
-# With sf and ggplot2, instead of using geom_polygon(), we use geom_sf() with the
-# 'sf' object. And instead of ggplot2::fortify(), we pretend the 'sf' object
-# is a dataframe and simply add our data to it as a column.
-# See the function SpatialPlot() below for an example.
-# The geom_sf() function is included in the github version of ggplot2, but not
-# in the CRAN version. 
-# For info and tutorial see https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html
-#
-
-# Main plotting function
-# ----------------------
-SpatialPlotFactor <- function(tdwg.map, factor, factor.name, title = NULL,
-                              subtitle = NULL) {
-# tdwg.map: the spatial map, as an object of class 'sf'
-# vector: vector with data to plot on the map. Must be of the same length as the
-#         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
-#         Data must be a continuous numeric variable.
-# vector.name: character string giving name for the vector (used in legend)
-  tdwg.map$factor <- as.factor(factor)
-  subset <- tdwg.map[!is.na(tdwg.map$factor), ]
-  ggplot(data = tdwg.map) + 
-         geom_sf(size = 0.15, color = "black") +
-         # This magically only adds axes:
-         geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-         # While this does NOT add axes but does add points:
-         geom_point(data = subset,
-                    mapping = aes(x = Long, y = Lat, fill = factor),
-                    size = 3,
-                    shape = 21) +
-         labs(fill = factor.name,
-              x = NULL,
-              y = NULL,
-              title = title,
-              subtitle = subtitle
-              ) +
-         scale_colour_discrete(drop = TRUE, limits = levels(subset$factor))
-}
-
 
 #########################################
 # K-means clustering on ADF probabilities
@@ -353,6 +311,50 @@ GraphSVG(nb.clust <- NbClust(weights.all,
 # We should do two graphs, with k = 12 and k = 25.
 # Actually, let's do 24 because the other one is also 24.
 
+
+##############################################
+# Generalized tdwg3 spatial plotting functions
+##############################################
+# CODING NOTE:
+# With sf and ggplot2, instead of using geom_polygon(), we use geom_sf() with the
+# 'sf' object. And instead of ggplot2::fortify(), we pretend the 'sf' object
+# is a dataframe and simply add our data to it as a column.
+# See the function SpatialPlot() below for an example.
+# The geom_sf() function is included in the github version of ggplot2, but not
+# in the CRAN version. 
+# For info and tutorial see https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html
+#
+
+# Main plotting function
+# ----------------------
+SpatialPlotFactor <- function(tdwg.map, factor, factor.name, title = NULL,
+                              subtitle = NULL) {
+# tdwg.map: the spatial map, as an object of class 'sf'
+# vector: vector with data to plot on the map. Must be of the same length as the
+#         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
+#         Data must be a continuous numeric variable.
+# vector.name: character string giving name for the vector (used in legend)
+  tdwg.map$factor <- as.factor(factor)
+  subset <- tdwg.map[!is.na(tdwg.map$factor), ]
+  ggplot(data = tdwg.map) + 
+         geom_sf(size = 0.15, color = "black") +
+         # This magically only adds axes:
+         geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+         # While this does NOT add axes but does add points:
+         geom_point(data = subset,
+                    mapping = aes(x = Long,
+                                  y = Lat,
+                                  fill = factor
+                                  ),
+                    size = 3,
+                    shape = 21) +
+         labs(fill = factor.name,
+              x = NULL,
+              y = NULL,
+              title = title,
+              subtitle = subtitle
+              )
+}
 
 
 ###################
