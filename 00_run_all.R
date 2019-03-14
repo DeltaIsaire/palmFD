@@ -2,10 +2,8 @@
 # Palm Functional Diversity Project
 ###################################
 #
-# This script executes all MAIN code scripts in sensible order,
-# thus providing a one-click way to re-generate all MAIN output.
-# This script does NOT run the TEST scripts, only the scripts for the MAIN
-# analysis.
+# This script executes all code scripts in sensible order,
+# thus providing a one-click way to re-generate all output.
 # Keep in mind that the total runtime of all scripts is considerable.
 
 # SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT.
@@ -40,22 +38,46 @@ if (!dir.exists("graphs/")) {
 }
 
 cat("Gap-filling palm traits matrix:\n")
-source(file = "1_trait_filling.R")
+source(file = "01_trait_filling.R")
 
 cat("Comparing genus-mean and BHPMF gap-filling:\n")
-source(file = "2_trait_filling_comparison.R")
+source(file = "02_trait_filling_comparison.R")
 
 cat("Testing accuracy of gap-filling:\n")
-source(file = "3_gapfilling_accuracy.R")
+source(file = "03_trait_filling_accuracy.R")
 
 cat("Identifying gap-filling error:\n")
-source(file = "4_gapfilling_error.R")
+source(file = "04_trait_filling_error.R")
 
 cat("Creating stochastic genus-level gapfilling series:\n")
-source(file = "5_stochastic_genus_gapfilling.R")
+source(file = "05_trait_filling_stochastic.R")
 
 cat("Calculating functional diversity indices:\n")
-source(file = "6_observed_FD_indices.R")
+source(file = "06_FD_observed.R")
+
+cat("Standardizing FD with null model (global):\n")
+source(file = "07_FD_null_model_global.R")
+
+cat("Standardizing FD with null model (realm):\n")
+source(file = "08_FD_null_model_regional.R")
+
+cat("Standardizing FD with null model (dispersion field):\n")
+source(file = "09_FD_null_model_local.R")
+
+cat("Parsing and graphing standardized FD results:\n")
+source(file = "10_FD_results_overview.R")
+
+cat("Parsing and preparing environmental predictors for regression:\n")
+source(file = "11_TDWG_environmental.R")
+
+
+cat("EXTRA: Performing k-means clustering of TDWG3 units based on ADF:\n")
+source(file = "adf_kmeans_clustering.R")
+
+
+
+
+
 
 
 cat("Finished running all main scripts.\n")
