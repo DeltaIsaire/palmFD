@@ -408,6 +408,35 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
 }
 
 
+# Function for plotting segments
+# ------------------------------
+SpatialPlotSegments <- function(tdwg.map, segments, title = NULL, subtitle = NULL) {
+# Segments: data.frame with coordinates for segments. See geom_segment().
+#           The order of columns in the dataframe should be
+#           c("x", "y", "xend", "yend")
+  tdwg.plot <- ggplot(data = tdwg.map) + 
+                 geom_sf(size = 0.15, color = "black") +
+                 # This magically only adds axes:
+                 geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+                 geom_segment(data = segments,
+                              aes(x = segments[, 1],
+                                  y = segments[, 2],
+                                  xend = segments[, 3],
+                                  yend = segments[, 4]
+                                  ),
+                              size = 0.3,
+                              colour = "red",
+                              show.legend = FALSE
+                              ) +
+                 labs(x = NULL,
+                      y = NULL,
+                      title = title,
+                      subtitle = subtitle
+                      )
+  tdwg.plot
+}
+
+
 ##########################################################
 # Plots of FRic and FDis: observed and null model z-scores
 ##########################################################
@@ -534,6 +563,7 @@ MakePlots <- function() {
 
 MakePlots()
 
+
 # Community endemism proportion
 # -----------------------------
 ggsave(plot = SpatialPlot(tdwg.map,
@@ -564,6 +594,81 @@ ggsave(plot = SpatialPlot(tdwg.map,
        width = 8,
        height = 4
        )
+
+
+# Community similarity based on ADF weight matrix
+# -----------------------------------------------
+adf.weights <-
+  read.csv(file = "output/adf_weight_matrix.csv",
+           header = TRUE,
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
+
+# Plotting all ADF connections is too much. We need a cutoff, eliminating
+# connections with only a few shared species. 
+# Method: subset each ADF to only those communities accounting for x% of the total
+#         probability mass.
+# In addition, plotting all ADFs at once results in a complete mess, so subset
+# to only a few chosen TDWG3 units.
+include <- c("BOR", "NWG", "CLM", "MDG", "BZN", "ZAI")
+adf.subset <- adf.weights[rownames(adf.weights) %in% include, ]
+
+adf.weights.pruned <-
+  aaply(adf.subset,
+        1,
+        function(x, coverage = 0.9) {
+          # keep n highest values, by setting all other values to 0.
+          # We exploit the presence of (column) names.
+          # The output columns will be in alphabetical order.
+          # In case of tied values at the cutoff, ALL of these values are
+          # included. I.e., the rowSums will be at least equal to coverage, but
+          # could be higher.
+          sorted <- sort(x, decreasing = TRUE)
+          sorted.sum <- cumsum(sorted)
+          n <- min(which(sorted.sum > coverage))
+          min.to.keep <- min(x[WhichMax(x, n = n)])
+          sorted[sorted < min.to.keep] <- 0
+          sorted[order(names(sorted))]
+       }
+       )
+
+# Compile dataframe with the data for segments, based on the ADF matrix.
+# We need x, y, xend and yend, all in lon/lat coordinates.
+tdwg3.ends <- alply(adf.weights.pruned, 1, function(x) {
+                                             ind <- x > 0
+                                             names(x)[ind]
+                                             }
+                    )
+end.coords <-
+  ldply(tdwg3.ends,
+        function(x) {
+          tdwg3.info[tdwg3.info[, "tdwg3.code"] %in% x, c("lat", "lon")]
+        }
+        )
+xy.indices <- match(end.coords[, "X1"], tdwg3.info[, "tdwg3.code"])
+segments <- data.frame(x    = tdwg3.info[xy.indices, "lon"],
+                       y    = tdwg3.info[xy.indices, "lat"],
+                       xend = end.coords[, "lon"],
+                       yend = end.coords[, "lat"]
+                       )
+
+# And create the plot.
+# Here, the segment widths are NOT weighted. It's just the connections between
+# TDWG3 units.
+ggsave(plot = SpatialPlotSegments(tdwg.map,
+                                  segments = segments,
+                                  title = "Spatial structure of Assemblage Dispersion Fields"
+                                  ),
+       filename = paste0(plot.dir,
+                         "TDWG3_adf_segments",
+                         ".png"
+                         ),
+       width = 8,
+       height = 4
+       )
+
 
 
 cat("Done.\n")

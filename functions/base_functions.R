@@ -17,6 +17,7 @@
 # IntervalRnorm
 # StochasticFill
 # DetectOS
+# WhichMax
 
 
 library(plyr)
@@ -295,5 +296,20 @@ DetectOS <- function() {
   }
   tolower(os)[[1]]
 }
+
+
+WhichMax <- function(x, n = 1) {
+# Function to find the indices of the n highest values in a vector.
+#
+# Args:
+#   x: numeric vector in which to find the n highest values
+#   n: number of highest values to find
+# Returns:
+#   The n indices in x corresponding to the highest values in x, in order of
+#   highest to lowest value in x.
+  values <- sort(x, decreasing = TRUE)[seq_len(n)]
+  CrossCheck(x = x, y = values, presence = TRUE, value = FALSE)
+}
+
 
 
