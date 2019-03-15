@@ -14,6 +14,7 @@
 # Correlogram
 # SelectOLS
 # AutoVIF
+# SingleOLS
 
 library(magrittr)
 library(plyr)
@@ -251,8 +252,12 @@ AutoVIF <- function(x, response, standardize = TRUE, threshold = 5) {
   do.exclude <- TRUE
   while (do.exclude) {
     # Identify most collinear predictor
-    mod <- lm(form, data = x.complete)
-    scores <- vif(mod)
+    if (length(predictors) > 1) {
+      mod <- lm(form, data = x.complete)
+      scores <- vif(mod)
+    } else {
+      scores <- 0
+    }
     # IF highest VIF is above threshold, construct new formula
     if (max(scores) > threshold) {
       predictors <- predictors[-match(names(scores)[which.max(scores)], predictors)]
@@ -287,5 +292,76 @@ if (FALSE) {
 }
 
 
+SingleOLS <- function(x, response, standardize = TRUE, digits = "all") {
+# Fit every single-predictor OLS model and report the Rsq, slope and P-value.
+#
+# Args:
+#   x: data.frame with all variables (response + predictors)
+#   response: character vector giving column name of the response variable.
+#   standardize: Should predictors be standardized to mean 0 and unit variance?
+#     NOTE: if this is FALSE, then the reported slopes are not directly comparable!
+#   digits: integer giving number of decimal places to report, or "all" to skip
+#     rounding.
+# Returns:
+#  A matrix with 3 columns (Rsq, slope, p-value) reporting results for each single
+#  predictor.
+
+
+  # Validate data: subset to complete, numeric data and standardize
+  x.num <- numcolwise(function(x) { x } ) (x)
+  x.complete <- x.num[complete.cases(x.num), ]
+  if (standardize) {
+    x.std <- 
+      apply(x.complete, 2, scale, center = TRUE, scale = TRUE) %>%
+      as.data.frame()
+    colnames(x.std) <- colnames(x.complete)
+    x.std[, response] <- x.complete[, response]
+    x.complete <- x.std
+  }
+
+  # Init output matrix
+  y.index <- match(response, colnames(x.complete))
+  mat <- matrix(data = NA,
+                ncol = 3,
+                nrow = ncol(x.complete) - 1,
+                dimnames = list(colnames(x.complete)[-y.index],
+                                c("Rsq", "slope", "p-value")
+                                )
+                )
+
+  # Fit each single-predictor model and extract results
+  for (index in seq_len(ncol(x.complete))[-y.index]) {
+    mod.summary <-
+      lm(as.formula(paste(response, "~", colnames(x.complete)[index])),
+         data = x.complete
+         ) %>%
+      summary()
+    mat[index, 1] <- mod.summary[["r.squared"]]
+    mat[index, 2] <- mod.summary[["coefficients"]] [2, 1]
+    mat[index, 3] <- mod.summary[["coefficients"]] [2, 4]
+  }
+
+  # Return results, rounding as specified
+  if (!identical (digits, "all")) {
+    mat <- round(mat, digits = digits)
+  }
+  mat
+}
+
+# Example code
+if (FALSE) {
+  fric <- read.csv(file = "output/FD_summary_FRic.csv", row.names = 1)
+  env <- read.csv(file = "output/tdwg3_environmental_predictors.csv", row.names = 1)
+  # These are all approximately normally distributed numerical predictors.
+  x <- env
+  x$FRic <- fric$FRic.global.SES
+  response <- "FRic"
+  x <- x[, c(1:9, 12:24, 27:28, 29)]
+  # Using bio7, instead of bio5 + bio6
+  # using LGM climate anomaly, instead of LGM climate
+
+  a <- SingleOLS(x, response)
+  b <- SingleOLS(x, response, digits = 4)
+}
 
 
