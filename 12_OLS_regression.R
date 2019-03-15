@@ -23,9 +23,13 @@ library(plyr)
 library(corrplot)
 library(leaps)
 library(car)
+library(sf)
+library(ggplot2)
+library(scales)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/OLS_regression_functions.R")
+source(file = "functions/plotting_functions_ggplot2.R")
 
 # Model output directory (with trailing slash!)
 output.dir <- "output/OLS_models/"
@@ -205,15 +209,17 @@ FilterPred <- function(fd, predictors, name) {
   if (length(unique(output)) == 1) {
     cat("Selected predictors are identical for each response variable.\n")
     write.csv(output[[1]],
-              file = paste0(output.dir, "noncollinear_predictors_", name, ".csv"),
+              file = paste0(output.dir,
+                            "OLS_noncollinear_predictors_", 
+                            name,
+                            ".csv"
+                            ),
               eol = "\r\n"
               )
   } else {
-    cat("Selected predictors differ between response variables.\n")
-    write.csv(output,
-              file = paste0(output.dir, "noncollinear_predictors_", name, ".csv"),
-              eol = "\r\n"
-              )
+    cat("Selected predictors differ between response variables.",
+        "Output is NOT saved. We apologize for the inconvenience :(\n"
+        )
   }
   output
 }
@@ -246,6 +252,50 @@ env.adf.noCH %<>% .[, -which(names(.) %in% exclude)]
 
 a <- FilterPred(fd.adf, env.adf, "adf")
 FilterPred(fd.adf, env.adf.noCH, "adf_noCH")
+
+
+#############################################
+# Investigate missing values in canopy height
+#############################################
+cat("Investigating missing values in canopy height...\n")
+# Same missing values for both CH_Mean and CH_Range.
+# Which TDWG3 units are affected:
+affected <- CrossCheck(x = rownames(fd.global),
+                       y = rownames(env)[is.na(env[, "CH_Mean"])],
+                       presence = TRUE,
+                       value = TRUE
+                       )
+
+# What do we know about these places:
+tdwg3.info[tdwg3.info$tdwg3.code %in% affected, ]
+# Most of these are islands
+# Most of these are in Old World East
+# Palm richness is 4-25, so not huge but not insignificant.
+
+# Visualize the locations
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
+factor <- rep(TRUE, nrow(tdwg3.info))
+indices <- CrossCheck(x = tdwg3.info[, "tdwg3.code"],
+                      y = affected,
+                      presence = TRUE,
+                      value = FALSE
+                      )
+factor[indices] <- FALSE
+factor %<>% as.factor()
+factor[!tdwg3.info[, "tdwg3.code"] %in% rownames(fd.global)] <- NA
+ggsave(SpatialPlotFactor(tdwg.map,
+                         factor = factor,
+                         factor.name =  "Data for CH?",
+                         title = "TDWG3 units with data for canopy height"
+                         ),
+       filename = paste0(output.dir, "canopy_height_missing_values.png"),
+       width = 8,
+       height = 4
+       )
+
+# Not a completely random distribution, but not too clumped either.
+
 
 
 
