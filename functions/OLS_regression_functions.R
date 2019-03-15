@@ -1,25 +1,33 @@
+###############################################################
+# Palm FD project: custom functions for OLS regression modeling
+###############################################################
+#
+# In which functions to help with OLS regression model construction and selection
+# are defined.
+#
+# Input files:
+#   none
+# Generated output files:
+#   none
+#
+# FUNCTION LIST:
+# Correlogram
+# SelectOLS
+# AutoVIF
+
 library(magrittr)
 library(plyr)
 library(corrplot)
 library(leaps)
 library(car)
 
-# Load basic data
-# ---------------
-fric <- read.csv(file = "output/FD_summary_FRic.csv", row.names = 1)
 
-
-env <- read.csv(file = "output/tdwg3_environmental_predictors.csv", row.names = 1)
-# These are all approximately normally distributed numerical predictors.
-
-
-###########################################
-# Functions for (automated) model selection
-###########################################
-
-# Function to create corrgrams
-# ----------------------------
 Correlogram <- function(x) {
+# Function to create corrgrams.
+# Args:
+#   x: dataframe with predictor variables. Will be subsetted to numerical variables.
+# Returns:
+#   0, while producing a corrplot
   subset <- x[, unlist(lapply(x, is.numeric))]
   corr.matrix <- 
     cor(subset[complete.cases(subset), ]) %>%
@@ -29,8 +37,6 @@ Correlogram <- function(x) {
 }
 
 
-# Compare best models using cross-validation
-# ------------------------------------------
 SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward") {
 # Function to perform automated OLS regression model selection for a given dataset.
 # The provided data is subsetted to complete cases of all numeric variables. The best
@@ -39,10 +45,10 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
 # AIC and BIC.
 #
 # NOTE: beware of linear dependencies. With bioclim data for instance, bio7 equals
-# bio5 - bio6, which doesn't provide any new information. You must use either 5 + 6
+# (bio5 - bio6), which doesn't provide any new information. You must use either 5 + 6
 # OR 7, but not all three at once.
 #
-# based on https://uc-r.github.io/model_selection
+# Code based on https://uc-r.github.io/model_selection
 #
 # Args:
 #   x: data.frame with all variables (response + predictors)
@@ -51,7 +57,12 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
 #   standardize: Should predictors be standardized to mean 0 and unit variance?
 #   method: model selection method to use, see regsubsets()
 # Returns:
-#   dd
+#   A list of three:
+#     formulae: A list with the formula for the model selected by each method
+#       (cross.validation, adj.rsq, cp, bic)
+#     mods: model objects of OLS models fitted with these formulae
+#     performance: a matrix reporting the length, Rsq, AIC, BIC and highest VIF of
+#       the four selected models
 
   # Validate data: subset to complete, numeric data and standardize
   x.num <- numcolwise(function(x) { x } ) (x)
@@ -83,7 +94,9 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
     matrix(data = NA,
            nrow = k,
            ncol = ncol(x.complete) - 1,
-           dimnames = list(fold = seq_len(k), mod.length = seq_len(ncol(x.complete) - 1))
+           dimnames = list(fold = seq_len(k),
+                           mod.length = seq_len(ncol(x.complete) - 1)
+                           )
            )
   # Forward selection for each of the k training datasets
   for (i in seq_len(k)) {
@@ -171,38 +184,107 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
        )
 }
 
+# Example code
+if (FALSE) {
+  fric <- read.csv(file = "output/FD_summary_FRic.csv", row.names = 1)
+  env <- read.csv(file = "output/tdwg3_environmental_predictors.csv", row.names = 1)
+  # These are all approximately normally distributed numerical predictors.
+  x <- env
+  x$FRic <- fric$FRic.global.SES
+  response <- "FRic"
+  k <- 10
+  x <- x[, c(1:9, 12:24, 27:28, 29)]
+  # Using bio7, instead of bio5 + bio6
+  # using LGM climate anomaly, instead of LGM climate
+
+  # Example fittings with different methods:
+  a <- SelectOLS(x, response, k, method = "forward")
+  b <- SelectOLS(x, response, k, method = "backward")
+  c <- SelectOLS(x, response, k, method = "seqrep")
+  d <- SelectOLS(x, response, k, method = "exhaustive")
+
+  compare <- list(forward = a[[3]],
+                  backward = b[[3]],
+                  seqrep = c[[3]],
+                  exhaustive = d[[3]]
+                  )
+  # Interpreting results remains non-trivial...
+}
 
 
-x <- env
-x$FRic <- fric$FRic.global.SES
-response <- "FRic"
-k <- 10
-x <- x[, c(1:9, 12:24, 27:28, 29)]
-# Using bio7, instead of bio5 + bio6
-# using LGM climate anomaly, instead of LGM climate
+AutoVIF <- function(x, response, standardize = TRUE, threshold = 5) {
+# Function to automatically exclude predictors based on VIF. An OLS model is
+# fitted with all predictors, then the predictor with highest VIF is removed. This
+# is repeated until the highest remaining VIF is below the threshold.
+#
+# Args:
+#   x: data.frame with all variables (response + predictors)
+#   response: character vector giving column name of the response variable.
+#   standardize: Should predictors be standardized to mean 0 and unit variance?
+#   threshold: VIF value deemed to be the upper acceptable limit. Traditionally,
+#     people have used a threshold of 10, but Zuur et al (2010) reccommends a
+#     threshold of 3, or even lower when signal is weak.
+# Returns:
+#   A character vector with the names of remaining variables
 
-# Example fittings with different methods:
-a <- SelectOLS(x, response, k, method = "forward")
-b <- SelectOLS(x, response, k, method = "backward")
-c <- SelectOLS(x, response, k, method = "seqrep")
-d <- SelectOLS(x, response, k, method = "exhaustive")
+  # Validate data: subset to complete, numeric data and standardize
+  x.num <- numcolwise(function(x) { x } ) (x)
+  x.complete <- x.num[complete.cases(x.num), ]
+  if (standardize) {
+    x.std <- 
+      apply(x.complete, 2, scale, center = TRUE, scale = TRUE) %>%
+      as.data.frame()
+    colnames(x.std) <- colnames(x.complete)
+    x.std[, response] <- x.complete[, response]
+    x.complete <- x.std
+  }
 
-compare <- list(forward = a[[3]],
-                backward = b[[3]],
-                seqrep = c[[3]],
-                exhaustive = d[[3]]
-                )
+  # Iteratively exclude most collinear predictor.
+  # First construct initial mod formula
+  predictors <- colnames(x.complete)[-match(response, colnames(x.complete))]
+  form <- paste(response, "~", predictors[1])
+  for (i in seq_len(length(predictors) - 1)) {
+    form <- paste(form, "+", predictors[i + 1])
+  }
+  form %<>% as.formula()
+  # Then apply loop for the selection
+  do.exclude <- TRUE
+  while (do.exclude) {
+    # Identify most collinear predictor
+    mod <- lm(form, data = x.complete)
+    scores <- vif(mod)
+    # IF highest VIF is above threshold, construct new formula
+    if (max(scores) > threshold) {
+      predictors <- predictors[-match(names(scores)[which.max(scores)], predictors)]
+      form <- paste(response, "~", predictors[1])
+      for (i in seq_len(length(predictors) - 1)) {
+        form <- paste(form, "+", predictors[i + 1])
+      }
+      form %<>% as.formula()
+    } else {
+      do.exclude <- FALSE
+    }
+  }
 
-# Interpreting results remains non-trivial...
+  # Return names of predictors not excluded
+  predictors
+}
 
+# Example code
+if (FALSE) {
+  fric <- read.csv(file = "output/FD_summary_FRic.csv", row.names = 1)
+  env <- read.csv(file = "output/tdwg3_environmental_predictors.csv", row.names = 1)
+  # These are all approximately normally distributed numerical predictors.
+  x <- env
+  x$FRic <- fric$FRic.global.SES
+  response <- "FRic"
+  x <- x[, c(1:9, 12:24, 27:28, 29)]
+  # Using bio7, instead of bio5 + bio6
+  # using LGM climate anomaly, instead of LGM climate
 
-
-
-
-
-
-
-
+  a <- AutoVIF(x, response, threshold = 5)
+  b <- AutoVIF(x, response, threshold = 3)
+}
 
 
 
