@@ -29,6 +29,7 @@ library(scales)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/OLS_regression_functions.R")
+source(file = "functions/plotting_functions.R")
 source(file = "functions/plotting_functions_ggplot2.R")
 
 # Model output directory (with trailing slash!)
@@ -77,6 +78,14 @@ env <- merge(x = env,
              )
 rownames(env) <- env[, "tdwg3.code"]
 env <- env[, -1]
+
+# Richness and endemism may need to be transformed to be more normal
+# Using Histogram(), the following transformation was deemed necessary:
+env[, "experimental.richness"] %<>% log()
+# Furthermore, endemism is zero-inflated, making it unsuitable for regular OLS
+# regression. It's effect should be investigated seperately.
+env <- env[, -match("endemism", names(env))]
+
 # Be aware that canopy height (CH_Mean and CH_Range) have 14 missing values,
 # and the LGM variables have one missing value.
 
