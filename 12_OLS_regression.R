@@ -108,7 +108,7 @@ if (!dir.exists(output.dir)) {
 # Functions to do the hard work
 # -----------------------------
 # Function to generate single-predictor model data
-MultiModel <- function(responses, predictors) {
+SingleModel <- function(responses, predictors) {
 # responses: data frame with response variables
 # Predictors: data frame with predictor variables
 
@@ -134,10 +134,10 @@ MultiModel <- function(responses, predictors) {
   output
 }
 
-# Wrapper function to run MultiModel and process and save results
+# Wrapper function to run SingleModel and process and save results
 RunMM <- function(responses, predictors, name) {
 # Name: character string as unique data identifier. Used as suffix for file names.
-  output <- MultiModel(responses, predictors)
+  output <- SingleModel(responses, predictors)
   write.csv(output[[1]],
             file = paste0(output.dir, "OLS_single_Rsq_", name, ".csv"),
             eol = "\r\n"
@@ -178,6 +178,58 @@ cat("(3) For null model ADF...\n")
 fd.adf <- GetFD("adf")
 RunMM(fd.adf, env, "adf")
 RunMM(fd.adf, env.noCH, "adf_noCH")
+
+
+# Summarize results
+# -----------------
+cat("Summarizing single-predictor model results...\n")
+SingleSummary <- function(ch) {
+# 1. For each null model, for each of the 8 FD indices, get the R-squared of
+# statistically significant predictors, combining results into a list.
+#
+# ch: logical indicating whether to use the data INcluding canopy height
+  canopy <- ifelse(ch, "", "_noCH")
+  single.predictors <- vector("list", length = 3)
+  names(single.predictors) <- c("global", "realm", "adf")
+  for (i in seq_along(single.predictors)) {
+    # Load the single-model data
+    p.vals <- read.csv(file = paste0(output.dir,
+                                     "OLS_single_p_value_",
+                                     names(single.predictors)[i],
+                                     canopy,
+                                     ".csv"
+                                     ),
+                       row.names = 1
+                       )
+    rsq.vals <- read.csv(file = paste0(output.dir,
+                                       "OLS_single_Rsq_",
+                                       names(single.predictors)[i],
+                                       canopy,
+                                       ".csv"
+                                       ),
+                         row.names = 1
+                         )
+    # For each FD index, filter data
+    fd.list <- vector("list", length = 8)
+    names(fd.list) <- rownames(p.vals)
+    for (j in seq_len(nrow(p.vals))) {
+      indices <- which(p.vals[j, ] < 0.05)
+      best.preds <- rsq.vals[j, indices, drop = FALSE]
+      rownames(best.preds) <- "R-squared"
+      if (ncol(best.preds) > 0) {
+        fd.list[[j]] <- sort(best.preds, decreasing = TRUE)
+      } else {
+        fd.list[[j]] <- "no significant predictors"
+      }
+    }
+  single.predictors[[i]] <- fd.list
+  }
+  single.predictors
+}
+
+results.single <- SingleSummary(ch = TRUE)
+results.single.noCH <- SingleSummary(ch = FALSE)
+
 
 
 #############################################
@@ -224,6 +276,67 @@ ggsave(SpatialPlotFactor(tdwg.map,
        height = 4
        )
 # Not a completely random distribution, but not too clumped either.
+
+
+
+#################################
+# Multi-predictor model selection
+#################################
+cat("Selecting best multi-predictor models:\n")
+
+# Predictor selection
+# -------------------
+# Predictor preprocessing showed that some predictors cannot be used together
+# in the same model, due to extreme collinearity.
+# Here, these predictors are removed. Endemism is also removed.
+env.subset <- env[, !colnames(env) %in% c("srtm_alt_mean", "lgm_ens_Tmean",
+                                          "lgm_ens_Pmean", "bio5_mean",
+                                          "bio6_mean", "endemism"
+                                          )
+                  ]
+# Now, this needs to be split into two versions: one where climate is described
+# by the bioclim variables, and one where PCA axes are used instead.
+pca.axes <- paste0("clim.PC", 1:4)
+env.subset.clim <- env.subset[, !colnames(env.subset) %in% pca.axes]
+bioclim.vars <- paste0("bio", 1:19, "_mean")
+env.subset.pca <- env.subset[, !colnames(env.subset) %in% bioclim.vars]
+
+# Wrapper function to automate the auto-selection process
+# -------------------------------------------------------
+MultiModel <- function(response.var, response.name, predictors) {
+ 
+  model.data <- predictors
+  model.data[, response.name] <- response.var
+  all.mods <- vector("list", length = 4)
+  names(all.mods) <- c("exhaustive", "backward", "forward", "seqrep")
+  for (i in seq_along(all.mods)) {
+    all.mods[[i]] <- SelectOLS(x = model.data,
+                             response = response.name,
+                             method = names(all.mods)[i]
+                             )
+  }
+  all.mods
+}
+
+a <-
+  MultiModel(response.var = fd.indices[[1]] [, "global.SES"],
+             response.name = "global.fric.all.traits",
+             predictors = env.subset.pca
+             )
+
+a[["exhaustive"]] [["performance"]]
+
+
+performance <- array(data = NA,
+                     dim = c(dim(a[[1]] [["performance"]]), 4),
+                     dimnames = list(rownames(a[[1]] [["performance"]]),
+                                     colnames(a[[1]] [["performance"]]),
+                                     names(a)
+                                     )
+                     )
+for (i in seq_along(a)) {
+  performance[, , i] <- a[[i]] [["performance"]]
+}
 
 
 
