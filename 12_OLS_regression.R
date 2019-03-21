@@ -43,24 +43,17 @@ cat("loading data...\n")
 
 # Functional diversity indices
 # ----------------------------
-fd.global <- 
-  read.csv(file = "output/null_model_global/FD_z_scores_global_stochastic_mean_of_z.scores.csv",
-           row.names = 1
-           ) %>%
-  .[complete.cases(.), ]
-
-fd.realm <-
-  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores.csv",
-           row.names = 1
-           ) %>%
-  .[complete.cases(.), ]
-
-fd.adf <-
-  read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_z.scores.csv",
-           row.names = 1
-           ) %>%
-  .[complete.cases(.), ]
-
+# A list with all the FD index data.
+# Note these dataframes include richness and endemism.
+fd.indices <- vector("list", length = 0)
+for (index in c("FRic.all.traits", "FRic.stem.height", "FRic.blade.length",
+                "FRic.fruit.length", "FDis.all.traits", "FDis.stem.height",
+                "FDis.blade.length", "FDis.fruit.length"
+                )
+     ) {
+  fd.indices [[index]] <-
+    read.csv(file = paste0("output/FD_summary_", index, ".csv"), row.names = 1)
+}
 
 
 # Environmental data
@@ -68,26 +61,38 @@ fd.adf <-
 env <- read.csv(file = "output/tdwg3_environmental_predictors.csv",
                 row.names = 1
                 )
-# Additionally, merge richness and endemism into the data
-tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
-env$tdwg3.code <- rownames(env)
-env <- merge(x = env,
-             y = tdwg3.info[, c("tdwg3.code", "experimental.richness", "endemism")],
-             by = "tdwg3.code",
-             all = TRUE
-             )
-rownames(env) <- env[, "tdwg3.code"]
-env <- env[, -1]
 
+# Additionally, merge richness and endemism into env
+indices <- match(rownames(fd.indices[[1]]), rownames(env))
+env[, "palm.richness"] <- fd.indices[[1]] [indices, "palm.richness"]
+env[, "endemism"] <- fd.indices[[1]] [indices, "percent.endemism"]
 # Richness and endemism may need to be transformed to be more normal
 # Using Histogram(), the following transformation was deemed necessary:
-env[, "experimental.richness"] %<>% log()
-# Furthermore, endemism is zero-inflated, making it unsuitable for regular OLS
-# regression. It's effect should be investigated seperately.
-env <- env[, -match("endemism", names(env))]
+env[, "palm.richness"] %<>% log()
+# Furthermore, endemism is zero-inflated, which could make it unsuitable for
+# regular OLS regression. Keep this in mind.
 
-# Be aware that canopy height (CH_Mean and CH_Range) have 14 missing values,
-# and the LGM variables have one missing value.
+# Additionally, merge contemporary climate PCA axes into env
+clim.pca <- read.csv(file = "output/tdwg3_environmental_predictors_climate_pca_axes.csv",
+                     row.names = 1
+                     )
+indices <- match(rownames(fd.indices[[1]]), rownames(env))
+env[, c(paste0("clim.", names(clim.pca)))] <-
+  clim.pca[indices, ]
+
+# Be aware that canopy height (CH_Mean and CH_Range) has 14 missing values,
+# and the LGM data has one missing value.
+# One option is running the analysis with and without canopy height, to see if
+# removing these 14 values affects the results.
+env.noCH <- env[, -which(names(env) %in% c("CH_Mean", "CH_Range"))]
+
+
+# TDWG3 data
+# ----------
+tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
+
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
 
 
 #########################
@@ -103,21 +108,24 @@ if (!dir.exists(output.dir)) {
 # Functions to do the hard work
 # -----------------------------
 # Function to generate single-predictor model data
-MultiModel <- function(fd, predictors) {
+MultiModel <- function(responses, predictors) {
+# responses: data frame with response variables
+# Predictors: data frame with predictor variables
+
   # init output list
   mat <- matrix(data = NA,
-                nrow = ncol(fd),
+                nrow = ncol(responses),
                 ncol = ncol(predictors),
-                dimnames = list(colnames(fd), colnames(predictors))
+                dimnames = list(colnames(responses), colnames(predictors))
                 )
   output <- list(mat, mat, mat)
   names(output) <- c("Rsq", "slope", "p-value")
 
-  # Generate single-predictor models for each FD metric
-  for (i in seq_along(fd)) {
-    response <- colnames(fd)[i]
+  # Generate single-predictor models for each response variable
+  for (i in seq_along(responses)) {
+    response <- colnames(responses)[i]
     model.data <- predictors
-    model.data[, response] <- fd[, response]
+    model.data[, response] <- responses[, response]
     mat <- SingleOLS(model.data, response, standardize = TRUE)
     output[[1]] [i, ] <- mat[, 1]
     output[[2]] [i, ] <- mat[, 2]
@@ -127,140 +135,49 @@ MultiModel <- function(fd, predictors) {
 }
 
 # Wrapper function to run MultiModel and process and save results
-RunSingle <- function(fd, predictors, name) {
+RunMM <- function(responses, predictors, name) {
 # Name: character string as unique data identifier. Used as suffix for file names.
-  single <- MultiModel(fd, predictors)
-  write.csv(single[[1]],
+  output <- MultiModel(responses, predictors)
+  write.csv(output[[1]],
             file = paste0(output.dir, "OLS_single_Rsq_", name, ".csv"),
             eol = "\r\n"
             )
-  write.csv(single[[2]],
+  write.csv(output[[2]],
             file = paste0(output.dir, "OLS_single_slope_", name, ".csv"),
             eol = "\r\n"
             )
-  write.csv(single[[3]],
+  write.csv(output[[3]],
             file = paste0(output.dir, "OLS_single_p_value_", name, ".csv"),
             eol = "\r\n"
             )
   return (0)
 }
 
-
-# Global null model
-# -----------------
-cat("(1) For null model Global...\n")
-# Subset environmental data to the extent of the FD data
-indices <- CrossCheck(x = rownames(env),
-                      y = rownames(fd.global),
-                      presence = TRUE,
-                      value = FALSE
-                      )
-env.global <- env[indices, ]
-env.global.noCH <- env[indices, -which(names(env) %in% c("CH_Mean", "CH_Range"))]
-
-RunSingle(fd.global, env.global, "global")
-RunSingle(fd.global, env.global.noCH, "global_noCH")
-
-
-# Realm null model
-# ----------------
-cat("(2) For null model Realm...\n")
-# Subset environmental data to the extent of the FD data
-indices <- CrossCheck(x = rownames(env),
-                      y = rownames(fd.realm),
-                      presence = TRUE,
-                      value = FALSE
-                      )
-env.realm <- env[indices, ]
-env.realm.noCH <- env[indices, -which(names(env) %in% c("CH_Mean", "CH_Range"))]
-
-RunSingle(fd.realm, env.realm, "realm")
-RunSingle(fd.realm, env.realm.noCH, "realm_noCH")
-
-
-# adf null model
-# --------------
-cat("(3) For null model ADF...\n")
-# Subset environmental data to the extent of the FD data
-indices <- CrossCheck(x = rownames(env),
-                      y = rownames(fd.adf),
-                      presence = TRUE,
-                      value = FALSE
-                      )
-env.adf <- env[indices, ]
-env.adf.noCH <- env[indices, -which(names(env) %in% c("CH_Mean", "CH_Range"))]
-
-RunSingle(fd.adf, env.adf, "adf")
-RunSingle(fd.adf, env.adf.noCH, "adf_noCH")
-
-
-################################################
-# Filtering predictors by collinearity using VIF
-################################################
-cat("Filtering predictors by collinearity using VIF:\n")
-
-# Function to do the hard work
-# ----------------------------
-FilterPred <- function(fd, predictors, name) {
-# Name: character string as unique data identifier. Used as suffix for file names.
-
-  # init output list
-  output <- vector("list", length = ncol(fd))
-  names(output) <- colnames(fd)
-  # Select non-collinear predictors for each FD metric
-  for (i in seq_along(fd)) {
-    response <- colnames(fd)[i]
-    model.data <- predictors
-    model.data[, response] <- fd[, response]
-    output[[i]] <- AutoVIF(model.data, response, standardize = TRUE, threshold = 3)
-  }
-  # parse and save output
-  if (length(unique(output)) == 1) {
-    cat("Selected predictors are identical for each response variable.\n")
-    write.csv(output[[1]],
-              file = paste0(output.dir,
-                            "OLS_noncollinear_predictors_", 
-                            name,
-                            ".csv"
-                            ),
-              eol = "\r\n"
-              )
-  } else {
-    cat("Selected predictors differ between response variables.",
-        "Output is NOT saved. We apologize for the inconvenience :(\n"
-        )
-  }
-  output
+# Function to extract data of each null model from fd.indices
+GetFD <- function(null.model) {
+  fd.list <- llply(fd.indices, function(x) { x[, paste0(null.model, ".SES")] } )
+  df <- as.data.frame(fd.list)
+  rownames(df) <- rownames(fd.indices[[1]])
+  df
 }
 
-# Apply the function
-# ------------------
-# The input data is already generated above, but we have to exclude predictors
-# with linear dependencies. Hence,
-# we use bio7 instead of bio5 + bio6,
-# and LGM climate anomalies instead of absolute LGM climate.
-exclude <- c("bio5_mean", "bio6_mean", "lgm_ens_Tmean", "lgm_ens_Pmean")
 
-cat("(1) for null model Global...\n")
-env.global %<>% .[, -which(names(.) %in% exclude)]
-env.global.noCH %<>% .[, -which(names(.) %in% exclude)]
+# Call the functions for each null model dataset
+# ----------------------------------------------
+cat("(1) For null model Global...\n")
+fd.global <- GetFD("global")
+RunMM(fd.global, env, "global")
+RunMM(fd.global, env.noCH, "global_noCH")
 
-a <- FilterPred(fd.global, env.global, "global")
-FilterPred(fd.global, env.global.noCH, "global_noCH")
+cat("(2) For null model Realm...\n")
+fd.realm <- GetFD("realm")
+RunMM(fd.realm, env, "realm")
+RunMM(fd.realm, env.noCH, "realm_noCH")
 
-cat("(2) for null model Realm...\n")
-env.realm %<>% .[, -which(names(.) %in% exclude)]
-env.realm.noCH %<>% .[, -which(names(.) %in% exclude)]
-
-a <- FilterPred(fd.realm, env.realm, "realm")
-FilterPred(fd.realm, env.realm.noCH, "realm_noCH")
-
-cat("(2) for null model ADF...\n")
-env.adf %<>% .[, -which(names(.) %in% exclude)]
-env.adf.noCH %<>% .[, -which(names(.) %in% exclude)]
-
-a <- FilterPred(fd.adf, env.adf, "adf")
-FilterPred(fd.adf, env.adf.noCH, "adf_noCH")
+cat("(3) For null model ADF...\n")
+fd.adf <- GetFD("adf")
+RunMM(fd.adf, env, "adf")
+RunMM(fd.adf, env.noCH, "adf_noCH")
 
 
 #############################################
@@ -268,22 +185,26 @@ FilterPred(fd.adf, env.adf.noCH, "adf_noCH")
 #############################################
 cat("Investigating missing values in canopy height...\n")
 # Same missing values for both CH_Mean and CH_Range.
-# Which TDWG3 units are affected:
-affected <- CrossCheck(x = rownames(fd.global),
-                       y = rownames(env)[is.na(env[, "CH_Mean"])],
-                       presence = TRUE,
-                       value = TRUE
-                       )
+# Which TDWG3 units are affected?
+tdwg.observed <-
+  fd.indices[[1]] [!is.na(fd.indices[[1]] [, "observed"]),
+                   "observed",
+                   drop = FALSE] %>%
+  rownames()
+tdwg.ch <- env[match(tdwg.observed, rownames(env)), c("CH_Mean", "CH_Range")]
+affected <- rownames(tdwg.ch)[!complete.cases(tdwg.ch)]
 
-# What do we know about these places:
+
+
+
+# What do we know about these places?
 tdwg3.info[tdwg3.info$tdwg3.code %in% affected, ]
 # Most of these are islands
-# Most of these are in Old World East
+# Most of these are in Old World East (which has the most islands anyway)
 # Palm richness is 4-25, so not huge but not insignificant.
 
 # Visualize the locations
-tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
-                    layer = "TDWG_level3_Coordinates")
+# -----------------------
 factor <- rep(TRUE, nrow(tdwg3.info))
 indices <- CrossCheck(x = tdwg3.info[, "tdwg3.code"],
                       y = affected,
@@ -292,7 +213,7 @@ indices <- CrossCheck(x = tdwg3.info[, "tdwg3.code"],
                       )
 factor[indices] <- FALSE
 factor %<>% as.factor()
-factor[!tdwg3.info[, "tdwg3.code"] %in% rownames(fd.global)] <- NA
+factor[!tdwg3.info[, "tdwg3.code"] %in% tdwg.observed] <- NA
 ggsave(SpatialPlotFactor(tdwg.map,
                          factor = factor,
                          factor.name =  "Data for CH?",
@@ -302,7 +223,6 @@ ggsave(SpatialPlotFactor(tdwg.map,
        width = 8,
        height = 4
        )
-
 # Not a completely random distribution, but not too clumped either.
 
 
