@@ -6,7 +6,8 @@
 # units) is prepared for regression analysis. This includes assessment of extreme
 # values, testing for approximate normality and transforming if required, and
 # standardizing the (transformed) predictors to mean 0 and unit variance.
-#
+# Additionally, PCA on predictor variables is performed, and PCA coordinates
+# of contemporary climate data are saved for use as alternative predictors.
 #
 # Input files:
 #   d
@@ -23,6 +24,7 @@ library(car)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
+source(file = "functions/OLS_regression_functions.R")
 
 
 #####################################
@@ -214,40 +216,190 @@ write.csv(predictors.std,
           )
 
 
-#################################
-# Exploratory PCA and Correlogram
-#################################
-cat("Performing exploratory PCA...\n")
+###########################################
+# Exploratory PCA and Collinearity analysis
+###########################################
+cat("Performing exploratory PCA and producing corrplots...\n")
 
-# Principal Components Analysis
-# -----------------------------
 # We will use PCA based on a correlation matrix, i.e. with standardization of 
 # variables. This is suitable for environmental variables.
+# Corrplots will help identify how predictors are correlated with each other,
+# and which predictors (if any) are redundant. Additionally, VIF can be used
+# to identify the most collinear predictors.
 
+# All data
+# --------
+cat("(1) for all predictors together...\n")
 pca.env <- rda(predictors[complete.cases(predictors), ], scale = TRUE)
-summary(pca.env)
-# >95% of variation is explained with 9 axes, which is a rough indication of how many
-# predictors could be important, at most, in a full model.
-# OrdinationPlot(pca.env)
-
-
-# Correlations between predictors
-# -------------------------------
-cat("Creating correlation plot of predictors...\n")
-
-corr.matrix <- 
-  predictors[complete.cases(predictors), ] %>%
-  apply(., 2, scale, center = TRUE, scale = TRUE) %>%
-  cor()
-
-round(corr.matrix, digits = 2)
-# Predictably, this is a mess. Going through it is entirely possible, but it is
-# easier to create a correlogram.
-GraphSVG(corrplot(corr.matrix, method = "square", order = "FPC"),
+if (FALSE) {
+  summary(pca.env)
+  OrdinationPlot(pca.env)
+}
+GraphSVG(Correlogram(predictors),
          file = "graphs/environmental_predictors_corrplot.svg",
-         width = 8,
-         height = 8
+         width = 16,
+         height = 16
          )
+x <- predictors[!names(predictors) %in% c("bio5_mean", "bio6_mean",
+                                          "lgm_ens_Tmean", "lgm_ens_Pmean"
+                                          )
+                ]
+x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
+AutoVIF(x, response = "response", threshold = 3)
+
+# There are 26 predictors in total.
+# >95% of variation is explained with 9 axes, which is a rough indication of how
+# many predictors could be important, at most, in a full model.
+# There is no clear clustering in the plot. Arguably, these are too many predictors
+# to draw any clear conclusions. Best look at some subsets.
+# Based on VIF, non-collinear predictors are limited to a set of 10:
+# alt_range, soilcount, CH_mean, CH_Range, bio2, bio3, bio8, bio13, bio19,
+# and lgm precipitation anomaly.
+
+
+# Nonclimatic environmental data
+# ------------------------------
+cat("(2) for Nonclimatic environmental predictors...\n")
+pca.nonclim <- rda(env.nonclim[complete.cases(env.nonclim), ] [, -1], scale = TRUE)
+if (FALSE) {
+  summary(pca.nonclim)
+  OrdinationPlot(pca.nonclim)
+}
+GraphSVG(Correlogram(env.nonclim[, -1]),
+         file = "graphs/environmental_predictors_corrplot_nonclim.svg",
+         width = 6,
+         height = 6
+         )
+x <- env.nonclim
+x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
+AutoVIF(x, response = "response", threshold = 3)
+# There are 5 nonclimatic environmental predictors.
+# The cumulative proportion explained is 0.5 / 0.76 / 0.9 / 0.97 / 1,
+# indicating that 2-3 predictors will capture most variation.
+# Mean altitude and altitude range are strongly correlated and shouldn't be used
+# in the same model. Pick one: for our purposes, range is the best choice because
+# it measures variation; although VIF is highest for alt_range.
+
+
+# Contemporary Climate data
+# -------------------------
+cat("(3) for contemporary climate predictors...\n")
+pca.clim <- rda(env.clim[complete.cases(env.clim), ] [, -1], scale = TRUE)
+if (FALSE) {
+  summary(pca.clim)
+  OrdinationPlot(pca.clim)
+}
+GraphSVG(Correlogram(env.clim[, -1]),
+         file = "graphs/environmental_predictors_corrplot_clim.svg",
+         width = 12,
+         height = 12
+         )
+x <- env.clim[, !names(env.clim) %in% c("bio5_mean", "bio6_mean")]
+x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
+AutoVIF(x, response = "response", threshold = 3)
+# There are 18 included climate predictors.
+# >95% of variation is explained with 6 PCA axes, so there is definitely a lot
+# of redundancy. The first two axes explain 73%. 
+# An 18x18 correlation matrix is quite large, but there are a number of strong
+# correlations.
+# Based on VIF, the unique variables are bio3, bio9, bio10, bio13, bio15, bio19,
+# which is 6 predictors. A curiously coincidental number.
+# 3/10/13/15 have the lowest VIF scores, so are most unique.
+# Those four are Isothermality (T diurnal range / annual T range), mean T of warmest
+# quarter, Precipitation of wettest month, and precipitation seasonality.
+# The additional variables selected by VIF are mean T of driest quarter, and
+# Precipitation of coldest quarter.
+#
+# Save the first 4 axes as alternative predictors. Together these explain 89.3%
+# of the variation in climate.
+# Remember these PCA scores are based on all bioclim variables except bio5 and bio6.
+env.clim.pca <- as.data.frame(summary(pca.clim) [["sites"]] [, 1:4])
+# Fix rownames and pad to all TDWG3 units:
+env.clim.pca[, "tdwg3.code"] <- env.new[rownames(env.clim.pca), "LEVEL_3_CO"]
+env.clim.pca %<>%
+  merge(.,
+        tdwg3.info[, "tdwg3.code", drop = FALSE],
+        by = "tdwg3.code",
+        all.y = TRUE,
+        sort = TRUE
+        )
+rownames(env.clim.pca) <- env.clim.pca[, "tdwg3.code"]
+env.clim.pca %<>% .[, -1]
+if (!identical(rownames(env.clim.pca), rownames(predictors))) {
+  stop("climatic PCA scores aren't parsed properly")
+}
+# Save final result:
+write.csv(env.clim.pca,
+          file = "output/tdwg3_environmental_predictors_climate_pca_axes.csv",
+          eol = "\r\n",
+          row.names = TRUE
+          )
+
+
+# LGM climate data
+# ----------------
+cat("(4) for LGM climate predictors...\n")
+pca.lgm <- rda(env.lgm[complete.cases(env.lgm), ] [, -1], scale = TRUE)
+if (FALSE) {
+  summary(pca.lgm)
+  OrdinationPlot(pca.lgm)
+}
+GraphSVG(Correlogram(env.lgm[, -1]),
+         file = "graphs/environmental_predictors_corrplot_lgm.svg",
+         width = 6,
+         height = 5
+         )
+x <- env.lgm
+x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
+AutoVIF(x, response = "response", threshold = 3)
+# There are four predictors here.
+# 3 PCA axes explain 99% of variation. The ordination plot and corrplot reveal
+# this is due to a very strong relation between LGM T and LGM anomT.
+# Based on VIF, LGM T is the predictor to exclude.
+# There is very little collinearity between the other 3 variables. 
+
+
+# Synthesis: predictor choice
+# ---------------------------
+# Nonclim:
+#   Altitude is often related to climate, but altitude range could capture environ-
+#   mental heterogeneity not covered by climatic variables. So Mean altitude can be
+#   discarded in favor of alt_range. 
+#   A similar argument can NOT be made for canopy height, because CH_Mean is not
+#   strongly correlated with CH_Range (r 0.47). Soil count is similarly non-
+#   collinear.
+#  >>> choose alt_range, soilcount, CH_Range, CH_Mean
+#
+# LGM climate:
+#   LGM temperature is too strongly related to Temperature anomaly.
+#   Both T and P anomalies are linearily related to contemporary + LGM T and P.
+#   This means we can only have 2 out of 3 of the following: contemporary climate,
+#   LGM climate, and LGM climate anomaly. Contemporary climate should not be
+#   eliminated, thus forcing a choice between LGM climate or LGM anomalies.
+#   Filtering effects due to environmental change are best captured by the
+#   anomalies, so let's go with those.
+#  >>> choose LGM_Tano, LGM_Pano
+#
+# Contemporary climate:
+#   Theoretically, measures of change and variability, such as T and P seasonality,
+#   should be most strongly correlated with functional diversity. That still leaves
+#   lots of options. Here, using PCA axes could be a good choice, particularly
+#   considering that the first 2 axes already explain 73% of variation.
+#   The alternative is careful selection.
+#   Theoretically, the most interesting variables are (bio1), bio3, bio4, (bio12),
+#   and bio15.
+x <- env.clim[, names(env.clim) %in% c("bio1_mean", "bio3_mean", "bio4_mean",
+                                       "bio12_mean", "bio15_mean"
+                                       )
+              ]
+x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
+AutoVIF(x, response = "response", threshold = 3)
+#   VIF says bio4 (T seasonality) is collinear with the other four predictors.
+#
+# This script has saved the first four axes of PCA on all climate data (except bio5
+# and bio6). These axes are by definition non-collinear, and will capture the
+# complete influence of climate. The cumulative proportion explained is
+# 43.9% / 72.9% / 81.7% / 89.3%.
 
 
 cat("Done.\n")
