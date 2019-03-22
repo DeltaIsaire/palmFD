@@ -270,7 +270,7 @@ GraphSVG(Correlogram(env.nonclim[, -1]),
          width = 6,
          height = 6
          )
-x <- env.nonclim
+x <- env.nonclim[, !names(env.nonclim) %in% "LEVEL_3_CO"]
 x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
 AutoVIF(x, response = "response", threshold = 3)
 # There are 5 nonclimatic environmental predictors.
@@ -294,7 +294,7 @@ GraphSVG(Correlogram(env.clim[, -1]),
          width = 12,
          height = 12
          )
-x <- env.clim[, !names(env.clim) %in% c("bio5_mean", "bio6_mean")]
+x <- env.clim[, !names(env.clim) %in% c("LEVEL_3_CO", "bio5_mean", "bio6_mean")]
 x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
 AutoVIF(x, response = "response", threshold = 3)
 # There are 18 included climate predictors.
@@ -349,7 +349,7 @@ GraphSVG(Correlogram(env.lgm[, -1]),
          width = 6,
          height = 5
          )
-x <- env.lgm
+x <- env.lgm[, !names(env.lgm) %in% "LEVEL_3_CO"]
 x$response <- rnorm(n = nrow(x), mean = 10, sd = 1)
 AutoVIF(x, response = "response", threshold = 3)
 # There are four predictors here.

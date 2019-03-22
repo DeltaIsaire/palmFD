@@ -12,6 +12,7 @@
 #
 # FUNCTION LIST:
 # Correlogram
+# ParseData
 # SelectOLS
 # AutoVIF
 # SingleOLS
@@ -40,7 +41,34 @@ Correlogram <- function(x) {
 }
 
 
-SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward") {
+ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
+# Function to subset a dataframe to complete cases, and optionally standardize
+# all numeric variables EXCEPT the response variable.
+  if (numeric.only) {
+  x.num <- numcolwise(function(x) { x } ) (x)
+  x.complete <- x.num[complete.cases(x.num), ]
+  } else {
+    x.complete <- x[complete.cases(x), ]
+  }
+  if (standardize) {
+    x.std <- numcolwise(scale, center = TRUE, scale = TRUE) (x.complete)
+    # Re-add non-numeric columns:
+    missing.cols <- names(x.complete)[!names(x.complete) %in% names(x.std)]
+    x.std[, missing.cols] <- x.complete[, missing.cols]
+    # un-standardize the response variable:
+    x.std[, response] <- x.complete[, response]
+    x.complete <- x.std
+  }
+  # move response variable to last column
+  resp.ind <- which(names(x.complete) == response)
+  x.complete <- x.complete[, c(1:(resp.ind - 1), (resp.ind + 1):ncol(x), resp.ind)]
+
+  x.complete
+}
+
+
+SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward",
+                      numeric.only = FALSE) {
 # Function to perform automated OLS regression model selection for a given dataset.
 # The provided data is subsetted to complete cases of all numeric variables. The best
 # OLS model of each length is found via 'regsubsets' from the 'leaps' package.
@@ -59,6 +87,7 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
 #   k: number of folds to use for k-fold cross-validation.
 #   standardize: Should predictors be standardized to mean 0 and unit variance?
 #   method: model selection method to use, see regsubsets()
+#   numeric.only: Subset dataset to only continuous numerical predictors?
 # Returns:
 #   A list of three:
 #     formulae: A list with the formula for the model selected by each method
@@ -68,21 +97,26 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
 #       the four selected models
 
   # Validate data: subset to complete, numeric data and standardize
-  x.num <- numcolwise(function(x) { x } ) (x)
-  x.complete <- x.num[complete.cases(x.num), ]
-  if (standardize) {
-    x.std <- 
-      apply(x.complete, 2, scale, center = TRUE, scale = TRUE) %>%
-      as.data.frame()
-    colnames(x.std) <- colnames(x.complete)
-    x.std[, response] <- x.complete[, response]
-    x.complete <- x.std
-  }
+  x.complete <- ParseData(x = x,
+                          response = response,
+                          standardize = standardize,
+                          numeric.only = numeric.only
+                          )
+
+  # If categorical predictors are included, ensure appropriate parsing.
+  # Convert characters to factors:
+  char.inds <- which(sapply(x.complete, is.character))
+  x.complete[char.inds] <- lapply(x.complete[char.inds], as.factor)
+  # If we have factors, argument nvmax to regsubsets() must be adjusted:
+  factor.inds <- which(sapply(x.complete, is.factor))
+  factor.levels <- lapply(x.complete[factor.inds], levels)
+  total.levels <- length(unlist(factor.levels))
+  adj.nvmax <- total.levels - 2 * length(factor.inds)
 
   # Find best models of each length
   fitted.all <- regsubsets(as.formula(paste(response, "~", ".")),
                             data = x.complete,
-                            nvmax = ncol(x.complete),
+                            nvmax = ncol(x.complete) + adj.nvmax,
                             method = method
                             )
 
@@ -105,7 +139,7 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
   for (i in seq_len(k)) {
     fitted <- regsubsets(as.formula(paste(response, "~", ".")),
                           data = x.complete[!folds == i, ],
-                          nvmax = ncol(x.complete) - 1,
+                          nvmax = ncol(x.complete) + adj.nvmax,
                           method = method
                           )
     # Predict test values using the best model of each size
@@ -120,8 +154,7 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
         mean((x.complete[, response][folds == i] - predictions) ^ 2)    
     }
   }
-  # Average prediction error over the folds, and find optimal model length, defined
-  # as the shortest model
+  # Average prediction error over the folds, and find optimal model length
   avg.error <- colMeans(cv.errors)
   tolerance <- min(avg.error)
   subset <- avg.error[avg.error <= tolerance]
@@ -133,6 +166,23 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
   GetFormula <- function(length) {
     best <- summary(fitted.all) [["outmat"]] [length, , drop = FALSE]
     best.predictors <- colnames(best)[best == "*"]
+    # If any best predictors are factor levels, use the factor name instead.
+    # Some serious magic going on here...
+    indices <- which(best.predictors %in% paste0(names(factor.levels),
+                                                 unlist(factor.levels)
+                                                 )
+                     )
+    for (fac in seq_along(factor.levels)) {
+      factor.levels[[fac]] <-
+        paste0(names(factor.levels)[fac], factor.levels[[fac]])
+    }
+    for (i in indices) {
+      best.predictors[i] <-
+        llply(factor.levels, function(x) { best.predictors[i] %in% x } ) %>%
+        { which(. == TRUE) } %>%
+        names()
+    }
+    best.predictors %<>% unique()
     best.formula <- paste(response, "~", best.predictors[1])
     for (i in seq_len(length(best.predictors) - 1)) {
       best.formula <- paste(best.formula, "+", best.predictors[i + 1])
@@ -173,7 +223,7 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
     mat[i, 2] <- summary(best.mods[[i]]) [["r.squared"]]
     mat[i, 3] <- AIC(best.mods[[i]])
     mat[i, 4] <- BIC(best.mods[[i]])
-    if (mat[i, 1] > 1) {
+    if (length(attr(summary(best.mods[[i]])$terms, "term.labels")) > 1) {
       mat[i, 5] <- max(vif(best.mods[[i]]))
     } else {
       mat[i, 5] <- 0
@@ -215,7 +265,8 @@ if (FALSE) {
 }
 
 
-AutoVIF <- function(x, response, standardize = TRUE, threshold = 5) {
+AutoVIF <- function(x, response, standardize = TRUE, threshold = 5,
+                    numeric.only = FALSE) {
 # Function to automatically exclude predictors based on VIF. An OLS model is
 # fitted with all predictors, then the predictor with highest VIF is removed. This
 # is repeated until the highest remaining VIF is below the threshold.
@@ -227,20 +278,16 @@ AutoVIF <- function(x, response, standardize = TRUE, threshold = 5) {
 #   threshold: VIF value deemed to be the upper acceptable limit. Traditionally,
 #     people have used a threshold of 10, but Zuur et al (2010) reccommends a
 #     threshold of 3, or even lower when signal is weak.
+#   numeric.only: Subset dataset to only continuous numerical predictors?
 # Returns:
 #   A character vector with the names of remaining variables
 
   # Validate data: subset to complete, numeric data and standardize
-  x.num <- numcolwise(function(x) { x } ) (x)
-  x.complete <- x.num[complete.cases(x.num), ]
-  if (standardize) {
-    x.std <- 
-      apply(x.complete, 2, scale, center = TRUE, scale = TRUE) %>%
-      as.data.frame()
-    colnames(x.std) <- colnames(x.complete)
-    x.std[, response] <- x.complete[, response]
-    x.complete <- x.std
-  }
+  x.complete <- ParseData(x = x,
+                          response = response,
+                          standardize = standardize,
+                          numeric.only = numeric.only
+                          )
 
   # Iteratively exclude most collinear predictor.
   # First construct initial mod formula
@@ -294,7 +341,8 @@ if (FALSE) {
 }
 
 
-SingleOLS <- function(x, response, standardize = TRUE, digits = "all") {
+SingleOLS <- function(x, response, standardize = TRUE, digits = "all",
+                      numeric.only = FALSE) {
 # Fit every single-predictor OLS model and report the Rsq, slope and P-value.
 #
 # Args:
@@ -304,22 +352,18 @@ SingleOLS <- function(x, response, standardize = TRUE, digits = "all") {
 #     NOTE: if this is FALSE, then the reported slopes are not directly comparable!
 #   digits: integer giving number of decimal places to report, or "all" to skip
 #     rounding.
+#   numeric.only: Subset dataset to only continuous numerical predictors?
 # Returns:
 #  A matrix with 3 columns (Rsq, slope, p-value) reporting results for each single
 #  predictor.
 
 
   # Validate data: subset to complete, numeric data and standardize
-  x.num <- numcolwise(function(x) { x } ) (x)
-  x.complete <- x.num[complete.cases(x.num), ]
-  if (standardize) {
-    x.std <- 
-      apply(x.complete, 2, scale, center = TRUE, scale = TRUE) %>%
-      as.data.frame()
-    colnames(x.std) <- colnames(x.complete)
-    x.std[, response] <- x.complete[, response]
-    x.complete <- x.std
-  }
+  x.complete <- ParseData(x = x,
+                          response = response,
+                          standardize = standardize,
+                          numeric.only = numeric.only
+                          )
 
   # Init output matrix
   y.index <- match(response, colnames(x.complete))
@@ -338,9 +382,12 @@ SingleOLS <- function(x, response, standardize = TRUE, digits = "all") {
          data = x.complete
          ) %>%
       summary()
-    mat[index, 1] <- mod.summary[["r.squared"]]
-    mat[index, 2] <- mod.summary[["coefficients"]] [2, 1]
-    mat[index, 3] <- mod.summary[["coefficients"]] [2, 4]
+    mat[match(names(x.complete)[index], rownames(mat)), 1] <-
+      mod.summary[["r.squared"]]
+    mat[match(names(x.complete)[index], rownames(mat)), 2] <-
+      mod.summary[["coefficients"]] [2, 1]
+    mat[match(names(x.complete)[index], rownames(mat)), 3] <-
+      mod.summary[["coefficients"]] [2, 4]
   }
 
   # Return results, rounding as specified

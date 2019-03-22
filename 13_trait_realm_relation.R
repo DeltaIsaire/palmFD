@@ -33,6 +33,11 @@ cwm.traits <- read.csv(file = "output/observed_FD/community_trait_means_stochast
                                     row.names = 1
                                     )
 
+# all traits FD indices:
+fdis <- read.csv(file = "output/FD_summary_FDis.all.traits.csv", row.names = 1)
+fric <- read.csv(file = "output/FD_summary_FRic.all.traits.csv", row.names = 1)
+
+
 #########################################
 # Analysis of variance on traits vs realm
 #########################################
@@ -86,12 +91,55 @@ means <- ddply(cwm.traits,
 
 # Visualization of trait differences between realms
 # -------------------------------------------------
-if (FALSE)
+if (FALSE) {
   boxplot(stem.height ~ realm, data = cwm.traits)
   boxplot(blade.length ~ realm, data = cwm.traits)
   boxplot(fruit.length ~ realm, data = cwm.traits)
 }
 # Looks about like you'd expect.
+
+
+
+#############################################
+# Analysis of variance on FD indices vs realm
+#############################################
+
+# Merge FD data with realm data
+# -----------------------------
+fdis[, "realm"] <-
+  tdwg3.info[match(rownames(fdis), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
+  as.factor()
+# Merge trait data with realm data
+fric[, "realm"] <-
+  tdwg3.info[match(rownames(fric), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
+  as.factor()
+
+# Run models:
+#  ----------
+mod.fdis.global <- aov(global.SES ~ realm, data = fdis)
+mod.fric.global <- aov(global.SES ~ realm, data = fric)
+
+# Check assumptions:
+if (FALSE) {
+  # Normality of residuals
+  Histogram(resid(mod.fdis.global))  # perfect
+  Histogram(resid(mod.fric.global))  # decent
+  # Homogeneity of variance
+  Scatterplot(x = fitted(mod.fdis.global), y = resid(mod.fdis.global))  # good
+  Scatterplot(x = fitted(mod.fric.global), y = resid(mod.fric.global))  # good
+}
+
+# Evaluation: p < 0.001 for both FDis and FRic. We have ourselves a pattern.
+# Post-hoc Tukey tests:
+post.fdis <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
+post.fric <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
+
+# Evaluation:
+#   FDis: OWWest is significantly different from OWEast and NewWorld, but OWEast
+#         and NewWorld do not differ.
+#   FRic: NewWorld is significantly different from OWWest and OWEast, but OWWest
+#         and OWEast are only marginally different (p = 0.042)
+
 
 
 cat("Done.\n")

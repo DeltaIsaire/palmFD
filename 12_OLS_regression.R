@@ -40,6 +40,13 @@ output.dir <- "output/OLS_models/"
 # Load datasets
 ###############
 cat("loading data...\n")
+# TDWG3 data
+# ----------
+tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
+
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
+
 
 # Functional diversity indices
 # ----------------------------
@@ -62,10 +69,12 @@ env <- read.csv(file = "output/tdwg3_environmental_predictors.csv",
                 row.names = 1
                 )
 
-# Additionally, merge richness and endemism into env
+# Additionally, merge richness, endemism and realm into env
 indices <- match(rownames(fd.indices[[1]]), rownames(env))
 env[, "palm.richness"] <- fd.indices[[1]] [indices, "palm.richness"]
 env[, "endemism"] <- fd.indices[[1]] [indices, "percent.endemism"]
+indices <- match(rownames(env), tdwg3.info[, "tdwg3.code"])
+env[, "realm"] <- tdwg3.info[indices, "realm"]
 # Richness and endemism may need to be transformed to be more normal
 # Using Histogram(), the following transformation was deemed necessary:
 env[, "palm.richness"] %<>% log()
@@ -87,12 +96,7 @@ env[, c(paste0("clim.", names(clim.pca)))] <-
 env.noCH <- env[, -which(names(env) %in% c("CH_Mean", "CH_Range"))]
 
 
-# TDWG3 data
-# ----------
-tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
 
-tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
-                    layer = "TDWG_level3_Coordinates")
 
 
 #########################
@@ -258,7 +262,8 @@ cat("Selecting best multi-predictor models:\n")
 # -------------------
 # Predictor preprocessing showed that some predictors cannot be used together
 # in the same model, due to extreme collinearity.
-# Here, these predictors are removed. Endemism is also removed.
+# Here, these predictors are removed. Endemism is also removed because it is
+# zero-inflated.
 env.subset <- env[, !colnames(env) %in% c("srtm_alt_mean", "lgm_ens_Tmean",
                                           "lgm_ens_Pmean", "bio5_mean",
                                           "bio6_mean", "endemism"
@@ -322,9 +327,9 @@ fd.list <- vector("list", length = length(fd.names))
 names(fd.list) <- fd.names
 null.models <- c("global", "realm", "adf")
 formulae.pca <- rep(list(fd.list), 3)
-names(formulae) <- null.models
-mods.pca <- formulae
-performances.pca <- formulae
+names(formulae.pca) <- null.models
+mods.pca <- formulae.pca
+performances.pca <- formulae.pca
 
 formulae.clim <- formulae.pca
 mods.clim <- mods.pca
@@ -337,7 +342,7 @@ for (model in null.models) {
     cat(model, index, "...\n")
     multimod <-
       MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
-                  response.name = "index",
+                  response.name = index,
                   predictors = env.subset.pca
                   )
     formulae.pca[[model]] [[index]] <-
