@@ -46,11 +46,11 @@ cat("loading data...\n")
 # A list with all the FD index data.
 # Note these dataframes include richness and endemism.
 fd.indices <- vector("list", length = 0)
-for (index in c("FRic.all.traits", "FRic.stem.height", "FRic.blade.length",
-                "FRic.fruit.length", "FDis.all.traits", "FDis.stem.height",
-                "FDis.blade.length", "FDis.fruit.length"
-                )
-     ) {
+fd.names <- c("FRic.all.traits", "FRic.stem.height", "FRic.blade.length",
+              "FRic.fruit.length", "FDis.all.traits", "FDis.stem.height",
+              "FDis.blade.length", "FDis.fruit.length"
+              )
+for (index in fd.names) {
   fd.indices [[index]] <-
     read.csv(file = paste0("output/FD_summary_", index, ".csv"), row.names = 1)
 }
@@ -107,37 +107,10 @@ if (!dir.exists(output.dir)) {
 
 # Functions to do the hard work
 # -----------------------------
-# Function to generate single-predictor model data
-SingleModel <- function(responses, predictors) {
-# responses: data frame with response variables
-# Predictors: data frame with predictor variables
-
-  # init output list
-  mat <- matrix(data = NA,
-                nrow = ncol(responses),
-                ncol = ncol(predictors),
-                dimnames = list(colnames(responses), colnames(predictors))
-                )
-  output <- list(mat, mat, mat)
-  names(output) <- c("Rsq", "slope", "p-value")
-
-  # Generate single-predictor models for each response variable
-  for (i in seq_along(responses)) {
-    response <- colnames(responses)[i]
-    model.data <- predictors
-    model.data[, response] <- responses[, response]
-    mat <- SingleOLS(model.data, response, standardize = TRUE)
-    output[[1]] [i, ] <- mat[, 1]
-    output[[2]] [i, ] <- mat[, 2]
-    output[[3]] [i, ] <- mat[, 3]
-  }
-  output
-}
-
-# Wrapper function to run SingleModel and process and save results
+# Wrapper function to run SingleModel() and process and save results
 RunMM <- function(responses, predictors, name) {
 # Name: character string as unique data identifier. Used as suffix for file names.
-  output <- SingleModel(responses, predictors)
+  output <- SingleModels(responses, predictors)
   write.csv(output[[1]],
             file = paste0(output.dir, "OLS_single_Rsq_", name, ".csv"),
             eol = "\r\n"
@@ -246,9 +219,6 @@ tdwg.observed <-
 tdwg.ch <- env[match(tdwg.observed, rownames(env)), c("CH_Mean", "CH_Range")]
 affected <- rownames(tdwg.ch)[!complete.cases(tdwg.ch)]
 
-
-
-
 # What do we know about these places?
 tdwg3.info[tdwg3.info$tdwg3.code %in% affected, ]
 # Most of these are islands
@@ -301,44 +271,98 @@ env.subset.clim <- env.subset[, !colnames(env.subset) %in% pca.axes]
 bioclim.vars <- paste0("bio", 1:19, "_mean")
 env.subset.pca <- env.subset[, !colnames(env.subset) %in% bioclim.vars]
 
-# Wrapper function to automate the auto-selection process
-# -------------------------------------------------------
-MultiModel <- function(response.var, response.name, predictors) {
- 
-  model.data <- predictors
-  model.data[, response.name] <- response.var
-  all.mods <- vector("list", length = 4)
-  names(all.mods) <- c("exhaustive", "backward", "forward", "seqrep")
-  for (i in seq_along(all.mods)) {
-    all.mods[[i]] <- SelectOLS(x = model.data,
-                             response = response.name,
-                             method = names(all.mods)[i]
-                             )
+
+# Function to parse the output of MultiSelect() and select the best model
+# ----------------------------------------------------------------------
+# On theoretical grounds, the best best model will be the one found by
+# cross-validation with the exhaustive search method; because exhaustive search
+# does not get stuck in a local optimum in the search space but searches the
+# complete space, and cross-validation is the best method to prevent over-fitting.
+# The downside is that cross-validation divides the observations randomly
+# into k folds, which introduces stochasticity into the model selection process.
+#
+# The additional 15 selections can be seen as reference models with which the
+# single best model can be compared. Taking the means of those 15 models will
+# provide a reference.
+EvalMM <- function(multimod) {
+  # extract best model performance data
+  performance <- array(data = NA,
+                       dim = c(dim(multimod[[1]] [["performance"]]), 4),
+                       dimnames = list(rownames(multimod[[1]] [["performance"]]),
+                                       colnames(multimod[[1]] [["performance"]]),
+                                       names(multimod)
+                                       )
+                       )
+  for (i in seq_along(multimod)) {
+    performance[, , i] <- multimod[[i]] [["performance"]]
   }
-  all.mods
-}
-
-a <-
-  MultiModel(response.var = fd.indices[[1]] [, "global.SES"],
-             response.name = "global.fric.all.traits",
-             predictors = env.subset.pca
-             )
-
-a[["exhaustive"]] [["performance"]]
-
-
-performance <- array(data = NA,
-                     dim = c(dim(a[[1]] [["performance"]]), 4),
-                     dimnames = list(rownames(a[[1]] [["performance"]]),
-                                     colnames(a[[1]] [["performance"]]),
-                                     names(a)
-                                     )
-                     )
-for (i in seq_along(a)) {
-  performance[, , i] <- a[[i]] [["performance"]]
+  # summarize performance
+  mat <- matrix(data = NA,
+                nrow = 4,
+                ncol = 5,
+                dimnames= list(c("best.mod", "mean", "min", "max"),
+                               colnames(performance)
+                               )
+                )
+  mat[1, ] <- performance[1, , 1]
+  mat[2, ] <- apply(performance, 2, mean)
+  mat[3, ] <- apply(performance, 2, min)
+  mat[4, ] <- apply(performance, 2, max)
+  mat
 }
 
 
+# Apply model selection for all response variables
+# ------------------------------------------------
+cat("Applying model selection for all response variables:\n")
+# Using either (1) bioclim data, or (2) climate pca axes.
+
+# Init output lists
+fd.list <- vector("list", length = length(fd.names))
+names(fd.list) <- fd.names
+null.models <- c("global", "realm", "adf")
+formulae.pca <- rep(list(fd.list), 3)
+names(formulae) <- null.models
+mods.pca <- formulae
+performances.pca <- formulae
+
+formulae.clim <- formulae.pca
+mods.clim <- mods.pca
+performances.clim <- performances.pca
+
+# Run selection process:
+cat("(1) for climate as pca axes:\n")
+for (model in null.models) {
+  for (index in fd.names) {
+    cat(model, index, "...\n")
+    multimod <-
+      MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
+                  response.name = "index",
+                  predictors = env.subset.pca
+                  )
+    formulae.pca[[model]] [[index]] <-
+      multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
+    mods.pca[[model]] [[index]] <-
+      multimod[["exhaustive"]] [["mods"]] [["cross.validation"]]
+    performances.pca[[model]] [[index]] <- EvalMM(multimod)
+  }
+}
+cat("(2) for climate as seperate bioclim predictors:\n")
+for (model in null.models) {
+  for (index in fd.names) {
+    cat(model, index, "...\n")
+    multimod <-
+      MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
+                  response.name = "index",
+                  predictors = env.subset
+                  )
+    formulae.clim[[model]] [[index]] <-
+      multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
+    mods.clim[[model]] [[index]] <-
+      multimod[["exhaustive"]] [["mods"]] [["cross.validation"]]
+    performances.clim[[model]] [[index]] <- EvalMM(multimod)
+  }
+}
 
 
 cat("Done.\n")

@@ -15,6 +15,8 @@
 # SelectOLS
 # AutoVIF
 # SingleOLS
+# SingleModels
+# MultiSelect
 
 library(magrittr)
 library(plyr)
@@ -362,6 +364,51 @@ if (FALSE) {
 
   a <- SingleOLS(x, response)
   b <- SingleOLS(x, response, digits = 4)
+}
+
+
+# Function to generate single-predictor model data
+SingleModels <- function(responses, predictors) {
+# responses: data frame with response variables
+# Predictors: data frame with predictor variables
+
+  # init output list
+  mat <- matrix(data = NA,
+                nrow = ncol(responses),
+                ncol = ncol(predictors),
+                dimnames = list(colnames(responses), colnames(predictors))
+                )
+  output <- list(mat, mat, mat)
+  names(output) <- c("Rsq", "slope", "p-value")
+
+  # Generate single-predictor models for each response variable
+  for (i in seq_along(responses)) {
+    response <- colnames(responses)[i]
+    model.data <- predictors
+    model.data[, response] <- responses[, response]
+    mat <- SingleOLS(model.data, response, standardize = TRUE)
+    output[[1]] [i, ] <- mat[, 1]
+    output[[2]] [i, ] <- mat[, 2]
+    output[[3]] [i, ] <- mat[, 3]
+  }
+  output
+}
+
+
+# Wrapper function to automate the auto-selection process
+# -------------------------------------------------------
+MultiSelect <- function(response.var, response.name, predictors) {
+  model.data <- predictors
+  model.data[, response.name] <- response.var
+  all.mods <- vector("list", length = 4)
+  names(all.mods) <- c("exhaustive", "backward", "forward", "seqrep")
+  for (i in seq_along(all.mods)) {
+    all.mods[[i]] <- SelectOLS(x = model.data,
+                             response = response.name,
+                             method = names(all.mods)[i]
+                             )
+  }
+  all.mods
 }
 
 
