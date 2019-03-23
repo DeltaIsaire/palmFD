@@ -61,8 +61,9 @@ ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
   }
   # move response variable to last column
   resp.ind <- which(names(x.complete) == response)
-  x.complete <- x.complete[, c(1:(resp.ind - 1), (resp.ind + 1):ncol(x), resp.ind)]
-
+  if (! resp.ind == ncol(x.complete)) {
+    x.complete <- x.complete[, c(1:(resp.ind - 1), (resp.ind + 1):ncol(x), resp.ind)]
+  }
   x.complete
 }
 
@@ -385,9 +386,11 @@ SingleOLS <- function(x, response, standardize = TRUE, digits = "all",
     mat[match(names(x.complete)[index], rownames(mat)), 1] <-
       mod.summary[["r.squared"]]
     mat[match(names(x.complete)[index], rownames(mat)), 2] <-
-      mod.summary[["coefficients"]] [2, 1]
+      mod.summary[["coefficients"]] [2, 1]  # slope (of first predictor)
+    # p-value: return the MODEL p-value. This is a bit more complex to obtain.
+    f <- mod.summary[["fstatistic"]]
     mat[match(names(x.complete)[index], rownames(mat)), 3] <-
-      mod.summary[["coefficients"]] [2, 4]
+      pf(f[1], f[2], f[3], lower.tail = FALSE)  # p-value
   }
 
   # Return results, rounding as specified
@@ -434,9 +437,10 @@ SingleModels <- function(responses, predictors) {
     model.data <- predictors
     model.data[, response] <- responses[, response]
     mat <- SingleOLS(model.data, response, standardize = TRUE)
-    output[[1]] [i, ] <- mat[, 1]
-    output[[2]] [i, ] <- mat[, 2]
-    output[[3]] [i, ] <- mat[, 3]
+    indices <- match(rownames(mat), colnames(output[[1]]))
+    output[[1]] [i, indices] <- mat[, 1]
+    output[[2]] [i, indices] <- mat[, 2]
+    output[[3]] [i, indices] <- mat[, 3]
   }
   output
 }

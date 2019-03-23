@@ -35,6 +35,8 @@ source(file = "functions/plotting_functions_ggplot2.R")
 # Model output directory (with trailing slash!)
 output.dir <- "output/OLS_models/"
 
+set.seed(999)
+
 
 ###############
 # Load datasets
@@ -207,6 +209,56 @@ SingleSummary <- function(ch) {
 results.single <- SingleSummary(ch = TRUE)
 results.single.noCH <- SingleSummary(ch = FALSE)
 
+# Function to parse and save the Rsq of significant predictors
+# ------------------------------------------------------------
+SaveResults <- function(results, file) {
+  GetNames <- function(x) {
+    unique(unlist(llply(x, names)))
+  }
+
+  cols <- unique(unlist(llply(results, GetNames)))
+
+  Parse <- function(x) {
+    rows <- names(x)
+    mat <- matrix(data = NA,
+                  nrow = length(rows),
+                  ncol = length(cols),
+                  dimnames = list(rows, cols)
+                  )
+    for (i in seq_along(x)) {
+      indices <- match(names(x[[i]]), colnames(mat))
+      mat[i, indices] <- as.numeric(x[[i]])
+    }
+  mat
+  }
+  output.list <- llply(results, Parse)
+  output <- output.list[[1]]
+  if (length(output.list) > 1) {
+    for (i in 2:length(output.list)) {
+      output <- rbind(output, output.list[[i]])
+    }
+  }
+  output %<>% as.data.frame()
+  output <- data.frame(null.model = rep(names(results),
+                                        each = nrow(output) / length(results)
+                                        ),
+                       fd.index   = rownames(output),
+                       output,
+                       row.names = seq_len(nrow(output))
+                       )
+  write.csv(output, file = file, eol = "\r\n", row.names = FALSE)
+  output
+}
+
+# Call the function
+# -----------------
+SaveResults(results.single,
+            file = paste0(output.dir, "OLS_single_Rsq_all.csv")
+            )
+SaveResults(results.single.noCH,
+            file = paste0(output.dir, "OLS_single_Rsq_all_noCH.csv")
+            )
+
 
 
 #############################################
@@ -317,58 +369,143 @@ EvalMM <- function(multimod) {
 }
 
 
+# Function to apply mod selection automatically to all fd.indices
+# ---------------------------------------------------------------
+ApplyModSelect <- function(fd.indices, fd.names, predictors) {
+# fd.indices: the object 'fd.indices' created above.
+# fd.names: character vector giving names of the response variables
+# predictors: dataframe with predictor variables
+
+  # Init 3 output lists: for formulae, fitted models, and performance metrics
+  fd.list <- vector("list", length = length(fd.names))
+  names(fd.list) <- fd.names
+  null.models <- c("global", "realm", "adf")
+  formulae <- rep(list(fd.list), 3)
+  names(formulae) <- null.models
+  mods <- formulae
+  performances <- formulae
+
+  # Run selection process:
+  for (model in null.models) {
+    for (index in fd.names) {
+      cat(model, index, "...\n")
+      multimod <-
+        MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
+                    response.name = index,
+                    predictors = predictors
+                    )
+      formulae[[model]] [[index]] <-
+        multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
+      mods[[model]] [[index]] <-
+        multimod[["exhaustive"]] [["mods"]] [["cross.validation"]]
+      performances[[model]] [[index]] <- EvalMM(multimod)
+    }
+  }
+
+  # Combine and return output
+  list(formulae = formulae, mods = mods, performances = performances)
+}
+
+
 # Apply model selection for all response variables
 # ------------------------------------------------
 cat("Applying model selection for all response variables:\n")
 # Using either (1) bioclim data, or (2) climate pca axes.
+# Additionally, either including or excluding canopy height (which has 14 NAs).
+# Additionally, either including or excluding c("realm", "palm.richness")
+# So that's 8 different runs on 3 * 8 = 24 response variables...
+#
+cat("(1) climatic variables + realm + palm.richness + CH...\n")
+select.one <- ApplyModSelect(fd.indices, fd.names, env.subset.clim)
 
-# Init output lists
-fd.list <- vector("list", length = length(fd.names))
-names(fd.list) <- fd.names
-null.models <- c("global", "realm", "adf")
-formulae.pca <- rep(list(fd.list), 3)
-names(formulae.pca) <- null.models
-mods.pca <- formulae.pca
-performances.pca <- formulae.pca
+cat("(2) climatic variables + realm + palm.richness, excluding CH...\n")
+env.subset.clim.noCH <-
+  env.subset.clim[, !names(env.subset.clim) %in% c("CH_Mean", "CH_Range")]
+select.two <- ApplyModSelect(fd.indices, fd.names, env.subset.clim.noCH)
 
-formulae.clim <- formulae.pca
-mods.clim <- mods.pca
-performances.clim <- performances.pca
+cat("(3) climatic variables + CH, excluding realm + palm.richness...\n")
+env.subset.clim.noRealm <-
+  env.subset.clim[, !names(env.subset.clim) %in% c("realm", "palm.richness")]
+select.three <- ApplyModSelect(fd.indices, fd.names, env.subset.clim.noRealm)
 
-# Run selection process:
-cat("(1) for climate as pca axes:\n")
-for (model in null.models) {
-  for (index in fd.names) {
-    cat(model, index, "...\n")
-    multimod <-
-      MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
-                  response.name = index,
-                  predictors = env.subset.pca
-                  )
-    formulae.pca[[model]] [[index]] <-
-      multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
-    mods.pca[[model]] [[index]] <-
-      multimod[["exhaustive"]] [["mods"]] [["cross.validation"]]
-    performances.pca[[model]] [[index]] <- EvalMM(multimod)
+cat("(4) climatic variables, excluding realm + palm.richness + CH...\n")
+env.subset.clim.none <-
+  env.subset.clim.noCH[, !names(env.subset.clim.noCH) %in% c("realm",
+                                                             "palm.richness"
+                                                             )
+                       ]
+select.four <- ApplyModSelect(fd.indices, fd.names, env.subset.clim.none)
+
+
+cat("(5) climate PCA axes + realm + palm.richness + CH...\n")
+select.five <- ApplyModSelect(fd.indices, fd.names, env.subset.pca)
+
+cat("(6) climate PCA axes + realm + palm.richness, excluding CH...\n")
+env.subset.pca.noCH <-
+  env.subset.pca[, !names(env.subset.pca) %in% c("CH_Mean", "CH_Range")]
+select.six <- ApplyModSelect(fd.indices, fd.names, env.subset.pca.noCH)
+
+cat("(7) climate PCA axes + CH, excluding realm + palm.richness...\n")
+env.subset.pca.noRealm <-
+  env.subset.pca[, !names(env.subset.pca) %in% c("realm", "palm.richness")]
+select.seven <- ApplyModSelect(fd.indices, fd.names, env.subset.pca.noRealm)
+
+cat("(8) climate PCA axes, excluding realm + palm.richness + CH...\n")
+env.subset.pca.none <-
+  env.subset.pca.noCH[, !names(env.subset.pca.noCH) %in% c("realm",
+                                                           "palm.richness"
+                                                             )
+                       ]
+select.eight <- ApplyModSelect(fd.indices, fd.names, env.subset.pca.none)
+
+
+# Parse and save the most important output data
+# ---------------------------------------------
+# What we want is a dataframe with Rsq for all response variables (rows) and all
+# 8 predictor datasets (columns).
+
+# init matrix
+Rsq <-
+  matrix(data = NA,
+         nrow = 8 * 3,
+         ncol = 8,
+         dimnames = list(rep(fd.names, 3),
+                         c("clim.all", "clim.noCH", "clim.norealm", "clim.none",
+                           "pca.all", "pca.noCH", "pca.norealm", "pca.none"
+                           )
+                         )
+         )
+# Function to extract all Rsq from an output object into a vector
+GetRsq <- function(select) {
+  rsq <- numeric(length = 8 * 3)
+  i <- 1
+  for (model in 1:3) {
+    for (index in 1:8) {
+#      cat("model", model, "index", index, "product", i, "\n")
+      rsq[i] <- select[["performances"]] [[model]] [[index]] [1, 2]
+      i <- i + 1
+    }
   }
-}
-cat("(2) for climate as seperate bioclim predictors:\n")
-for (model in null.models) {
-  for (index in fd.names) {
-    cat(model, index, "...\n")
-    multimod <-
-      MultiSelect(response.var = fd.indices[[index]] [, paste0(model, ".SES")],
-                  response.name = "index",
-                  predictors = env.subset
-                  )
-    formulae.clim[[model]] [[index]] <-
-      multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
-    mods.clim[[model]] [[index]] <-
-      multimod[["exhaustive"]] [["mods"]] [["cross.validation"]]
-    performances.clim[[model]] [[index]] <- EvalMM(multimod)
-  }
+  rsq
 }
 
+# Gather data and save
+rsq <- data.frame(null.model       = rep(c("global", "realm", "adf"), each = 8),
+                  fd.index         = rep(fd.names, 3),
+                  clim.all         = GetRsq(select.one),
+                  clim.noCH        = GetRsq(select.two),
+                  clim.norealm     = GetRsq(select.three),
+                  clim.none        = GetRsq(select.four),
+                  clim.pca.all     = GetRsq(select.five),
+                  clim.pca.noCH    = GetRsq(select.six),
+                  clim.pca.norealm = GetRsq(select.seven),
+                  clim.pca.none    = GetRsq(select.eight)
+                  )
+write.csv(rsq,
+          file = paste0(output.dir, "OLS_best_models_rsq.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
 
 cat("Done.\n")
 
