@@ -15,6 +15,10 @@ cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
 library(multcomp)
+library(ggplot2)
+library(gridExtra)
+
+theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
@@ -91,11 +95,45 @@ means <- ddply(cwm.traits,
 
 # Visualization of trait differences between realms
 # -------------------------------------------------
-if (FALSE) {
-  boxplot(stem.height ~ realm, data = cwm.traits)
-  boxplot(blade.length ~ realm, data = cwm.traits)
-  boxplot(fruit.length ~ realm, data = cwm.traits)
+CWM_Plot <- function(x, x.var = "realm", y.var, title = NULL, subtitle = NULL,
+                     xlab = x.var, ylab = paste0("Log10 (", y.var, ")")) {
+  # Plot the community mean of each TDWG3 unit as a dot, then superimpose a boxplot.
+  # In both cases, the points are split by realm.
+  y.max <- max(x[, y.var])
+  ggplot(x) +
+    geom_boxplot(aes_string(x = x.var, y = y.var),
+                 outlier.size = 0,
+                 outlier.color = "white"
+                 ) +
+    geom_point(aes_string(x = x.var, y = y.var), pch = 21, size = 2) +
+    expand_limits(y = 0) +
+    labs(title = title, subtitle = subtitle, x = xlab, y = ylab)
 }
+
+for (trait in c("stem.height", "blade.length", "fruit.length")) {
+  ggsave(plot = CWM_Plot(cwm.traits,
+                         x.var = "realm",
+                         y.var = trait,
+                         xlab = "Realm",
+                         ylab = paste0("Log10 (", trait, ")")
+                         ),
+         filename = paste0("graphs/anova_", trait, "_vs_realm.png"),
+         width = 4,
+         height = 4
+         )
+}
+
+
+stem.height <-  CWM_Plot(cwm.traits, y.var = "stem.height", title = "Stem height")
+blade.length <- CWM_Plot(cwm.traits, y.var = "blade.length", title = "Blade length")
+fruit.length <- CWM_Plot(cwm.traits, y.var = "fruit.length", title = "Fruit length")
+
+ggsave(plot = arrangeGrob(stem.height, blade.length, fruit.length, ncol = 3),
+       filename = "graphs/anova_traits_vs_realm.png",
+       width = 9,
+       height = 4
+       )
+
 # Looks about like you'd expect.
 
 
@@ -118,21 +156,37 @@ fric[, "realm"] <-
 #  ----------
 mod.fdis.global <- aov(global.SES ~ realm, data = fdis)
 mod.fric.global <- aov(global.SES ~ realm, data = fric)
+mod.fdis.realm <- aov(realm.SES ~ realm, data = fdis)
+mod.fric.realm <- aov(realm.SES ~ realm, data = fric)
+mod.fdis.adf <- aov(adf.SES ~ realm, data = fdis)
+mod.fric.adf <- aov(adf.SES ~ realm, data = fric)
 
 # Check assumptions:
 if (FALSE) {
   # Normality of residuals
   Histogram(resid(mod.fdis.global))  # perfect
   Histogram(resid(mod.fric.global))  # decent
+  Histogram(resid(mod.fdis.realm))  # decent
+  Histogram(resid(mod.fric.realm))  # decent
+  Histogram(resid(mod.fdis.adf))  # decent
+  Histogram(resid(mod.fric.adf))  # decent
   # Homogeneity of variance
   Scatterplot(x = fitted(mod.fdis.global), y = resid(mod.fdis.global))  # good
   Scatterplot(x = fitted(mod.fric.global), y = resid(mod.fric.global))  # good
+  Scatterplot(x = fitted(mod.fdis.realm), y = resid(mod.fdis.realm))  # good
+  Scatterplot(x = fitted(mod.fric.realm), y = resid(mod.fric.realm))  # decent
+  Scatterplot(x = fitted(mod.fdis.adf), y = resid(mod.fdis.adf))  # decent
+  Scatterplot(x = fitted(mod.fric.adf), y = resid(mod.fric.adf))  # good
 }
 
 # Evaluation: p < 0.001 for both FDis and FRic. We have ourselves a pattern.
 # Post-hoc Tukey tests:
-post.fdis <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
-post.fric <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
+post.fdis.global <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
+post.fric.global <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
+post.fdis.realm <- glht(model = mod.fdis.realm, linfct = mcp("realm" = "Tukey"))
+post.fric.realm <- glht(model = mod.fric.realm, linfct = mcp("realm" = "Tukey"))
+post.fdis.adf <- glht(model = mod.fdis.adf, linfct = mcp("realm" = "Tukey"))
+post.fric.adf <- glht(model = mod.fric.adf, linfct = mcp("realm" = "Tukey"))
 
 # Evaluation:
 #   FDis: OWWest is significantly different from OWEast and NewWorld, but OWEast
@@ -140,7 +194,29 @@ post.fric <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
 #   FRic: NewWorld is significantly different from OWWest and OWEast, but OWWest
 #         and OWEast are only marginally different (p = 0.042)
 
+# Visualize the results
+# ---------------------
+for (null.mod in c("global", "realm", "adf")) {
+  plot.fric <- CWM_Plot(fric[complete.cases(fric), ],
+                        y.var = paste0(null.mod, ".SES"),
+                        title = "Functional Richness (FRic)",
+                        subtitle = paste("Null model:", null.mod),
+                        ylab = "FRic"
+                        )
 
+  plot.fdis <- CWM_Plot(fdis[complete.cases(fdis), ],
+                        y.var = paste0(null.mod, ".SES"),
+                        title = "Functional Dispersion (FDis)",
+                        subtitle = paste("Null model:", null.mod),
+                        ylab = "FDis"
+                        )
+
+  ggsave(plot = arrangeGrob(plot.fric, plot.fdis, ncol = 2),
+         filename = paste0("graphs/anova_FD_vs_realm_", null.mod, ".png"),
+         width = 6,
+         height = 4
+         )
+}
 
 cat("Done.\n")
 
