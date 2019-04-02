@@ -69,12 +69,13 @@ ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
 
 
 SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward",
-                      numeric.only = FALSE) {
+                      numeric.only = FALSE, vif.threshold = 3) {
 # Function to perform automated OLS regression model selection for a given dataset.
-# The provided data is subsetted to complete cases of all numeric variables. The best
-# OLS model of each length is found via 'regsubsets' from the 'leaps' package.
-# Subsequently, the optimal length is estimated using cross-validation, adjusted Rsq,
-# AIC and BIC.
+# The provided data is subsetted to complete cases of all numeric variables. It is 
+# then further subsetted to only non-collinear predictors, using function AutoVIF().
+# The best OLS model of each length is then found via 'regsubsets' from the 'leaps'
+# package. Finally, the optimal length is estimated using cross-validation, adjusted
+# Rsq, AIC and BIC.
 #
 # NOTE: beware of linear dependencies. With bioclim data for instance, bio7 equals
 # (bio5 - bio6), which doesn't provide any new information. You must use either 5 + 6
@@ -89,6 +90,7 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
 #   standardize: Should predictors be standardized to mean 0 and unit variance?
 #   method: model selection method to use, see regsubsets()
 #   numeric.only: Subset dataset to only continuous numerical predictors?
+#   vif.threshold: Threshold of VIF score that is deemed acceptable.
 # Returns:
 #   A list of three:
 #     formulae: A list with the formula for the model selected by each method
@@ -108,6 +110,11 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
   # Convert characters to factors:
   char.inds <- which(sapply(x.complete, is.character))
   x.complete[char.inds] <- lapply(x.complete[char.inds], as.factor)
+
+  # Filter predictor variables using AutoVIF()
+  to.keep <- AutoVIF(x.complete, response = response, threshold = vif.threshold)
+  x.complete %<>% .[, colnames(.) %in% c(to.keep, response)]
+
   # If we have factors, argument nvmax to regsubsets() must be adjusted:
   factor.inds <- which(sapply(x.complete, is.factor))
   factor.levels <- lapply(x.complete[factor.inds], levels)
@@ -272,6 +279,10 @@ AutoVIF <- function(x, response, standardize = TRUE, threshold = 5,
 # fitted with all predictors, then the predictor with highest VIF is removed. This
 # is repeated until the highest remaining VIF is below the threshold.
 #
+# In the case of categorical predictor variables, instead of VIF we compute
+# GVIF^[1/(2*df)], square it, and then interpret it the same as regular VIF scores.
+# see ?vif and Fox & Monette 1990 (https://www.tandfonline.com/doi/abs/10.1080/01621459.1992.10475190#.U2jkTFdMzTo)
+#
 # Args:
 #   x: data.frame with all variables (response + predictors)
 #   response: character vector giving column name of the response variable.
@@ -305,6 +316,9 @@ AutoVIF <- function(x, response, standardize = TRUE, threshold = 5,
     if (length(predictors) > 1) {
       mod <- lm(form, data = x.complete)
       scores <- vif(mod)
+      if (!IsOneDimensional(scores)) {
+        scores <- scores[, "GVIF^(1/(2*Df))"] ^ 2
+      }
     } else {
       scores <- 0
     }

@@ -227,9 +227,11 @@ SaveResults <- function(results, file) {
                   )
     for (i in seq_along(x)) {
       indices <- match(names(x[[i]]), colnames(mat))
-      mat[i, indices] <- as.numeric(x[[i]])
+      mat[i, indices] <- suppressWarnings(as.numeric(x[[i]]))
+      # warning suppression because x[[i]] could be of class chr instead of df.
+      # That is not an error, so the warning can be ignored
     }
-  mat
+    mat
   }
   output.list <- llply(results, Parse)
   output <- output.list[[1]]
@@ -340,7 +342,10 @@ env.subset.pca <- env.subset[, !colnames(env.subset) %in% bioclim.vars]
 #
 # The additional 15 selections can be seen as reference models with which the
 # single best model can be compared. Taking the means of those 15 models will
-# provide a reference.
+# provide a frame of reference.
+#
+# UPDATE: using the below performance metrics, you can verify that the exhaustive
+# cross-validation model choice is indeed a good overall choice. 
 EvalMM <- function(multimod) {
   # extract best model performance data
   performance <- array(data = NA,
@@ -459,8 +464,8 @@ env.subset.pca.none <-
 select.eight <- ApplyModSelect(fd.indices, fd.names, env.subset.pca.none)
 
 
-# Parse and save the most important output data
-# ---------------------------------------------
+# Parse and save Rsq data
+# -----------------------
 # What we want is a dataframe with Rsq for all response variables (rows) and all
 # 8 predictor datasets (columns).
 
@@ -506,6 +511,44 @@ write.csv(rsq,
           eol = "\r\n",
           row.names = FALSE
           )
+
+# Parse and save best model formulae
+# ----------------------------------
+# With focus on 'select.one' because Rsq analysis indicates this run contains the
+# best combination of predictors.
+
+# We'll write a function to extract the formulae.
+# Saving .csv files implies/requires coercion to dataframe format, so let's make
+# a dataframe with the response variables, a single character column
+# giving the formula of the best model, and a factor indicating the null model.
+GetBestMods <- function(select) {
+  pred.names <- names(select[["formulae"]] [[1]])
+  mods <- data.frame(null.model = rep(names(select[["formulae"]]),
+                                      each = length(pred.names)
+                                      ),
+                     fd.index = rep(pred.names, 3),
+                     best.formula = rep(NA, length = 3 * length(pred.names))
+                     )
+  formulae <- character(length = 3 * length(pred.names))
+  for (i in seq_along(select[["formulae"]])) {
+    formulae[(1 + 8 * (i - 1)):(8 + 8 * (i - 1))] <-
+      ldply(select[["formulae"]] [[i]], as.character) [, 4]
+  }
+  mods[, "best.formula"] <- formulae
+  mods 
+}
+
+# apply function and save:
+best.mods <- GetBestMods(select.one)
+
+write.csv(best.mods,
+          file = paste0(output.dir, "OLS_best_models_predictors.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+
+
 
 cat("Done.\n")
 
