@@ -27,6 +27,8 @@ library(sf)
 library(ggplot2)
 library(scales)
 
+theme_set(theme_bw())
+
 source(file = "functions/base_functions.R")
 source(file = "functions/OLS_regression_functions.R")
 source(file = "functions/plotting_functions.R")
@@ -546,6 +548,107 @@ write.csv(best.mods,
           eol = "\r\n",
           row.names = FALSE
           )
+
+
+#############################################
+# Multi-Models related to specific hypotheses
+#############################################
+cat("Fitting and evaluating models for specific hypotheses:\n")
+# Essentially, here we focus on narrow subsets of predictor variables, to test
+# how each group of predictors relates to FD.
+
+cat("(1) Non-climatic environmental variation...\n")
+# Select only non-clim environmental predictors:
+env.nonclim <- env.subset[, c("alt_range", "soilcount", "CH_Mean", "CH_Range")]
+# Apply best model selection:
+select.nonclim <- ApplyModSelect(fd.indices, fd.names, env.nonclim)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.nonclim),
+          file = paste0(output.dir, "OLS_best_models_predictors_nonclim.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+cat("(2) Climate change anomaly since LGM...\n")
+# Select only LGM climate anomaly predictor:
+env.lgm <- env.subset[, c("lgm_Tano", "lgm_Pano")]
+# Apply best model selection:
+select.lgm <- ApplyModSelect(fd.indices, fd.names, env.lgm)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.lgm),
+          file = paste0(output.dir, "OLS_best_models_predictors_lgm.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+cat("(3) Contemporary climate:\n")
+cat("(3a) Bioclim variables...\n")
+env.clim <- env.subset[, c("bio1_mean", "bio2_mean", "bio3_mean", "bio4_mean",
+                           "bio7_mean", "bio8_mean", "bio9_mean", "bio10_mean",
+                           "bio11_mean", "bio12_mean", "bio13_mean", "bio14_mean",
+                           "bio15_mean", "bio16_mean", "bio17_mean", "bio18_mean",
+                           "bio19_mean"
+                           )
+                       ]
+# Apply best model selection:
+select.clim <- ApplyModSelect(fd.indices, fd.names, env.clim)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.clim),
+          file = paste0(output.dir, "OLS_best_models_predictors_clim.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+cat("(3b) Temperature and Precipitation seasonality...\n")
+env.seas <- env.subset[, c("bio4_mean", "bio15_mean")]
+# Apply best model selection:
+select.seas <- ApplyModSelect(fd.indices, fd.names, env.seas)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.seas),
+          file = paste0(output.dir, "OLS_best_models_predictors_seas.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+cat("(3c) Contemporary climate PCA axes...\n")
+env.clim.pca <- env.subset[, c("clim.PC1", "clim.PC2", "clim.PC3", "clim.PC4")]
+# Apply best model selection:
+select.clim.pca <- ApplyModSelect(fd.indices, fd.names, env.clim.pca)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.clim.pca),
+          file = paste0(output.dir, "OLS_best_models_predictors_clim_pca.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+cat("(4) Biogeographical parameters...\n")
+env.geo <- env.subset[, c("realm", "palm.richness")]
+# Apply best model selection:
+select.geo <- ApplyModSelect(fd.indices, fd.names, env.geo)
+# Extract and save best model formulae
+write.csv(GetBestMods(select.geo),
+          file = paste0(output.dir, "OLS_best_models_predictors_geo.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
+# Extract and save best model Rsq for all hypothesis cases
+# --------------------------------------------------------
+rsq2 <- data.frame(null.model = rep(c("global", "realm", "adf"), each = 8),
+                   fd.index   = rep(fd.names, 3),
+                   nonclim    = GetRsq(select.nonclim),
+                   lgm        = GetRsq(select.lgm),
+                   clim       = GetRsq(select.clim),
+                   clim.pca   = GetRsq(select.clim.pca),
+                   clim.seas  = GetRsq(select.seas),
+                   geo        = GetRsq(select.geo)
+                   )
+write.csv(rsq2,
+          file = paste0(output.dir, "OLS_best_models_rsq_hypotheses.csv"),
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
 
 
 
