@@ -41,10 +41,14 @@ cwm.traits <- read.csv(file = "output/observed_FD/community_trait_means_stochast
 fdis <- read.csv(file = "output/FD_summary_FDis.all.traits.csv", row.names = 1)
 fric <- read.csv(file = "output/FD_summary_FRic.all.traits.csv", row.names = 1)
 
+# Palm occurrence data
+palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
+
 
 #########################################
 # Analysis of variance on traits vs realm
 #########################################
+cat("Performing anova on traits vs realm...\n")
 
 # Merge trait data with realm data
 cwm.traits[, "realm"] <-
@@ -141,6 +145,7 @@ ggsave(plot = arrangeGrob(stem.height, blade.length, fruit.length, ncol = 3),
 #############################################
 # Analysis of variance on FD indices vs realm
 #############################################
+cat("performing anova on FD indices vs realm...\n")
 
 # Merge FD data with realm data
 # -----------------------------
@@ -217,6 +222,43 @@ for (null.mod in c("global", "realm", "adf")) {
          height = 4
          )
 }
+
+
+################################
+# Species overlap between realms
+################################
+cat("Comparing species overlap between realms...\n")
+
+# init lists
+realms <- levels(tdwg3.info[, "realm"])
+areas <- vector("list", length = 3)
+names(areas) <- realms
+species <- areas
+# populate lists
+for (i in 1:3) {
+  areas[[i]] <- tdwg3.info[, "tdwg3.code"] [tdwg3.info[, "realm"] == realms[i]]
+  species[[i]] <- palm.dist[palm.dist[, "Area_code_L3"] %in% areas[[i]], "SpecName"]
+}
+species <- llply(species, unique)
+# Find number of shared species, i.e. species not unique to a realm
+shared <- numeric(length = 3)
+for (i in 1:3) {
+  shared[i] <- sum(species[[i]] %in% unlist(species[-i]))
+}
+
+
+realm.species <-
+  data.frame(realm          = c("NewWorld", "OldWorldEast", "OldWorldWest"),
+             total.species  = laply(species, length),
+             shared.species = shared
+             )
+
+write.csv(realm.species,
+          file = "output/realm_species_count_shared.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
 
 cat("Done.\n")
 
