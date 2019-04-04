@@ -40,16 +40,25 @@ output.dir <- "output/OLS_models/"
 set.seed(999)
 
 
-###############
-# Load datasets
-###############
-cat("loading data...\n")
+###########################
+# Load and prepare datasets
+###########################
+cat("Preparing data...\n")
 # TDWG3 data
 # ----------
 tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
 
 tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
                     layer = "TDWG_level3_Coordinates")
+
+# List with the tdwg3 units in each realm
+# ---------------------------------------
+realm.tdwg3 <- vector("list", length = 3)
+names(realm.tdwg3) <- levels(tdwg3.info[, "realm"])
+for (i in 1:3) {
+  realm.tdwg3[[i]] <-
+    tdwg3.info[tdwg3.info[, "realm"] == names(realm.tdwg3)[i], "tdwg3.code"]
+}
 
 
 # Functional diversity indices
@@ -142,36 +151,79 @@ GetFD <- function(null.model) {
   df
 }
 
+# Function to subset the input data to realm, combining results into a list
+# -------------------------------------------------------------------------
+RealmSubset <- function(x) {
+  output <- vector("list", length = length(realm.tdwg3))
+  names(output) <- names(realm.tdwg3)
+  for (i in seq_along(output)) {
+    output[[i]] <- x[rownames(x) %in% realm.tdwg3[[i]], ]
+  }
+  output
+}
+
 
 # Call the functions for each null model dataset
 # ----------------------------------------------
+# In addition to the full dataset, it is good to look at subsets for each of the
+# three realms. To avoid combinatorial explosion, for realm subsets we only look
+# at the case where Canopy Height is INcluded. Results on the full data indicate
+# that including CH does not strongly affect the results.
 cat("(1) For null model Global...\n")
+# full dataset:
 fd.global <- GetFD("global")
 RunMM(fd.global, env, "global")
 RunMM(fd.global, env.noCH, "global_noCH")
+# realm subsets:
+fd.global.realms <- RealmSubset(fd.global)
+env.realms <- RealmSubset(env[, !colnames(env) %in% "realm"])
+for (i in 1:3) {
+  RunMM(fd.global.realms[[i]],
+        env.realms[[i]],
+        paste0("global_", names(env.realms)[[i]])
+        )
+}
 
 cat("(2) For null model Realm...\n")
 fd.realm <- GetFD("realm")
 RunMM(fd.realm, env, "realm")
 RunMM(fd.realm, env.noCH, "realm_noCH")
+fd.realm.realms <- RealmSubset(fd.realm)
+for (i in 1:3) {
+  RunMM(fd.realm.realms[[i]],
+        env.realms[[i]],
+        paste0("realm_", names(env.realms)[[i]])
+        )
+}
 
 cat("(3) For null model ADF...\n")
 fd.adf <- GetFD("adf")
 RunMM(fd.adf, env, "adf")
 RunMM(fd.adf, env.noCH, "adf_noCH")
+fd.adf.realms <- RealmSubset(fd.adf)
+for (i in 1:3) {
+  RunMM(fd.adf.realms[[i]],
+        env.realms[[i]],
+        paste0("adf_", names(env.realms)[[i]])
+        )
+}
 
 
 # Summarize results
 # -----------------
 cat("Summarizing single-predictor model results...\n")
-SingleSummary <- function(ch) {
+SingleSummary <- function(ch, name.ext = "") {
 # 1. For each null model, for each of the 8 FD indices, get the R-squared of
 # statistically significant predictors, combining results into a list.
 #
 # ch: logical indicating whether to use the data INcluding canopy height
+# name.ext: name extension of the datafiles (e.g. in 'global_NewWorld' the name
+# extension is '_NewWorld')
   canopy <- ifelse(ch, "", "_noCH")
   single.predictors <- vector("list", length = 3)
-  names(single.predictors) <- c("global", "realm", "adf")
+  names(single.predictors) <-
+    c("global", "realm", "adf") %>%
+    paste0(., name.ext)
   for (i in seq_along(single.predictors)) {
     # Load the single-model data
     p.vals <- read.csv(file = paste0(output.dir,
@@ -208,8 +260,14 @@ SingleSummary <- function(ch) {
   single.predictors
 }
 
+# Apply for full dataset:
 results.single <- SingleSummary(ch = TRUE)
 results.single.noCH <- SingleSummary(ch = FALSE)
+# Apply for realm subsets:
+results.single.NewWorld <- SingleSummary(ch = TRUE, name.ext = "_NewWorld")
+results.single.OWWest <- SingleSummary(ch = TRUE, name.ext = "_OWWest")
+results.single.OWEast <- SingleSummary(ch = TRUE, name.ext = "_OWEast")
+
 
 # Function to parse and save the Rsq of significant predictors
 # ------------------------------------------------------------
@@ -261,6 +319,15 @@ SaveResults(results.single,
             )
 SaveResults(results.single.noCH,
             file = paste0(output.dir, "OLS_single_Rsq_all_noCH.csv")
+            )
+SaveResults(results.single.NewWorld,
+            file = paste0(output.dir, "OLS_single_Rsq_all_NewWorld.csv")
+            )
+SaveResults(results.single.OWWest,
+            file = paste0(output.dir, "OLS_single_Rsq_all_OWWest.csv")
+            )
+SaveResults(results.single.OWEast,
+            file = paste0(output.dir, "OLS_single_Rsq_all_OWEast.csv")
             )
 
 
