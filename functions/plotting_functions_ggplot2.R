@@ -32,6 +32,7 @@ library(plyr)
 library(sf)
 library(ggplot2)
 library(scales)
+library(viridis)
 
 source(file="functions/base_functions.R")
 
@@ -90,7 +91,9 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
 }
 
 
-SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
+SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
+                            subtitle = NULL, colors = "viridis",
+                            direction = 1, begin = 0) {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units)
@@ -98,39 +101,60 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL) {
   tdwg.map$vector <- vector
   tdwg.plot <- ggplot(data = tdwg.map) + 
                  geom_sf(size = 0.15, color = "black", aes(fill = vector)) +
-                 labs(fill = vector.name) +
-                 ggtitle(title) +
                  # This magically only adds axes:
                  geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-                 xlab(NULL) +
-                 ylab(NULL)
+                 labs(fill = vector.name,
+                      x = NULL,
+                      y = NULL,
+                      title = title,
+                      subtitle = subtitle
+                      ) +
+                 scale_fill_viridis(na.value = "#C0C0C0",
+                                    discrete = is.discrete(vector),
+                                    option = colors,
+                                    direction = direction,
+                                    begin = begin
+                                    )
   tdwg.plot
 }
 
 
-SpatialPlotSegments <- function(tdwg.map, segments, title = NULL, subtitle = NULL) {
+SpatialPlotSegments <- function(tdwg.map, segments = NULL, fill.vector, fill.name, 
+                                title = NULL, subtitle = NULL, colors = "viridis",
+                                direction = 1, begin = 0) {
 # Segments: data.frame with coordinates for segments. See geom_segment().
 #           The order of columns in the dataframe should be
 #           c("x", "y", "xend", "yend")
   tdwg.plot <- ggplot(data = tdwg.map) + 
-                 geom_sf(size = 0.15, color = "black") +
+                 geom_sf(size = 0.15, color = "black", aes(fill = fill.vector)) +
                  # This magically only adds axes:
                  geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+                 labs(fill = fill.name,
+                      x = NULL,
+                      y = NULL,
+                      title = title,
+                      subtitle = subtitle
+                      ) +
+                 scale_fill_viridis(na.value = "#C0C0C0",
+                                    discrete = is.discrete(vector),
+                                    option = colors,
+                                    direction = direction,
+                                    begin = begin
+                                    )
+  if (!is.null(segments)) {
+    tdwg.plot <- tdwg.plot +
+                 # Make segments
                  geom_segment(data = segments,
                               aes(x = segments[, 1],
                                   y = segments[, 2],
                                   xend = segments[, 3],
                                   yend = segments[, 4]
                                   ),
-                              size = 0.3,
+                              size = 0.5,
                               colour = "red",
                               show.legend = FALSE
-                              ) +
-                 labs(x = NULL,
-                      y = NULL,
-                      title = title,
-                      subtitle = subtitle
-                      )
+                              )
+  }
   tdwg.plot
 }
 
