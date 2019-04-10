@@ -65,6 +65,47 @@ cwm <- read.csv(file = "output/observed_FD/community_trait_means_stochastic_mean
                                     ) %>%
   Temp()
 
+# Assemblage dispersion field weights
+adf.weights <-
+  read.csv(file = "output/adf_weight_matrix.csv",
+           header = TRUE,
+           row.names = 1,
+           check.names = FALSE
+           ) %>%
+  as.matrix()
+
+
+# Calculated functional diversity indices
+fd.global <-
+  read.csv(file = "output/null_model_global/FD_z_scores_global_stochastic_mean_of_z.scores.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+
+fd.realm <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+
+fd.ADF <-
+  read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_z.scores.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+# Clean infinities from the data (there can be infinities for HAW, NFK, NWC and SEY
+# because these have 100% endemic palm communities)
+fd.ADF <-
+  lapply(fd.ADF, function(x) { replace(x, is.infinite(x), NA) } ) %>%
+  as.data.frame()
+
+
+
+
+
+
+
+
 
 #####################################################
 cat("Defining universal spatial plotting function\n")
@@ -243,14 +284,6 @@ ggsave(global.map,
 # ===================================
 # ADF maps: we need multiple examples
 # ===================================
-# Load data:
-adf.weights <-
-  read.csv(file = "output/adf_weight_matrix.csv",
-           header = TRUE,
-           row.names = 1,
-           check.names = FALSE
-           ) %>%
-  as.matrix()
 
 # Functions to extract telemetry:
 # -------------------------------
@@ -318,6 +351,49 @@ for (area in tdwg3.codes) {
          height = 4
          )
 }
+
+
+#################################################
+cat("Maps of global palm functional diversity\n")
+#################################################
+
+MakePlots <- function() {
+  for (model in c("global", "realm", "ADF")) {
+    for (index in c("FRic", "FDis")) {
+
+      if (index == "FRic") {
+        index.long <- "Functional Richness"
+      } else {
+        index.long <- "Functional Dispersion"
+      }
+      objname <- paste0("fd.", model)
+
+      ggsave(plot = SpatialPlot(tdwg.map,
+                                vector = get(objname)[, paste0(index,
+                                                               ".all.traits"
+                                                               )
+                                                      ],
+                                vector.name = index,
+                                title = paste(index.long, "- null model", model),
+                                subtitle = NULL
+                                ),
+             filename = paste0(plot.dir,
+                               "FD_global_",
+                               index,
+                               "_",
+                               model,
+                               ".png"
+                               ),
+             width = 8,
+             height = 4
+             )
+    }
+  }
+  return (0)
+}
+
+MakePlots()
+
 
 
 
