@@ -320,11 +320,9 @@ for (stat in c("means", "sds", "z.scores")) {
 # Analysis should be repeated without Madagascar, because it is a huge outlier
 # in Old World West
 
-# To exclude MDG, we modify the pres/abs matrix, deleting all species occurrences
-# in mdg:
-pres.abs.matrix.noMDG <- pres.abs.matrix
-pres.abs.matrix.noMDG[rownames(pres.abs.matrix.noMDG) == "MDG", ] <-
-  rep(0, ncol(pres.abs.matrix.noMDG))
+# To exclude MDG, we remove it from realm.tdwg3
+index <- which(realm.tdwg3[["old.world.west"]] == "MDG")
+realm.tdwg3[["old.world.west"]] [[index]] <- NA
 
 
 # Run how many samples? (max 100)
@@ -370,7 +368,7 @@ for (i in seq_len(samples)) {
                  )
     }
     RunRegional(trait.matrix = traits.gapfilled[[i]],
-                pres.abs.matrix = pres.abs.matrix.noMDG,
+                pres.abs.matrix = pres.abs.matrix,
                 id = id,
                 header = header,
                 pcoa.traits = pcoa.traits,
