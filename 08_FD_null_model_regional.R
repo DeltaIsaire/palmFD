@@ -127,7 +127,7 @@ realm.tdwg3 <- list(new.world = tdwg3.info[tdwg3.info$realm == "NewWorld",
 # Function to run the regional null model
 # ---------------------------------------
 RunRegional <- function(trait.matrix, pres.abs.matrix, id, header, pcoa.traits,
-                        pcoa.traits.single) {
+                        pcoa.traits.single, name = "") {
 #   id: a unique identifier, used for naming the produced files.
 #       should match the id used for the observed FD file
 #   header: character string giving common first part of the name for all
@@ -171,6 +171,7 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id, header, pcoa.traits,
                             id,
                             "_",
                             names(fd.regional)[i],
+                            name,
                             ".csv"
                             ),
               eol = "\r\n",
@@ -185,6 +186,7 @@ RunRegional <- function(trait.matrix, pres.abs.matrix, id, header, pcoa.traits,
                          id,
                          "_",
                          names(fd.regional)[length(fd.regional)],
+                         name,
                          ".csv"
                          )
                    )
@@ -310,6 +312,88 @@ for (stat in c("means", "sds", "z.scores")) {
                   )
 }
 
+
+
+
+# Regional null model for stochastic genus-level filled data without MDG
+# ----------------------------------------------------------------------
+# Analysis should be repeated without Madagascar, because it is a huge outlier
+# in Old World West
+
+# To exclude MDG, we modify the pres/abs matrix, deleting all species occurrences
+# in mdg:
+pres.abs.matrix.noMDG <- pres.abs.matrix
+pres.abs.matrix.noMDG[rownames(pres.abs.matrix.noMDG) == "MDG", ] <-
+  rep(0, ncol(pres.abs.matrix.noMDG))
+
+
+# Run how many samples? (max 100)
+samples <- 100
+# This is time-consuming: run only if the output does not yet exist
+cat("For stochastic genus-level filled data without MDG:\n")
+for (i in seq_len(samples)) {
+  cat("Sample", i, "\n")
+  id <- i
+  if (!file.exists(paste0(output.dir,
+                          header,
+                          id,
+                          "_",
+                          "sds",
+                          "_noMDG",
+                          ".csv"
+                          )
+                   )
+      ) {
+    pcoa.traits <- 
+      read.csv(file = paste0("output/observed_FD/",
+                             "pcoa_traits_gapfilled_",
+                             i,
+                             ".csv"
+                             ),
+               header = TRUE,
+               row.names = 1,
+               )
+    pcoa.traits.single <-
+      vector("list", length = ncol(traits.gapfilled[[i]]))
+    names(pcoa.traits.single) <- colnames(traits.gapfilled[[i]])
+    for (x in seq_along(pcoa.traits.single)) {
+      pcoa.traits.single[[x]] <-
+        read.csv(file = paste0("output/observed_FD/",
+                               "pcoa_traits_gapfilled_",
+                               i,
+                               "_",
+                               names(pcoa.traits.single)[x],
+                               ".csv"
+                               ),
+                 header = TRUE,
+                 row.names = 1
+                 )
+    }
+    RunRegional(trait.matrix = traits.gapfilled[[i]],
+                pres.abs.matrix = pres.abs.matrix.noMDG,
+                id = id,
+                header = header,
+                pcoa.traits = pcoa.traits,
+                pcoa.traits.single = pcoa.traits.single,
+                name = "_noMDG"
+                )
+  }
+}
+
+# Average null model outputs for the stochastic genus-level filled data
+# ---------------------------------------------------------------------
+cat("Averaging results over", samples, "stochastic runs...\n")
+# To get the mean means, mean sds and mean z-scores over the (up to) 100
+# stochastic datasets.
+
+for (stat in c("means", "sds", "z.scores")) {
+  StochasticMeans(stat = stat,
+                  samples = samples,
+                  output.dir = output.dir,
+                  header = header,
+                  name = "_noMDG"
+                  )
+}
 
 cat("Done.\n")
 

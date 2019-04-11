@@ -898,7 +898,7 @@ ResampleTest <- function(pres.abs.matrix, trait.matrix, groups,
 }
 
 
-StochasticMeans <- function(stat, samples, output.dir, header) {
+StochasticMeans <- function(stat, samples, output.dir, header, name = "") {
 # Function to assemble the mean over n null model output runs.
 # For averaging the null model output of the 100 stochastic runs.
 #
@@ -923,6 +923,7 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
                                      header,
                                      "1",
                                      stat,
+                                     name,
                                      ".csv"
                                      ),
                        header = TRUE,
@@ -945,6 +946,7 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
                              header,
                              i,
                              stat,
+                             name,
                              ".csv"
                              ),
                header = TRUE,
@@ -965,6 +967,7 @@ StochasticMeans <- function(stat, samples, output.dir, header) {
                           header,
                           "stochastic_mean_of",
                           stat,
+                          name,
                           ".csv"
                           ),
             eol = "\r\n",
