@@ -140,7 +140,7 @@ predictors <-
         by.x = "LEVEL_3_CO",
         by.y = "tdwg3.code",
         all.y = TRUE,
-        sort = FALSE
+        sort = TRUE
         )
 rownames(predictors) <- predictors[, "LEVEL_3_CO"]
 predictors %<>% .[, -1]
