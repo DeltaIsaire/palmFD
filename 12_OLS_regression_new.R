@@ -54,6 +54,7 @@ set.seed(999)
 # Load and prepare datasets
 ###########################
 cat("Preparing data...\n")
+
 # TDWG3 data
 # ----------
 tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
@@ -61,9 +62,7 @@ tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
 tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
                     layer = "TDWG_level3_Coordinates")
 
-
 # List with the tdwg3 units in each realm
-# ---------------------------------------
 realm.tdwg3 <- vector("list", length = 3)
 names(realm.tdwg3) <- levels(tdwg3.info[, "realm"])
 for (i in 1:3) {
@@ -113,6 +112,11 @@ env[, "realm"] <- tdwg3.info[indices, "realm"]
 # tdwg3.units, which hinders data merging. Instead, propagate NAs across rows.
 env.complete <- env
 env.complete[!complete.cases(env.complete), ] <- NA
+
+write.csv(env.complete,
+          file = "output/tdwg3_predictors_complete.csv",
+          eol = "\r\n"
+          )
 
 
 
