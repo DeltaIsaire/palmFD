@@ -462,16 +462,17 @@ SingleModels <- function(responses, predictors) {
 
 # Wrapper function to automate the auto-selection process
 # -------------------------------------------------------
-MultiSelect <- function(response.var, response.name, predictors) {
+MultiSelect <- function(response.var, response.name, predictors, k = 10) {
   model.data <- predictors
   model.data[, response.name] <- response.var
   all.mods <- vector("list", length = 4)
   names(all.mods) <- c("exhaustive", "backward", "forward", "seqrep")
   for (i in seq_along(all.mods)) {
     all.mods[[i]] <- SelectOLS(x = model.data,
-                             response = response.name,
-                             method = names(all.mods)[i]
-                             )
+                               response = response.name,
+                               method = names(all.mods)[i],
+                               k = k
+                               )
   }
   all.mods
 }
