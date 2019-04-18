@@ -180,6 +180,14 @@ fd.regional.stochastic <-
 #       MDG (Cuba and Madagascar). Values not problematically extreme, just notable.
 # Mean and stochastic data are not qualitatively different.
 
+# There is also data for an extra run, where MDG (Madagascar) was removed, because
+# it has a large influence on the OWWest realm.
+fd.regional.stochastic.noMDG <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores_noMDG.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+
 
 # Local null model z-scores
 # -------------------------
@@ -234,6 +242,7 @@ cwm.observed.stochastic <- read.csv(file = "output/observed_FD/community_trait_m
 # according to some metrics. These low values are real, not erroneous.
 
 
+
 #############################
 # Summary files of FD indices
 #############################
@@ -253,6 +262,7 @@ global.sds <-
            row.names = 1
            ) %>%
   Temp()
+
 regional.means <-
   read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_means.csv",
            row.names = 1
@@ -262,7 +272,19 @@ regional.sds <-
   read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_sds.csv",
            row.names = 1
            ) %>%
+
   Temp()
+regional.means.noMDG <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_means_noMDG.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+regional.sds.noMDG <-
+  read.csv(file = "output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_sds_noMDG.csv",
+           row.names = 1
+           ) %>%
+  Temp()
+
 local.means <-
   read.csv(file = "output/null_model_local/FD_z_scores_local_stochastic_mean_of_means.csv",
            row.names = 1
@@ -294,6 +316,9 @@ FdSummary <- function(index) {
                realm.SES        = fd.regional.stochastic[, index],
                realm.mean       = regional.means[, index],
                realm.sd         = regional.sds[, index],
+               realm.SES.noMDG  = fd.regional.stochastic.noMDG[, index],
+               realm.mean.noMDG = regional.means.noMDG[, index],
+               realm.sd.noMDG   = regional.sds.noMDG[, index],
                adf.SES          = fd.local.stochastic[, index],
                adf.mean         = local.means[, index],
                adf.sd           = local.sds[, index],
@@ -539,6 +564,8 @@ segments <- data.frame(x    = tdwg3.info[xy.indices, "lon"],
 # And create the plot.
 # Here, the segment widths are NOT weighted. It's just the connections between
 # TDWG3 units.
+if (FALSE) {
+# UPDATE: this code is obsolete. See presentation_graphics.R for an updated version.
 ggsave(plot = SpatialPlotSegments(tdwg.map,
                                   segments = segments,
                                   title = "Spatial structure of Assemblage Dispersion Fields"
@@ -550,7 +577,7 @@ ggsave(plot = SpatialPlotSegments(tdwg.map,
        width = 8,
        height = 4
        )
-
+}
 
 
 cat("Done.\n")

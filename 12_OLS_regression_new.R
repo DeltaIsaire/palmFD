@@ -290,13 +290,16 @@ RunSingles(fd.indices[fric], "FRic", "global.SES", env.complete)
 cat("(2) FRic for null model Realm...\n")
 RunSingles(fd.indices[fric], "FRic", "realm.SES", env.complete)
 
-cat("(3) FRic for null model ADF...\n")
+cat("(3) FRic for null model Realm without MDG...\n")
+RunSingles(fd.indices[fric], "FRic", "realm.SES.noMDG", env.complete)
+
+cat("(4) FRic for null model ADF...\n")
 RunSingles(fd.indices[fric], "FRic", "adf.SES", env.complete)
 
 
 # For functional dispersion (FDis)
 # -------------------------------
-cat("(4) FDis observed...\n")
+cat("(5) FDis observed...\n")
 RunSingles(fd.indices[fdis], "FDis", "observed", env.complete)
 
 
@@ -307,7 +310,7 @@ cat("Summarizing single-predictor model results...\n")
 # For FRic
 fric.rsq <- SingleSummary("Rsq",
                           "FRic",
-                          c("global.SES", "realm.SES", "adf.SES"),
+                          c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES"),
                           c("all", "NewWorld", "OWWest", "OWEast"),
                           filter.p = TRUE
                           )
@@ -577,7 +580,7 @@ ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors
 cat("Generating best multi-predictor models:\n")
 
 # Preparation of input parameters for all runs:
-null.models <- c("global.SES", "realm.SES", "adf.SES", "observed")
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
 fd.names
 k = 4
 
