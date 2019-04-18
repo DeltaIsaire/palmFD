@@ -157,50 +157,97 @@ fric[, "realm"] <-
   tdwg3.info[match(rownames(fric), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
   as.factor()
 
+
 # Run models:
 #  ----------
-mod.fdis.global <- aov(global.SES ~ realm, data = fdis)
 mod.fric.global <- aov(global.SES ~ realm, data = fric)
-mod.fdis.realm <- aov(realm.SES ~ realm, data = fdis)
 mod.fric.realm <- aov(realm.SES ~ realm, data = fric)
-mod.fdis.adf <- aov(adf.SES ~ realm, data = fdis)
+mod.fric.realm.noMDG <- aov(realm.SES.noMDG ~ realm, data = fdis)
 mod.fric.adf <- aov(adf.SES ~ realm, data = fric)
 
+mod.fdis.observed <- aov(observed ~ realm, data = fdis)
+
+
 # Check assumptions:
+# ------------------
 if (FALSE) {
   # Normality of residuals
-  Histogram(resid(mod.fdis.global))  # perfect
   Histogram(resid(mod.fric.global))  # decent
-  Histogram(resid(mod.fdis.realm))  # decent
   Histogram(resid(mod.fric.realm))  # decent
-  Histogram(resid(mod.fdis.adf))  # decent
+  Histogram(resid(mod.fric.realm.noMDG))  # perfect
   Histogram(resid(mod.fric.adf))  # decent
+
+  Histogram(resid(mod.fdis.observed))  # Good
+
   # Homogeneity of variance
-  Scatterplot(x = fitted(mod.fdis.global), y = resid(mod.fdis.global))  # good
   Scatterplot(x = fitted(mod.fric.global), y = resid(mod.fric.global))  # good
-  Scatterplot(x = fitted(mod.fdis.realm), y = resid(mod.fdis.realm))  # good
   Scatterplot(x = fitted(mod.fric.realm), y = resid(mod.fric.realm))  # decent
-  Scatterplot(x = fitted(mod.fdis.adf), y = resid(mod.fdis.adf))  # decent
+  Scatterplot(x = fitted(mod.fric.realm.noMDG),
+              y = resid(mod.fric.realm.noMDG)
+              )  # decent
   Scatterplot(x = fitted(mod.fric.adf), y = resid(mod.fric.adf))  # good
+
+  Scatterplot(x = fitted(mod.fdis.observed), y = resid(mod.fdis.observed))  # good
 }
 
-# Evaluation: p < 0.001 for both FDis and FRic. We have ourselves a pattern.
-# Post-hoc Tukey tests:
-post.fdis.global <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
-post.fric.global <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
-post.fdis.realm <- glht(model = mod.fdis.realm, linfct = mcp("realm" = "Tukey"))
-post.fric.realm <- glht(model = mod.fric.realm, linfct = mcp("realm" = "Tukey"))
-post.fdis.adf <- glht(model = mod.fdis.adf, linfct = mcp("realm" = "Tukey"))
-post.fric.adf <- glht(model = mod.fric.adf, linfct = mcp("realm" = "Tukey"))
 
 # Evaluation:
-#   FDis: OWWest is significantly different from OWEast and NewWorld, but OWEast
-#         and NewWorld do not differ.
-#   FRic: NewWorld is significantly different from OWWest and OWEast, but OWWest
-#         and OWEast are only marginally different (p = 0.042)
+# -----------
+# summary(mod)
+# p < 0.001 for all cases. We have ourselves a pattern.
+
+
+# Post-hoc Tukey tests:
+# ---------------------
+post.fric.global <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
+post.fric.realm <- glht(model = mod.fric.realm, linfct = mcp("realm" = "Tukey"))
+post.fric.realm.noMDG <-
+  glht(model = mod.fric.realm.noMDG, linfct = mcp("realm" = "Tukey"))
+post.fric.adf <- glht(model = mod.fric.adf, linfct = mcp("realm" = "Tukey"))
+
+post.fdis.observed <-
+  glht(model = mod.fdis.observed, linfct = mcp("realm" = "Tukey"))
+
+
+# Post-hoc Evaluation:
+# --------------------
+# summary(post.mod)
+#   fric.global: NewWorld significantly different from other 2 realms (p < 0.001),
+#                marginal difference between OWWest and OWEast (p = 0.0417
+#   fric.realm: NewWorld significantly different from other two realm (p < 0.001),
+#               no difference between OWWest and OWEast
+#   fric.realm.noMDG: same story as above
+#
+#   fdis.observed: OWWest significantly different from NewWorld and OWEast
+#                  (p < 0.001), marginal difference between OWEast and NewWorld
+#                  (p = 0.045)
+
 
 # Visualize the results
 # ---------------------
+# First prepare FDis data
+fdis.subset <- fdis[, c("observed", "realm")]
+fdis.subset[, "realm"] %<>% as.character()
+fdis.noMDG <- fdis.subset[fdis.subset$realm == "OWWest", ]
+fdis.noMDG %<>% .[!rownames(.) == "MDG", ]
+fdis.noMDG[, "realm"] <- rep("OWWest.noMDG", nrow(fdis.noMDG))
+fdis.subset <- rbind(fdis.subset, fdis.noMDG)
+
+# then plot with CWM_Plot()
+ggsave(CWM_Plot(x = fdis.subset[complete.cases(fdis.subset), ],
+                x.var = "realm",
+                y.var = "observed",
+                title = NULL,
+                subtitle = "Functional Dispersion (FDis) comparison between realms",
+                xlab = "Realm",
+                ylab = "FDis"
+                ),
+       filename = "graphs/anova_realm_vs_FDis_observed.png",
+       width = 5,
+       height = 4
+       )
+
+# Next, plots for FRic
 for (null.mod in c("global", "realm", "adf")) {
   plot.fric <- CWM_Plot(fric[complete.cases(fric), ],
                         y.var = paste0(null.mod, ".SES"),
@@ -208,20 +255,36 @@ for (null.mod in c("global", "realm", "adf")) {
                         subtitle = paste("Null model:", null.mod),
                         ylab = "FRic"
                         )
-
-  plot.fdis <- CWM_Plot(fdis[complete.cases(fdis), ],
-                        y.var = paste0(null.mod, ".SES"),
-                        title = "Functional Dispersion (FDis)",
-                        subtitle = paste("Null model:", null.mod),
-                        ylab = "FDis"
-                        )
-
-  ggsave(plot = arrangeGrob(plot.fric, plot.fdis, ncol = 2),
-         filename = paste0("graphs/anova_FD_vs_realm_", null.mod, ".png"),
-         width = 6,
+  ggsave(plot = plot.fric,
+         filename = paste0("graphs/anova_realm_vs_FRic_", null.mod, ".png"),
+         width = 4,
          height = 4
          )
 }
+
+# And a special plot for realm
+fric.subset <- fric[, ]
+fric.subset[, "realm"] %<>% as.character()
+fric.subset[, "realm.SES.dual"] <- fric.subset[, "realm.SES"]
+fric.noMDG <- fric.subset[fric.subset$realm == "OWWest", ]
+fric.noMDG[, "realm.SES.dual"] <- fric.noMDG[, "realm.SES.noMDG"]
+fric.noMDG %<>% .[!rownames(.) == "MDG", ]
+fric.noMDG[, "realm"] <- rep("OWWest.noMDG", nrow(fric.noMDG))
+fric.subset <- rbind(fric.subset, fric.noMDG)
+
+ggsave(CWM_Plot(x = fric.subset[complete.cases(fric.subset), ],
+                x.var = "realm",
+                y.var = "realm.SES.dual",
+                title = NULL,
+                subtitle = "Functional Richness (FRic) comparison between realms",
+                xlab = "Realm",
+                ylab = "FRic"
+                ),
+       filename = "graphs/anova_realm_vs_FRic_realm_noMDG.png",
+       width = 5,
+       height = 4
+       )
+
 
 
 ################################
