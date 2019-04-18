@@ -21,9 +21,16 @@ library(magrittr)
 library(plyr)
 library(ncf)
 library(sf)
+library(spdep)
+library(ggplot2)
+library(scales)
+library(viridis)
+
+theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
+source(file = "functions/plotting_functions_ggplot2.R")
 
 # Graphics output directory (with trailing slash!)
 plot.dir <- "graphs/SAR_correlograms/"
@@ -33,6 +40,9 @@ if (!dir.exists(plot.dir)) {
   cat("creating directory:", plot.dir, "\n")
   dir.create(plot.dir)
 }
+
+set.seed(125)
+
 
 
 ############################################
@@ -163,6 +173,134 @@ for (i in seq_along(fdis)) {
            width = 5
            )
 }
+
+
+
+##############################################
+# Define spatial weights matrix for SAR models
+##############################################
+cat("Defining spatial weights matrix...\n")
+
+# Neighbourhood: Sphere of Influence
+# ----------------------------------
+# It has been determined that the best neighbourhood model to use for our palms
+# data in TDWG3 units is the "sphere of influence". It is defined as follows:
+#   1. For each polygon, draw a circle around the centroid with radius = distance
+#      to nearest neighbour
+#   2. Polygons whose "influence" circles overlap are neighbours.
+tdwg.map.subset <- tdwg.map[complete.cases(env.complete), ]
+tdwg.spatial <- as(tdwg.map.subset, "Spatial")
+tdwg.coords <- coordinates(tdwg.spatial)
+nb.dlny <- tri2nb(tdwg.coords)
+nb.soi <-
+  soi.graph(nb.dlny, tdwg.coords) %>%
+  graph2nb()
+
+
+# Spatial weights matrix
+# ----------------------
+# Using row standardization (style = "W" in nb2listw())
+nb.soi.swmat <- nb2listw(nb.soi, style = "W")
+# Neat statistics available via summary(nb.soi.wtm)
+
+# In order to decrease type II error, it may be worth to weight by distance.
+# Thus we can create an alternative spatial weights matrix:
+#   1. For each polygon, the (great circle) distances to neighbours:
+nb.soi.dist <- nbdists(nb.soi, tdwg.coords, longlat = TRUE)
+#   2. The greatest (great circle) distance between any two neighbours:
+nb.soi.maxdist <- max(unlist(nb.soi.dist))
+#   3. For each polygon, weight neighbour distances by the greatest distance
+nb.soi.wdist <- lapply(nb.soi.dist, function(x) { 1 - x / nb.soi.maxdist } )
+#   4. Create distance-weighted weights matrix:
+nb.soi.swmat.dw <- nb2listw(nb.soi, glist = nb.soi.wdist, style = "W")
+
+
+# Visualize the neighbourhood structure
+# -------------------------------------
+# The default plot method is plot.nb() from package spdep:
+# plot(x = nb.soi.swmat, coords = tdwg.coords)
+# Combining it directly with ggplot is difficult, but we can recreate the aesthetic.
+#
+# Function to plot the graph
+SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
+                          subtitle = NULL) {
+# Segments: data.frame with coordinates for segments. See geom_segment().
+#           The order of columns in the dataframe should be
+#           c("x", "y", "xend", "yend")
+  tdwg.plot <- ggplot(data = tdwg.map) +
+                 geom_sf(size = 0.25,
+                         color = "white",
+                         aes(fill = presence),
+                         show.legend = FALSE
+                         ) +
+                 # This magically only adds axes:
+                 geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+                 labs(x = NULL,
+                      y = NULL,
+                      title = title,
+                      subtitle = subtitle
+                      ) +
+                 geom_point(data = tdwg.map[which(presence), ],
+                            aes(x = Long, y = Lat),
+                            pch = 21,
+                            size = 2
+                            ) +
+                 geom_segment(data = segments,
+                              aes(x = segments[, 1],
+                                  y = segments[, 2],
+                                  xend = segments[, 3],
+                                  yend = segments[, 4]
+                                  ),
+                              size = 0.35,
+                              show.legend = FALSE
+                              ) +
+                 scale_fill_viridis(na.value = "#C0C0C0",
+                                    discrete = is.discrete(presence),
+                                    option = "inferno",
+                                    begin = 0.75
+                                    )
+  tdwg.plot
+}
+
+# Function to create segments dataframe from a neighbourhood object
+Nb2Segments <- function(nb, tdwg.map, presence) {
+  nb.num <- laply(nb, length)
+  present.names <- tdwg.map$LEVEL_3_CO[which(presence)]
+  segments <-
+    matrix(data = NA,
+           nrow = sum(nb.num),
+           ncol = 4,
+           dimnames = list(rep(present.names, times = nb.num),
+                           c("x", "y", "xend", "yend")
+                           )
+                     )
+  segments[, 1] <- tdwg.map$Long[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
+  segments[, 2] <- tdwg.map$Lat[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
+  indices <- match(present.names[unlist(nb)], tdwg.map$LEVEL_3_CO)
+  segments[, 3] <- tdwg.map$Long[indices]
+  segments[, 4] <- tdwg.map$Lat[indices]
+  as.data.frame(segments)
+}
+
+# Make the plot
+presence <- complete.cases(env.complete)
+presence[!presence] <- NA
+segments <- Nb2Segments(nb.soi, tdwg.map, presence)
+soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
+                          presence[!tdwg.map$LEVEL_3_CO == "ANT"],
+                          segments,
+                          title = "Sphere of Influence Neighbourhood",
+                          subtitle = "Of TDWG3 units for which we have complete data"
+                          )
+ggsave(soi.plot,
+       filename = paste0(plot.dir, "SOI_neighbourhood.png"),
+       width = 8,
+       height = 4
+       )
+
+
+
+
 
 
 

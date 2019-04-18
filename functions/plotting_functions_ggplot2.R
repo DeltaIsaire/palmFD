@@ -136,7 +136,7 @@ SpatialPlotSegments <- function(tdwg.map, segments = NULL, fill.vector, fill.nam
                       subtitle = subtitle
                       ) +
                  scale_fill_viridis(na.value = "#C0C0C0",
-                                    discrete = is.discrete(vector),
+                                    discrete = is.discrete(fill.vector),
                                     option = colors,
                                     direction = direction,
                                     begin = begin
