@@ -324,6 +324,8 @@ cat("Generating single-predictor SAR error models:\n")
 # Fortunately, we can borrow code from the OLS regressions, so developing functions
 # for single-predictor SAR models will is relatively easy.
 
+
+cat("test 1...\n")
 model.data <- env.complete
 model.data[, "null"] <- runif(n = nrow(model.data))
 model.data[, "response"] <- fd.indices[[1]] [, "global.SES"]
@@ -332,7 +334,18 @@ result <- SingleSAR(model.data,
                     listw = nb.soi.swmat,
                     response = "response"
                     )
-                  
+
+
+cat("test 2...\n")
+responses <- fd.indices[[1]] [, c("global.SES", "realm.SES", "adf.SES")]
+# TODO: if you use 'realm.SES.noMDG' you need a special neighbourhood, where MDG
+# is removed!
+
+result2 <- MultiSingleSAR(responses = responses,
+                          predictors = env.complete,
+                          listw = nb.soi.swmat
+                          )
+
 
 
 

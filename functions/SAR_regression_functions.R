@@ -11,7 +11,9 @@
 #   none
 #
 # FUNCTION LIST:
+# PseudoRsq
 # SingleSAR
+# MultiSingleSAR
 
 library(magrittr)
 library(plyr)
@@ -19,6 +21,27 @@ library(spdep)
 
 source(file = "functions/base_functions.R")
 
+
+
+PseudoRsq <- function(sarlm) {
+  # No such thing as a real Rsq for SAR models, because SAR is likelihood-based.
+  # However, Kissling et al (2012a) use Pseudo-Rsq values, based on the method of
+  # Kissling & Carl (2008), defined as "squared Pearson correlation between
+  # predicted and observed values."
+  # HOWEVER: if you simply use fitted() on a SAR model object, this pseudo-rsq
+  # will include the influence of the spatial autocorrelation term,
+  # not only the effect of the tested predictor. If the spatial structure is
+  # strong, pseudo-Rsq can be high even if the included predictor is not
+  # significant.
+  # To see this effect, you could include a 'null' predictor with random values.
+  # Here, we instead calculate fitted values directly from the estimated intercept
+  # and slope(s).
+  if (!identical(class(sarlm), "sarlm")) {
+    stop("mod object must be of class 'sarlm")
+  }
+  coeff.mat <- t(t(sarlm[["X"]]) * sarlm[["coefficients"]])
+  cor(x = rowSums(coeff.mat), y = sarlm[["y"]], method = "pearson") ^ 2
+}
 
 
 
@@ -79,17 +102,8 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
     mat[match(names(x.complete)[index], rownames(mat)), 3] <-
       moran.test(resid(sar.mod), listw = nb.soi.swmat)[["p.value"]]
     # Pseudo.Rsq
-    # No such thing as a real Rsq, because SAR is likelihood-based.
-    # However, Kissling et al (2012a) use Pseudo-Rsq values, based on the method of
-    # Kissling & Carl (2008), defined as "squared Pearson correlation between
-    # predicted and observed values."
     mat[match(names(x.complete)[index], rownames(mat)), 4] <-
-      cor(x = fitted(sar.mod), y = x.complete[, response]) ^ 2
-    # BEWARE: this rsq includes the influence of the spatial autocorrelation term,
-    # not only the effect of the tested predictor. If the spatial structure is
-    # strong, pseudo-Rsq can be high even if the included predictor is not
-    # significant.
-    # To see this effect, you could include a 'null' predictor with random values
+      PseudoRsq(sar.mod)
   }
 
   # Return results, rounding as specified
@@ -97,5 +111,45 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
     mat <- round(mat, digits = digits)
   }
   mat
+}
+
+
+
+MultiSingleSAR <- function(responses, predictors, listw, standardize = TRUE,
+                           numeric.only = FALSE, digits = "all") {
+# Wrapper function to run SingleSAR() multiple times. For each response variable,
+# merge it to 'predictors' then apply SingleSAR() to the merged dataframe.
+#
+# Args:
+#   responses: data frame with response variables
+#   Predictors: data frame with predictor variables
+
+  # init output list
+  mat <- matrix(data = NA,
+                nrow = ncol(responses),
+                ncol = ncol(predictors),
+                dimnames = list(colnames(responses), colnames(predictors))
+                )
+  output <- list(mat, mat, mat, mat)
+  names(output) <- c("slope", "p.value", "moran.p", "pseudo.Rsq")
+
+  # Generate single-predictor models for each response variable
+  for (i in seq_along(responses)) {
+    response <- colnames(responses)[i]
+    model.data <- predictors
+    model.data[, response] <- responses[, response]
+    mat <- SingleSAR(model.data,
+                     listw = listw,
+                     response = response,
+                     standardize = standardize,
+                     numeric.only = numeric.only,
+                     digits = digits
+                     )
+    indices <- match(rownames(mat), colnames(output[[1]]))
+    for (j in 1:4) {
+      output[[j]] [i, indices] <- mat[, j]
+    }
+  }
+  output
 }
 
