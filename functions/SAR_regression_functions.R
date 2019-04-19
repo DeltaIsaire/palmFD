@@ -87,6 +87,7 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
 
   # Fit each single-predictor model and extract results
   for (index in seq_len(ncol(x.complete))[-y.index]) {
+    cat("\t\tPredictor:", colnames(x.complete)[index], "\n")
     sar.mod <-
       errorsarlm(as.formula(paste(response, "~", colnames(x.complete)[index])),
                  data = x.complete,
@@ -104,7 +105,7 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
         ] <- NA
     # moran.p
     mat[match(names(x.complete)[index], rownames(mat)), 3] <-
-      moran.test(resid(sar.mod), listw = nb.soi.swmat)[["p.value"]]
+      moran.test(resid(sar.mod), listw = listw)[["p.value"]]
     # Pseudo.Rsq
     mat[match(names(x.complete)[index], rownames(mat)), 4] <-
       PseudoRsq(sar.mod)
@@ -119,14 +120,14 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
 
 
 
-MultiSingleSAR <- function(responses, predictors, listw, standardize = TRUE,
-                           numeric.only = FALSE, digits = "all") {
+MultiSingleSAR <- function(responses, predictors, listw, ...) {
 # Wrapper function to run SingleSAR() multiple times. For each response variable,
 # merge it to 'predictors' then apply SingleSAR() to the merged dataframe.
 #
 # Args:
 #   responses: data frame with response variables
 #   Predictors: data frame with predictor variables
+#   ...: additional arguments passed to SingleSAR()
 
   # init output list
   mat <- matrix(data = NA,
@@ -140,14 +141,13 @@ MultiSingleSAR <- function(responses, predictors, listw, standardize = TRUE,
   # Generate single-predictor models for each response variable
   for (i in seq_along(responses)) {
     response <- colnames(responses)[i]
+        cat("\tResponse:", response, "\n")
     model.data <- predictors
     model.data[, response] <- responses[, response]
     mat <- SingleSAR(model.data,
                      listw = listw,
                      response = response,
-                     standardize = standardize,
-                     numeric.only = numeric.only,
-                     digits = digits
+                     ...
                      )
     indices <- match(rownames(mat), colnames(output[[1]]))
     for (j in 1:4) {
@@ -159,14 +159,18 @@ MultiSingleSAR <- function(responses, predictors, listw, standardize = TRUE,
 
 
 
-RunMSSAR <- function(name, ...) {
+RunMSSAR <- function(name, responses, predictors, listw, ...) {
 # Wrapper function to run MultiSingleSAR() and save the results to disk.
 #
 # Args:
 #   Name: character string as unique data identifier. Used as prefix for file names.
-#   ...: arguments to pass to MultiSingleSAR()
+#   ...: Additional arguments to pass to MultiSingleSAR()
 
-  output <- MultiSingleSAR(...)
+  output <- MultiSingleSAR(responses = responses,
+                           predictors = predictors,
+                           listw = listw,
+                           ...
+                           )
 
   for (i in seq_along(output)) {
     write.csv(output[[i]],
@@ -186,7 +190,7 @@ SoiNB <- function(tdwg.map) {
 #   2. Polygons whose "influence" circles overlap are neighbours.
 # Args:
 #   tdwg.map: the map object as created by read_sf(), or a subset thereof
-  tdwg.spatial <- as(tdwg.map.subset, "Spatial")
+  tdwg.spatial <- as(tdwg.map, "Spatial")
   tdwg.coords <- coordinates(tdwg.spatial)
   nb.dlny <- tri2nb(tdwg.coords)
   nb.soi <-

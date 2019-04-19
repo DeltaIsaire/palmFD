@@ -305,28 +305,71 @@ result3 <- RunMSSAR(name = paste0(output.dir, "SAR_single_test"),
                     )
 
 cat("test 4...\n")
+
 # Function to run all models via RunMSSAR
 # ---------------------------------------
-AllSARSingles <- function(fd.indices, colname, predictors, ...) {
+AllSARSingles <- function(fd.indices, colname, predictors, tdwg.map,
+                          dist.weight = FALSE, name.all, ...) {
 # Args:
 #   fd.indices: the list object 'fd.indices' or a subset thereof
 #   colname: name of column to extract from each df in 'fd.indices' via GetFD()
 #   predictors: dataframe with predictor variables
-#   ...: further arguments to pass to RunMSSAR()
+#   tdwg.map: the map object as created by read_sf(). Is automatically
+#             subsetted as required. Used for creating the spatial weights matrix.
+#   dist.weight: whether to apply neighbour distance weighting in the spatial
+#                weights matrix. See SWMat()
+#   name.all: 'name' argument passed to RunMSSAR(). Should be of length 1; suffixes
+#         will be added for the cases 'full' and each realm subset
+#   ...: Additional arguments to pass to RunMSSAR()
+
+  fd.all <- GetFD(fd.indices, colname)
 
   # full dataset:
-  fd.all <- GetFD(fd.indices, colname)
-  RunMSSAR(fd.all, ...)
+  cat(name.all, "full...\n")
+  ind.complete <- complete.cases(fd.all) & complete.cases(predictors)
+  tdwg.map.subset <- tdwg.map[ind.complete, ]
+  nb <- SoiNB(tdwg.map.subset)
+  swmat <- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
+  RunMSSAR(name = paste0(name.all, "_full"),
+           responses = fd.all,
+           predictors = predictors,
+           listw = swmat,
+           ...
+           )
+
   # realm subsets:
   fd.all.realms <- RealmSubset(fd.all)
   predictors.realms <- RealmSubset(predictors[, !colnames(predictors) %in% "realm"])
   for (i in seq_along(fd.all.realms)) {
-    RunMSSAR(
+    cat(name.all, names(fd.all.realms)[i], "...\n")
+    ind.complete <-
+      complete.cases(fd.all.realms[[i]]) & complete.cases(predictors.realms[[i]])
+    tdwg.ind <- tdwg.map$LEVEL_3_CO %in% rownames(fd.all.realms[[i]])[ind.complete]
+    tdwg.map.subset <- tdwg.map[tdwg.ind, ]
+    nb <- SoiNB(tdwg.map.subset)
+    swmat.realm <- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
+    RunMSSAR(name = paste0(name.all, "_", names(fd.all.realms)[i]),
+             responses = fd.all.realms[[i]],
+             predictors = predictors.realms[[i]],
+             listw = swmat.realm,
              ...
              )
   }
   return (0)
 }
+
+# call the function
+# -----------------
+AllSARSingles(fd.indices[fric],
+              colname = "global.SES",
+              predictors = env.complete,
+              tdwg.map = tdwg.map,
+              dist.weight = FALSE,
+              name.all = paste0(output.dir, "SAR_single_test_FRic_global"),
+              standardize = TRUE,
+              numeric.only = FALSE
+              )
+
 
 
 
