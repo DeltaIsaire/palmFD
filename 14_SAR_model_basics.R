@@ -29,6 +29,7 @@ library(viridis)
 theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
+source(file = "functions/SAR_regression_functions.R")
 source(file = "functions/plotting_functions.R")
 source(file = "functions/plotting_functions_ggplot2.R")
 
@@ -146,6 +147,10 @@ Correlogram <- function(obs, increment = 500, resamp = 999, plot = TRUE, ...) {
 
 # Asses spacial autocorrelation (SAC) in FD indices based on all traits
 # ---------------------------------------------------------------------
+# Quality correlogs take a long time, so execute only if output doesn't exist
+
+cat("(1) For FRic...\n")
+# Another small function for automating the FRic plots
 MakePlots <- function(x, index) {
   par(mfrow = c(1, 4), mar = c(4.1, 4.1, 4.1, 1.0))
   for (model in c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES")) {
@@ -153,25 +158,30 @@ MakePlots <- function(x, index) {
   }
 }
 
-# For FRic:
 for (i in seq_along(fric)) {
-  GraphSVG(MakePlots(fd.indices[[fric[i]]], index = fric[i]),
-           file = paste0(plot.dir, "Morans_I_", fric[i], ".svg"),
-           height = 4,
-           width = 16
-           )
+  filename <- paste0(plot.dir, "Morans_I_", fric[i], ".svg")
+  if (!file.exists(filename)) {
+    GraphSVG(MakePlots(fd.indices[[fric[i]]], index = fric[i]),
+             file = filename,
+             height = 4,
+             width = 16
+             )
+  }
 }
 
-# For FDis:
+cat("(2) For FDis...\n")
 for (i in seq_along(fdis)) {
-  GraphSVG(Correlogram(fd.indices[[fdis[i]]] [, "observed"],
-                       plot = TRUE,
-                       title = paste0(fdis[i], " (observed)")
-                       ),
-           file = paste0(plot.dir, "Morans_I_", fdis[i], ".svg"),
-           height = 4,
-           width = 5
-           )
+  filename <- paste0(plot.dir, "Morans_I_", fdis[i], ".svg")
+  if (!file.exists(filename)) {
+    GraphSVG(Correlogram(fd.indices[[fdis[i]]] [, "observed"],
+                         plot = TRUE,
+                         title = paste0(fdis[i], " (observed)")
+                         ),
+             file = filename,
+             height = 4,
+             width = 5
+             )
+  }
 }
 
 
@@ -290,7 +300,7 @@ soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
                           presence[!tdwg.map$LEVEL_3_CO == "ANT"],
                           segments,
                           title = "Sphere of Influence Neighbourhood",
-                          subtitle = "Of TDWG3 units for which we have complete data"
+                          subtitle = "Based on TDWG3 units for which we have complete data"
                           )
 ggsave(soi.plot,
        filename = paste0(plot.dir, "SOI_neighbourhood.png"),
@@ -300,8 +310,29 @@ ggsave(soi.plot,
 
 
 
+#############################
+# Single-predictor SAR models
+#############################
+cat("Generating single-predictor SAR error models:\n")
 
+# - spatial weights matrix with and without distance-weighting
+# - all single predictors
+# - FRic + FDis
+# - null models global, realm, realmnoMDG, adf, and observed
+# - global dataset and subset for each three realms
+# That is a lot of combinations!
+# Fortunately, we can borrow code from the OLS regressions, so developing functions
+# for single-predictor SAR models will is relatively easy.
 
+model.data <- env.complete
+model.data[, "null"] <- runif(n = nrow(model.data))
+model.data[, "response"] <- fd.indices[[1]] [, "global.SES"]
+
+result <- SingleSAR(model.data,
+                    listw = nb.soi.swmat,
+                    response = "response"
+                    )
+                  
 
 
 

@@ -18,10 +18,13 @@
 # StochasticFill
 # DetectOS
 # WhichMax
+# ParseData
+# AutoVIF
 
 
 library(plyr)
 library(magrittr)
+library(car)
 
 
 IsOneDimensional <- function(x) {
@@ -312,4 +315,113 @@ WhichMax <- function(x, n = 1) {
 }
 
 
+
+ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
+# Function to subset a dataframe to complete cases, and optionally standardize
+# all numeric variables EXCEPT the response variable.
+  if (numeric.only) {
+  x.num <- numcolwise(function(x) { x } ) (x)
+  x.complete <- x.num[complete.cases(x.num), ]
+  } else {
+    x.complete <- x[complete.cases(x), ]
+  }
+  if (standardize) {
+    x.std <- numcolwise(scale, center = TRUE, scale = TRUE) (x.complete)
+    # Re-add non-numeric columns:
+    missing.cols <- names(x.complete)[!names(x.complete) %in% names(x.std)]
+    x.std[, missing.cols] <- x.complete[, missing.cols]
+    # un-standardize the response variable:
+    x.std[, response] <- x.complete[, response]
+    x.complete <- x.std
+  }
+  # move response variable to last column
+  resp.ind <- which(names(x.complete) == response)
+  if (! resp.ind == ncol(x.complete)) {
+    x.complete <- x.complete[, c(1:(resp.ind - 1), (resp.ind + 1):ncol(x), resp.ind)]
+  }
+  x.complete
+}
+
+
+AutoVIF <- function(x, response, standardize = TRUE, threshold = 5,
+                    numeric.only = FALSE) {
+# Function to automatically exclude predictors based on VIF. An OLS model is
+# fitted with all predictors, then the predictor with highest VIF is removed. This
+# is repeated until the highest remaining VIF is below the threshold.
+#
+# In the case of categorical predictor variables, instead of VIF we compute
+# GVIF^[1/(2*df)], square it, and then interpret it the same as regular VIF scores.
+# see ?vif and Fox & Monette 1990 (https://www.tandfonline.com/doi/abs/10.1080/01621459.1992.10475190#.U2jkTFdMzTo)
+#
+# Args:
+#   x: data.frame with all variables (response + predictors)
+#   response: character vector giving column name of the response variable.
+#   standardize: Should predictors be standardized to mean 0 and unit variance?
+#   threshold: VIF value deemed to be the upper acceptable limit. Traditionally,
+#     people have used a threshold of 10, but Zuur et al (2010) reccommends a
+#     threshold of 3, or even lower when signal is weak.
+#   numeric.only: Subset dataset to only continuous numerical predictors?
+# Returns:
+#   A character vector with the names of remaining PREDICTOR variables
+
+  # Validate data: subset to complete, numeric data and standardize
+  x.complete <- ParseData(x = x,
+                          response = response,
+                          standardize = standardize,
+                          numeric.only = numeric.only
+                          )
+
+  # Iteratively exclude most collinear predictor.
+  # First construct initial mod formula
+  predictors <- colnames(x.complete)[-match(response, colnames(x.complete))]
+  form <- paste(response, "~", predictors[1])
+  for (i in seq_len(length(predictors) - 1)) {
+    form <- paste(form, "+", predictors[i + 1])
+  }
+  form %<>% as.formula()
+  # Then apply loop for the selection
+  do.exclude <- TRUE
+  while (do.exclude) {
+    # Identify most collinear predictor
+    if (length(predictors) > 1) {
+      mod <- lm(form, data = x.complete)
+      scores <- vif(mod)
+      if (!IsOneDimensional(scores)) {
+        scores <- scores[, "GVIF^(1/(2*Df))"] ^ 2
+      }
+    } else {
+      scores <- 0
+    }
+    # IF highest VIF is above threshold, construct new formula
+    if (max(scores) > threshold) {
+      predictors <- predictors[-match(names(scores)[which.max(scores)], predictors)]
+      form <- paste(response, "~", predictors[1])
+      for (i in seq_len(length(predictors) - 1)) {
+        form <- paste(form, "+", predictors[i + 1])
+      }
+      form %<>% as.formula()
+    } else {
+      do.exclude <- FALSE
+    }
+  }
+
+  # Return names of predictors not excluded
+  predictors
+}
+
+# Example code
+if (FALSE) {
+  fric <- read.csv(file = "output/FD_summary_FRic.csv", row.names = 1)
+  env <- read.csv(file = "output/tdwg3_environmental_predictors.csv", row.names = 1)
+  # These are all approximately normally distributed numerical predictors.
+  x <- env
+  x$FRic <- fric$FRic.global.SES
+  response <- "FRic"
+  x <- x[, c(1:9, 12:24, 27:28, 29)]
+  # Using bio7, instead of bio5 + bio6
+  # using LGM climate anomaly, instead of LGM climate
+
+  a <- AutoVIF(x, response, threshold = 5)
+  b <- AutoVIF(x, response, threshold = 3)
+}
 

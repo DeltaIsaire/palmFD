@@ -108,11 +108,21 @@ env[, "palm.richness"] %<>% log10()
 indices <- match(rownames(env), tdwg3.info[, "tdwg3.code"])
 env[, "realm"] <- tdwg3.info[indices, "realm"]
 
-# Account for NAs in predictors. Subsetting to complete cases would exclude
-# tdwg3.units, which hinders data merging. Instead, propagate NAs across rows.
+# Account for NAs in predictors AND responses.
+# Subsetting to complete cases would reduce the number of rows (tdwg3.units), which
+# hinders data merging. Instead, propagate NAs across rows.
+# Check for NAs in predictors:
 env.complete <- env
 env.complete[!complete.cases(env.complete), ] <- NA
+# 14 NAs from canopy height + 1 NA from LGM anomalies.
+# Additionally, check for NAs in responses: the exclusion of 100% endemic communities
+# for the ADF null model
+env.complete[!complete.cases(fd.indices[["FRic.all.traits"]] [, "adf.SES"]), ] <- NA
+# 4 NAs from 100% endemism, but 3 of those overlap with canopy height NAs.
+#
+# Final sample size is 116  # sum(complete.cases(env.complete))
 
+# Save result for downstream use
 write.csv(env.complete,
           file = "output/tdwg3_predictors_complete.csv",
           eol = "\r\n"
@@ -275,7 +285,7 @@ RunSingles <- function(fd.indices, fd.index, name, env.complete) {
 ##################################
 # Generate single-predictor models
 ##################################
-cat("Generating single-predictor models:\n")
+cat("Generating single-predictor OLS models:\n")
 # Let's put those functions to work
 
 # Prepare names for easy subsetting
@@ -581,7 +591,7 @@ ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors
 ########################################
 # Generating best multi-predictor models
 ########################################
-cat("Generating best multi-predictor models:\n")
+cat("Generating best multi-predictor OLS models:\n")
 
 # Preparation of input parameters for all runs:
 null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
