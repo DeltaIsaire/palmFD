@@ -14,6 +14,7 @@
 # PseudoRsq
 # SingleSAR
 # MultiSingleSAR
+# RunMSSAR
 
 library(magrittr)
 library(plyr)
@@ -149,6 +150,26 @@ MultiSingleSAR <- function(responses, predictors, listw, standardize = TRUE,
     for (j in 1:4) {
       output[[j]] [i, indices] <- mat[, j]
     }
+  }
+  output
+}
+
+
+
+RunMSSAR <- function(name, ...) {
+# Wrapper function to run MultiSingleSAR() and save the results to disk.
+#
+# Args:
+#   Name: character string as unique data identifier. Used as prefix for file names.
+#   ...: arguments to pass to MultiSingleSAR()
+
+  output <- MultiSingleSAR(...)
+
+  for (i in seq_along(output)) {
+    write.csv(output[[i]],
+              file = paste0(name, "_", names(output)[i], ".csv"),
+              eol = "\r\n"
+              )
   }
   output
 }

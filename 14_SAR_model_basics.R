@@ -36,10 +36,17 @@ source(file = "functions/plotting_functions_ggplot2.R")
 # Graphics output directory (with trailing slash!)
 plot.dir <- "graphs/SAR_correlograms/"
 
+# Single-predictor model output directory (with trailing slash!)
+output.dir <- "output/SAR_models/"
+
 
 if (!dir.exists(plot.dir)) {
   cat("creating directory:", plot.dir, "\n")
   dir.create(plot.dir)
+}
+if (!dir.exists(output.dir)) {
+  cat("creating directory:", output.dir, "\n")
+  dir.create(output.dir)
 }
 
 set.seed(125)
@@ -345,6 +352,13 @@ result2 <- MultiSingleSAR(responses = responses,
                           predictors = env.complete,
                           listw = nb.soi.swmat
                           )
+
+cat("test 3...\n")
+result3 <- RunMSSAR(name = paste0(output.dir, "SAR_single_test"),
+                    responses = responses,
+                    predictors = env.complete,
+                    listw = nb.soi.swmat
+                    )
 
 
 
