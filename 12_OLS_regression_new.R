@@ -156,32 +156,6 @@ RunMM <- function(responses, predictors, name) {
 }
 
 
-# Function to extract data of each null model from fd.indices
-# -----------------------------------------------------------
-GetFD <- function(fd.indices, name) {
-#  fd.indices: list of FD index dataframes (generated above)
-#  name: name of column to extract from each df in 'fd.indices'
-  fd.list <- llply(fd.indices, function(x) { x[, name] } )
-  df <- as.data.frame(fd.list)
-  rownames(df) <- rownames(fd.indices[[1]])
-  df
-}
-
-
-# Function to subset the input data to realm, combining results into a list
-# -------------------------------------------------------------------------
-RealmSubset <- function(x) {
-# Where x is a dataframe, such as the output of GetFD(), with tdwg3 codes as
-# rownames
-  output <- vector("list", length = length(realm.tdwg3))
-  names(output) <- names(realm.tdwg3)
-  for (i in seq_along(output)) {
-    output[[i]] <- x[rownames(x) %in% realm.tdwg3[[i]], ]
-  }
-  output
-}
-
-
 # Function to summarize single model outputs (1)
 # ----------------------------------------------
 CombineRealm <- function(statistic, fd.index, null.model, realm, filter.p = TRUE) {

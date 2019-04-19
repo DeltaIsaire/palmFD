@@ -205,114 +205,58 @@ cat("Defining spatial weights matrix...\n")
 #   1. For each polygon, draw a circle around the centroid with radius = distance
 #      to nearest neighbour
 #   2. Polygons whose "influence" circles overlap are neighbours.
+# This is implemented via function SoiNB()
 tdwg.map.subset <- tdwg.map[complete.cases(env.complete), ]
-tdwg.spatial <- as(tdwg.map.subset, "Spatial")
-tdwg.coords <- coordinates(tdwg.spatial)
-nb.dlny <- tri2nb(tdwg.coords)
-nb.soi <-
-  soi.graph(nb.dlny, tdwg.coords) %>%
-  graph2nb()
+nb.soi <- SoiNB(tdwg.map.subset)
 
 
 # Spatial weights matrix
 # ----------------------
-# Using row standardization (style = "W" in nb2listw())
-nb.soi.swmat <- nb2listw(nb.soi, style = "W")
-# Neat statistics available via summary(nb.soi.wtm)
-
+# Is created from a neighbourhood object.
+# We should use a row standardized weights matrix.
 # In order to decrease type II error, it may be worth to weight by distance.
-# Thus we can create an alternative spatial weights matrix:
+# This is done as follows:
 #   1. For each polygon, the (great circle) distances to neighbours:
-nb.soi.dist <- nbdists(nb.soi, tdwg.coords, longlat = TRUE)
 #   2. The greatest (great circle) distance between any two neighbours:
-nb.soi.maxdist <- max(unlist(nb.soi.dist))
 #   3. For each polygon, weight neighbour distances by the greatest distance
-nb.soi.wdist <- lapply(nb.soi.dist, function(x) { 1 - x / nb.soi.maxdist } )
-#   4. Create distance-weighted weights matrix:
-nb.soi.swmat.dw <- nb2listw(nb.soi, glist = nb.soi.wdist, style = "W")
+#   4. Create the distance-weighted weights matrix
+# spatial weights matrix creation is implemented via function SWMat()
+nb.soi.swmat <- SWMat(nb.soi, style = "W")
+
+nb.soi.swmat.dw <- SWMat(nb.soi, tdwg.map.subset, dist.weight = TRUE, style = "W")
 
 
-# Visualize the neighbourhood structure
-# -------------------------------------
+# Visualize the default neighbourhood structure
+# ---------------------------------------------
+# Default meaning the case of all 117 TDWG3 units for which we have data, i.e.
+# the 'nb.soi.swmat' neighbourhood defined above.
 # The default plot method is plot.nb() from package spdep:
 # plot(x = nb.soi.swmat, coords = tdwg.coords)
 # Combining it directly with ggplot is difficult, but we can recreate the aesthetic.
-#
-# Function to plot the graph
-SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
-                          subtitle = NULL) {
-# Segments: data.frame with coordinates for segments. See geom_segment().
-#           The order of columns in the dataframe should be
-#           c("x", "y", "xend", "yend")
-  tdwg.plot <- ggplot(data = tdwg.map) +
-                 geom_sf(size = 0.25,
-                         color = "white",
-                         aes(fill = presence),
-                         show.legend = FALSE
-                         ) +
-                 # This magically only adds axes:
-                 geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
-                 labs(x = NULL,
-                      y = NULL,
-                      title = title,
-                      subtitle = subtitle
-                      ) +
-                 geom_point(data = tdwg.map[which(presence), ],
-                            aes(x = Long, y = Lat),
-                            pch = 21,
-                            size = 2
-                            ) +
-                 geom_segment(data = segments,
-                              aes(x = segments[, 1],
-                                  y = segments[, 2],
-                                  xend = segments[, 3],
-                                  yend = segments[, 4]
-                                  ),
-                              size = 0.35,
-                              show.legend = FALSE
-                              ) +
-                 scale_fill_viridis(na.value = "#C0C0C0",
-                                    discrete = is.discrete(presence),
-                                    option = "inferno",
-                                    begin = 0.75
-                                    )
-  tdwg.plot
-}
-
-# Function to create segments dataframe from a neighbourhood object
-Nb2Segments <- function(nb, tdwg.map, presence) {
-  nb.num <- laply(nb, length)
-  present.names <- tdwg.map$LEVEL_3_CO[which(presence)]
-  segments <-
-    matrix(data = NA,
-           nrow = sum(nb.num),
-           ncol = 4,
-           dimnames = list(rep(present.names, times = nb.num),
-                           c("x", "y", "xend", "yend")
-                           )
-                     )
-  segments[, 1] <- tdwg.map$Long[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
-  segments[, 2] <- tdwg.map$Lat[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
-  indices <- match(present.names[unlist(nb)], tdwg.map$LEVEL_3_CO)
-  segments[, 3] <- tdwg.map$Long[indices]
-  segments[, 4] <- tdwg.map$Lat[indices]
-  as.data.frame(segments)
-}
-
-# Make the plot
-presence <- complete.cases(env.complete)
-presence[!presence] <- NA
-segments <- Nb2Segments(nb.soi, tdwg.map, presence)
-soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
-                          presence[!tdwg.map$LEVEL_3_CO == "ANT"],
-                          segments,
-                          title = "Sphere of Influence Neighbourhood",
-                          subtitle = "Based on TDWG3 units for which we have complete data"
+# This is implemented with SpatialPlotNB() and Nb2Segments(), which we can call
+# with a wrapper function:
+NbPlot <- function(nb, tdwg.map, tdwg.map.subset, title = NULL, subtitle = NULL,
+                   filename) {
+  segments <- Nb2Segments(nb, tdwg.map.subset)
+  presence <- tdwg.map$LEVEL_3_CO %in% tdwg.map.subset$LEVEL_3_CO
+  presence[!presence] <- NA
+  soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
+                            presence[!tdwg.map$LEVEL_3_CO == "ANT"],
+                            segments,
+                            title = title,
+                            subtitle = subtitle
                           )
-ggsave(soi.plot,
-       filename = paste0(plot.dir, "SOI_neighbourhood.png"),
-       width = 8,
-       height = 4
+  ggsave(soi.plot, filename = filename, width = 8, height = 4)
+  invisible(soi.plot)
+}
+
+# Call it for the default SOI neighbourhood:
+NbPlot(nb.soi,
+       tdwg.map,
+       tdwg.map.subset,
+       title = "Sphere of Influence Neighbourhood",
+       subtitle = "Based on TDWG3 units for which we have complete data",
+       filename = paste0(plot.dir, "SOI_neighbourhood_default.png")
        )
 
 
@@ -359,6 +303,31 @@ result3 <- RunMSSAR(name = paste0(output.dir, "SAR_single_test"),
                     predictors = env.complete,
                     listw = nb.soi.swmat
                     )
+
+cat("test 4...\n")
+# Function to run all models via RunMSSAR
+# ---------------------------------------
+AllSARSingles <- function(fd.indices, colname, predictors, ...) {
+# Args:
+#   fd.indices: the list object 'fd.indices' or a subset thereof
+#   colname: name of column to extract from each df in 'fd.indices' via GetFD()
+#   predictors: dataframe with predictor variables
+#   ...: further arguments to pass to RunMSSAR()
+
+  # full dataset:
+  fd.all <- GetFD(fd.indices, colname)
+  RunMSSAR(fd.all, ...)
+  # realm subsets:
+  fd.all.realms <- RealmSubset(fd.all)
+  predictors.realms <- RealmSubset(predictors[, !colnames(predictors) %in% "realm"])
+  for (i in seq_along(fd.all.realms)) {
+    RunMSSAR(
+             ...
+             )
+  }
+  return (0)
+}
+
 
 
 

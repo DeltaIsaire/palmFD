@@ -25,6 +25,7 @@
 # SpatialPlotFill
 # SpatialPlotSegments
 # SpatialPlotFactor
+# SpatialPlotNB
 
 
 library(magrittr)
@@ -186,6 +187,52 @@ SpatialPlotFactor <- function(tdwg.map, factor, factor.name, title = NULL,
               title = title,
               subtitle = subtitle
               )
+}
+
+
+
+SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
+                          subtitle = NULL) {
+# Function to visualize a neighbourhood.
+# Args:
+#   tdwg.map: the 'sf' object with all polygons to be plotted in the background
+#   presence: vector by which to color (fill) the polygons
+#   Segments: data.frame with coordinates for segments. See geom_segment().
+#             You likely want to use the function Nb2segments()
+
+  tdwg.plot <- ggplot(data = tdwg.map) +
+                 geom_sf(size = 0.25,
+                         color = "white",
+                         aes(fill = presence),
+                         show.legend = FALSE
+                         ) +
+                 # This magically only adds axes:
+                 geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+                 labs(x = NULL,
+                      y = NULL,
+                      title = title,
+                      subtitle = subtitle
+                      ) +
+                 geom_point(data = tdwg.map[which(presence), ],
+                            aes(x = Long, y = Lat),
+                            pch = 21,
+                            size = 2
+                            ) +
+                 geom_segment(data = segments,
+                              aes(x = segments[, 1],
+                                  y = segments[, 2],
+                                  xend = segments[, 3],
+                                  yend = segments[, 4]
+                                  ),
+                              size = 0.35,
+                              show.legend = FALSE
+                              ) +
+                 scale_fill_viridis(na.value = "#C0C0C0",
+                                    discrete = is.discrete(presence),
+                                    option = "inferno",
+                                    begin = 0.75
+                                    )
+  tdwg.plot
 }
 
 

@@ -15,6 +15,9 @@
 # SingleSAR
 # MultiSingleSAR
 # RunMSSAR
+# SoiNB
+# SWMat
+# Nb2Segments
 
 library(magrittr)
 library(plyr)
@@ -173,4 +176,78 @@ RunMSSAR <- function(name, ...) {
   }
   output
 }
+
+
+
+SoiNB <- function(tdwg.map) {
+# Function to create the Sphere of Influence neighbourhood. It is defined as follows:
+#   1. For each polygon, draw a circle around the centroid with radius = distance
+#      to nearest neighbour
+#   2. Polygons whose "influence" circles overlap are neighbours.
+# Args:
+#   tdwg.map: the map object as created by read_sf(), or a subset thereof
+  tdwg.spatial <- as(tdwg.map.subset, "Spatial")
+  tdwg.coords <- coordinates(tdwg.spatial)
+  nb.dlny <- tri2nb(tdwg.coords)
+  nb.soi <-
+    soi.graph(nb.dlny, tdwg.coords) %>%
+    graph2nb()
+  nb.soi
+}
+
+
+
+SWMat <- function(nb, tdwg.map = NULL, longlat = TRUE, dist.weight = FALSE, ...) {
+# Function to create spatial weights matrix, optionally with neighbour weighting
+# by distance.
+# Args:
+#   nb: a neighbourhood object
+#   tdwg.map: the map object as created by read_sf() that was used to create 'nb'
+#   longlat: argument passed to nbdists()
+#   dist.weight: whether to use weighting by distance
+#   ...: further arguments to pass to nb2listw()
+
+  if (dist.weight) {
+    # 1. For each polygon, the (great circle) distances to neighbours:
+    tdwg.spatial <- as(tdwg.map, "Spatial")
+    nb.dist <- nbdists(nb, coordinates(tdwg.spatial), longlat = longlat)
+    # 2. The greatest (great circle) distance between any two neighbours:
+    nb.maxdist <- max(unlist(nb.dist))
+    # 3. For each polygon, weight neighbour distances by the greatest distance
+    nb.wdist <- lapply(nb.dist, function(x) { 1 - x / nb.maxdist } )
+    # 4. Create distance-weighted weights matrix:
+    swmat <- nb2listw(nb, glist = nb.wdist, ...)
+  } else {
+    swmat <- nb2listw(nb, ...)
+  }
+  swmat
+}
+
+
+
+
+Nb2Segments <- function(nb, tdwg.map) {
+# Function to create segments dataframe from a neighbourhood object
+# Args:
+#   nb: a neighbourhood object
+#   tdwg.map: the map object as created by read_sf() that was used to create 'nb'
+  nb.num <- laply(nb, length)
+  tdwg3.names <- tdwg.map$LEVEL_3_CO
+  segments <-
+    matrix(data = NA,
+           nrow = sum(nb.num),
+           ncol = 4,
+           dimnames = list(rep(tdwg3.names, times = nb.num),
+                           c("x", "y", "xend", "yend")
+                           )
+                     )
+  segments[, 1] <- tdwg.map$Long[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
+  segments[, 2] <- tdwg.map$Lat[match(rownames(segments), tdwg.map$LEVEL_3_CO)]
+  indices <- match(tdwg3.names[unlist(nb)], tdwg.map$LEVEL_3_CO)
+  segments[, 3] <- tdwg.map$Long[indices]
+  segments[, 4] <- tdwg.map$Lat[indices]
+  as.data.frame(segments)
+}
+
+
 
