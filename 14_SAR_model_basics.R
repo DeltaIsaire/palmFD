@@ -6,8 +6,8 @@
 # environmental predictors, using simultaneous autoregressive error (SAR error)
 # models.
 # This includes assessing spatial autocorrelaton with Moran's I, calculating and
-# choosing neighbourhoods for the spatial weights matrix, and developing model
-# selection procedures.
+# choosing neighbourhoods for the spatial weights matrix, and implementing
+# single-predictor models.
 #
 #
 # Input files:
@@ -266,112 +266,96 @@ NbPlot(nb.soi,
 #############################
 cat("Generating single-predictor SAR error models:\n")
 
-# - spatial weights matrix with and without distance-weighting
-# - all single predictors
-# - FRic + FDis
-# - null models global, realm, realmnoMDG, adf, and observed
-# - global dataset and subset for each three realms
-# That is a lot of combinations!
-# Fortunately, we can borrow code from the OLS regressions, so developing functions
-# for single-predictor SAR models will is relatively easy.
-
-
-cat("test 1...\n")
-model.data <- env.complete
-model.data[, "null"] <- runif(n = nrow(model.data))
-model.data[, "response"] <- fd.indices[[1]] [, "global.SES"]
-
-result <- SingleSAR(model.data,
-                    listw = nb.soi.swmat,
-                    response = "response"
-                    )
-
-
-cat("test 2...\n")
-responses <- fd.indices[[1]] [, c("global.SES", "realm.SES", "adf.SES")]
-# TODO: if you use 'realm.SES.noMDG' you need a special neighbourhood, where MDG
-# is removed!
-
-result2 <- MultiSingleSAR(responses = responses,
-                          predictors = env.complete,
-                          listw = nb.soi.swmat
-                          )
-
-cat("test 3...\n")
-result3 <- RunMSSAR(name = paste0(output.dir, "SAR_single_test"),
-                    responses = responses,
-                    predictors = env.complete,
-                    listw = nb.soi.swmat
-                    )
-
-cat("test 4...\n")
-
-# Function to run all models via RunMSSAR
-# ---------------------------------------
-AllSARSingles <- function(fd.indices, colname, predictors, tdwg.map,
-                          dist.weight = FALSE, name.all, ...) {
-# Args:
-#   fd.indices: the list object 'fd.indices' or a subset thereof
-#   colname: name of column to extract from each df in 'fd.indices' via GetFD()
-#   predictors: dataframe with predictor variables
-#   tdwg.map: the map object as created by read_sf(). Is automatically
-#             subsetted as required. Used for creating the spatial weights matrix.
-#   dist.weight: whether to apply neighbour distance weighting in the spatial
-#                weights matrix. See SWMat()
-#   name.all: 'name' argument passed to RunMSSAR(). Should be of length 1; suffixes
-#         will be added for the cases 'full' and each realm subset
-#   ...: Additional arguments to pass to RunMSSAR()
-
-  fd.all <- GetFD(fd.indices, colname)
-
-  # full dataset:
-  cat(name.all, "full...\n")
-  ind.complete <- complete.cases(fd.all) & complete.cases(predictors)
-  tdwg.map.subset <- tdwg.map[ind.complete, ]
-  nb <- SoiNB(tdwg.map.subset)
-  swmat <- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
-  RunMSSAR(name = paste0(name.all, "_full"),
-           responses = fd.all,
-           predictors = predictors,
-           listw = swmat,
-           ...
-           )
-
-  # realm subsets:
-  fd.all.realms <- RealmSubset(fd.all)
-  predictors.realms <- RealmSubset(predictors[, !colnames(predictors) %in% "realm"])
-  for (i in seq_along(fd.all.realms)) {
-    cat(name.all, names(fd.all.realms)[i], "...\n")
-    ind.complete <-
-      complete.cases(fd.all.realms[[i]]) & complete.cases(predictors.realms[[i]])
-    tdwg.ind <- tdwg.map$LEVEL_3_CO %in% rownames(fd.all.realms[[i]])[ind.complete]
-    tdwg.map.subset <- tdwg.map[tdwg.ind, ]
-    nb <- SoiNB(tdwg.map.subset)
-    swmat.realm <- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
-    RunMSSAR(name = paste0(name.all, "_", names(fd.all.realms)[i]),
-             responses = fd.all.realms[[i]],
-             predictors = predictors.realms[[i]],
-             listw = swmat.realm,
-             ...
-             )
-  }
-  return (0)
+# Wrapper function for awesomeness
+# --------------------------------
+RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE) {
+# Generate the data, then immediately parse it
+  AllSARSingles(fd.indices,
+                colname = colname,
+                predictors = env.complete,
+                tdwg.map = tdwg.map,
+                dist.weight = dist.weight,
+                name.all = name.all,
+                standardize = TRUE,
+                numeric.only = FALSE
+                )
+  ParseSARSingle(name.all = name.all,
+                 cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                 statistics = c("slope", "p.value", "moran.p", "pseudo.Rsq"),
+                 filter.p = TRUE
+                 )
 }
 
-# call the function
-# -----------------
-AllSARSingles(fd.indices[fric],
-              colname = "global.SES",
-              predictors = env.complete,
-              tdwg.map = tdwg.map,
-              dist.weight = FALSE,
-              name.all = paste0(output.dir, "SAR_single_test_FRic_global"),
-              standardize = TRUE,
-              numeric.only = FALSE
+
+# Run the single-predictor models
+# -------------------------------
+# For FRic:
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES")
+SAR.FRic <- vector("list", length = length(null.models))
+names(SAR.FRic) <- null.models
+for (i in seq_along(SAR.FRic)) {
+  cat("For FRic", null.models[i], "\n")
+  SAR.FRic[[i]] <-
+    RunSARSingles(fd.indices[fric],
+                  colname = null.models[i],
+                  name.all = paste0(output.dir, "SAR_single_FRic_", null.models[i])
+                  )
+}
+# For FRic With distance weighted spatial weights matrix:
+SAR.FRic.dw <- SAR.FRic
+for (i in seq_along(SAR.FRic.dw)) {
+  cat("For FRic", null.models[i], "with distance-weighted swmat\n")
+  SAR.FRic.dw[[i]] <-
+    RunSARSingles(fd.indices[fric],
+                  colname = null.models[i],
+                  name.all = paste0(output.dir,
+                                    "SAR_single_FRic_dw_",
+                                    null.models[i]
+                                    ),
+                  dist.weight = TRUE
+                  )
+}
+
+# For FDis:
+cat("For FDis observed\n")
+SAR.FDis <- RunSARSingles(fd.indices[fdis],
+                          colname = "observed",
+                          name.all = paste0(output.dir, "SAR_single_FDis_observed")
+                          )
+# For FDis with distance weighted spatial weights matrix:
+cat("For FDis observed with distance-weighted swmat\n")
+SAR.FDis.dw <- RunSARSingles(fd.indices[fdis],
+                             colname = "observed",
+                             name.all = paste0(output.dir,
+                                               "SAR_single_FDis_observed_dw"
+                                               ),
+                             dist.weight = TRUE
+                             )
+
+
+# Parse and save results
+# ----------------------
+cat("Parsing and saving results...\n")
+
+DoParse <- function(output, filename) {
+  for (i in seq_along(output[[1]])) {
+    write.csv(ldply(output, function(x) { x[[i]] } , .id = "null.model" ),
+              file = paste0(output.dir,
+                            filename,
+                            "_",
+                            names(output[[1]])[i],
+                            ".csv"
+                            ),
+              eol = "\r\n",
+              row.names = FALSE
               )
+  }
+}
 
-
-
+DoParse(SAR.FRic, filename = "00_SAR_single_output_FRic")
+DoParse(SAR.FRic.dw, filename = "00_SAR_single_output_FRic_dw")
+DoParse(list(SAR.FDis), filename = "00_SAR_single_output_FDis")
+DoParse(list(SAR.FDis.dw), filename = "00_SAR_single_output_FDis_dw")
 
 
 
