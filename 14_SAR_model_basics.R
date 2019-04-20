@@ -255,7 +255,7 @@ NbPlot(nb.soi,
        tdwg.map,
        tdwg.map.subset,
        title = "Sphere of Influence Neighbourhood",
-       subtitle = "Based on TDWG3 units for which we have complete data",
+       subtitle = "Based on TDWG3 units with complete data",
        filename = paste0(plot.dir, "SOI_neighbourhood_default.png")
        )
 
