@@ -108,19 +108,23 @@ pred.names <- c("alt_range", "soilcount", "CH_SD", "bio1_sd", "bio12_sd",
 # Collinearity must be accounted for, so filter the predictors with AutoVIF()
 GraphSVG(Correlogram(env[, pred.names]),
          file = paste0(plot.dir, "Correlogram_of_predictors.svg"),
-         width = 5,
-         height = 5
+         width = 7,
+         height = 7
          )
 test.data <- env[, pred.names]
 test.data[, "response"] <- fd.indices[["FRic.all.traits"]] [, "global.SES"]
 pred.names <- AutoVIF(test.data,
                       response = "response",
                       standardize = TRUE,
-                      threshold = 3,
+                      threshold = 2.5,
                       numeric.only = TRUE
                       )
 # alt_range is the only variable that was excluded.
 # The correlogram shows it is strongly correlated with bio1_sd, which makes sense.
+# Restricting the VIF threshold to <2.5 additionaly removes bio1_sd.
+# With bio1_sd also removed, the highest remaining VIF is <1.4, which is awesome.
+# This should be considered given Cade (2015), depending on how strong th effect
+# of bio1_sd is in the single-predictor models (i.e. is it likely significant?)
 env.complete <- env[, pred.names]
 
 
@@ -200,17 +204,49 @@ test <- DredgeBestMod(response = fdis.data[, 1],
                       mc.cores = num.cores
                       )
 
-# critical paper:
-https://esajournals.onlinelibrary.wiley.com/doi/full/10.1890/14-1639.1
-# Further discussion of said paper with example model averaging code:
-https://drewtyre.rbind.io/post/rebutting_cade/
-# Simple presentation to introduce model averaging:
-https://aarontheecolog.files.wordpress.com/2014/06/rcoursemodelselection.pdf
-# maybe useful:
-https://stats.stackexchange.com/questions/208724/interpreting-model-averaging-results-in-r
-# Another hands-on example
-https://sites.google.com/site/rforfishandwildlifegrads/home/mumin_usage_examples
+
 
 
 cat("Done.\n")
 
+# Multimodel averaging
+# --------------------
+# Adapted/expanded from https://drewtyre.rbind.io/post/rebutting_cade/ and also
+# https://sites.google.com/site/rforfishandwildlifegrads/home/mumin_usage_examples
+#
+#   (1) fit all possible models:
+fits <- dredge(global.model, beta = "partial.sd")
+# Standardization by partial sd is reccommended by Cade (2015).
+# TODO: does this work in conjunction with (regularly) standardized predictors?
+#  (2) Obtain model selection table:
+fits.table <- model.sel(fits, beta = "partial.sd")
+fits.table %<>% as.data.frame()
+#  (3) From this table, extract estimated coefficients and investigate their
+#      normality. They should have UNIMODAL normal distributions (Cade, 2015).
+# < nonstandard >
+#  (4) Do model averaging:
+fits.avg <- model.avg(fits, beta = "partial.sd")
+fits.coefs <- coefTable(fits.avg, full = TRUE, adjust.se = TRUE)
+#  (5) Get a 95% confidence interval for coefficients
+fits.conf <- conf.int(fits)
+# or directly from the 'fits.coefs' object as "estimate' +/- 1.96 * "Std.Error"
+# >>> Compare these two: they should be equal (in which case, use conf.int)
+#
+# Naive variable importance is obtained with importance(fits), based on the
+# Akaike weights.
+# THIS IS VERY POOR INFORMATION. DON'T USE IT.
+#
+# You might consider extracting the best model and running moran.mc() on it
+#
+# We are NOT getting into variance partitioning. Not enough time, and I am not
+# certain it is helpful: I think the standardized model-averaged coefficients
+# are sufficiently informative, especially when paired with single-predictor
+# model Rsq.
+#
+#  (6) Make a plot (only for hand-picked cases)
+#
+#
+#
+#  (7) For perspective, you could report the pseudo-Rsq of the full model,
+#      and possibly even of the single 'best' model, although that can be
+#      questionable if you don't put it in the right context.
