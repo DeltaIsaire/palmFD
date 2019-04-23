@@ -176,7 +176,10 @@ DredgeBestMod <- function(response, predictors, mod.formula, tdwg.map,
   # Gracefully end cluster
   stopCluster(cluster)
 
-  best.mod
+  # Additional output
+  mod.avg <- model.avg(output, beta = "none", rank = "AICc")
+
+  list(best.mod, mod.avg)
 }
 
 # cases:
@@ -197,15 +200,16 @@ test <- DredgeBestMod(response = fdis.data[, 1],
                       mc.cores = num.cores
                       )
 
-
-
-
-
-
-# model.avg() for model averaging
-
-
-
+# critical paper:
+https://esajournals.onlinelibrary.wiley.com/doi/full/10.1890/14-1639.1
+# Further discussion of said paper with example model averaging code:
+https://drewtyre.rbind.io/post/rebutting_cade/
+# Simple presentation to introduce model averaging:
+https://aarontheecolog.files.wordpress.com/2014/06/rcoursemodelselection.pdf
+# maybe useful:
+https://stats.stackexchange.com/questions/208724/interpreting-model-averaging-results-in-r
+# Another hands-on example
+https://sites.google.com/site/rforfishandwildlifegrads/home/mumin_usage_examples
 
 
 cat("Done.\n")
