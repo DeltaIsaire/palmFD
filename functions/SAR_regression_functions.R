@@ -43,7 +43,7 @@ PseudoRsq <- function(sarlm) {
   # Here, we instead calculate fitted values directly from the estimated intercept
   # and slope(s).
   if (!identical(class(sarlm), "sarlm")) {
-    stop("mod object must be of class 'sarlm")
+    stop("mod object must be of class 'sarlm'")
   }
   coeff.mat <- t(t(sarlm[["X"]]) * sarlm[["coefficients"]])
   cor(x = rowSums(coeff.mat), y = sarlm[["y"]], method = "pearson") ^ 2

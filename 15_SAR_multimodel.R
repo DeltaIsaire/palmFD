@@ -147,12 +147,13 @@ DredgeBestMod <- function(response, predictors, mod.formula, tdwg.map,
     data.frame(predictors, response = response) %>%
     ParseData(., response = "response", standardize = TRUE, numeric.only = TRUE)
   ind.complete <- complete.cases(predictors) & complete.cases(response)
-  tdwg.map.subset <- tdwg.map[ind.complete, ]
+  tdwg.map.subset <- tdwg.map[which(ind.complete), ]
   nb <- SoiNB(tdwg.map.subset)
   swmat <- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
 
   # Fit global model
   mod.formula <<- as.formula(mod.formula)
+  # Yes that's high-level assignment. dredge() needs it.
   sar.mod.global <- errorsarlm(formula = mod.formula,
                                data = mod.data,
                                listw = swmat,
@@ -167,24 +168,40 @@ DredgeBestMod <- function(response, predictors, mod.formula, tdwg.map,
                 envir = environment()
                 )
   clusterEvalQ(cluster, library(spdep))
-  # Run model selection
-  output <- pdredge(global.model = sar.mod.global,
-                    cluster = cluster,
-                    beta = "none",  # We standardize predictors beforehand
-                    rank = "AICc"
-                    )
-  best.mod <- get.models(output,
-                         subset = rownames(output)[1],
-                         cluster = cluster
-                         )[[1]]
+  # Fit all models
+  cat("\tFitting all models...\n")
+  fits <- pdredge(global.model = sar.mod.global,
+                  cluster = cluster,
+                  beta = "none",
+                  rank = "AICc",
+                  extra = "PseudoRsq"
+                  )
+  # Extract model coefficients
+  cat("\tGet model coefficients...\n")
+  fits.table <- model.sel(fits, beta = "none")
+  fits.table %<>% as.data.frame()
+  # model averaging
+  cat("\tmodel averaging...\n")
+  fits.avg <- model.avg(fits, beta = "none", cluster = cluster)
+  cat("\tCalculating statistics of results...\n")
+  fits.coefs <- coefTable(fits.avg, full = TRUE, adjust.se = FALSE)
+  CI95 <- confint(fits.avg, level = 0.95, full = TRUE)
+  stats <- cbind(fits.coefs, CI95)[, -3]
+
   # Gracefully end cluster
   stopCluster(cluster)
 
-  # Additional output
-  mod.avg <- model.avg(output, beta = "none", rank = "AICc")
-
-  list(best.mod, mod.avg)
+  # Return output as list
+  list(global.mod = sar.mod.global,
+       fits = fits,
+       coefs = fits.table,
+       mod.avg = fits.avg,
+       coef.avg = stats
+       )
 }
+
+
+
 
 # cases:
 #   - global + 3 realm subsets (4)
@@ -193,21 +210,28 @@ DredgeBestMod <- function(response, predictors, mod.formula, tdwg.map,
 #   - with/without distance-weighted swmat (2)
 # 4 * 5 * 4 * 2 = 160 runs!
 
-cat("FDis observed\n")
-fdis.data <- GetFD(fd.indices[fdis], "observed")
+cat("Test run: FRic adf all traits in New World\n")
+fdis.data <-
+  GetFD(fd.indices[fric], "adf.SES") %>%
+  RealmSubset()
+env.complete.realms <- RealmSubset(env.complete)
 
-test <- DredgeBestMod(response = fdis.data[, 1],
-                      predictors = env.complete,
+test <- DredgeBestMod(response = fdis.data[["NewWorld"]] [, "FRic.all.traits"],
+                      predictors = env.complete.realms[["NewWorld"]],
                       mod.formula = "response ~ soilcount + CH_SD + bio1_sd + bio12_sd + bio4_mean + bio15_mean + lgm_Tano + lgm_Pano",
                       tdwg.map = tdwg.map,
-                      dist.weight = FALSE,
+                      dist.weight = TRUE,
                       mc.cores = num.cores
                       )
-
+# Using Histogram(), all coefficient distributions appear to be unimodal.
+# Some better than others, but meh.
 
 
 
 cat("Done.\n")
+
+
+stop("enough")
 
 # Multimodel averaging
 # --------------------
@@ -218,6 +242,7 @@ cat("Done.\n")
 fits <- dredge(global.model, beta = "partial.sd")
 # Standardization by partial sd is reccommended by Cade (2015).
 # TODO: does this work in conjunction with (regularly) standardized predictors?
+# TODO: 'partial.sd' does not work for sarlm models :(
 #  (2) Obtain model selection table:
 fits.table <- model.sel(fits, beta = "partial.sd")
 fits.table %<>% as.data.frame()
