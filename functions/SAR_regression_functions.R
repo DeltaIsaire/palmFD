@@ -20,6 +20,7 @@
 # Nb2Segments
 # AllSARSingles
 # ParseSARSingle
+# FitGlobalSAR
 
 library(magrittr)
 library(plyr)
@@ -367,5 +368,41 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
     stat.list <- stat.list[[1]]
   }
   stat.list
+}
+
+
+
+FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = TRUE) {
+# Function to fit a SAR error model to the provided data, using a Sphere of
+# Influence neighbourhood based on the provided spatial data.
+# Provided data is subsetted to complete cases via ParseData().
+# NOTE: this function uses global assignments, for compatibility with dredge() from
+# package MuMIn.
+# Args:
+#   response: vector of response data
+#   predictors: dataframe with predictor variables, in the same order as the response
+#               data.
+#   tdwg.map: simple features polygon data
+#   dist.weight: whether to apply neighbour distance weighting in the spatial
+#                weights matrix. See SWMat()
+  sar.mod.data <<- 
+    data.frame(predictors, response = response) %>%
+    ParseData(., response = "response", standardize = TRUE, numeric.only = TRUE)
+
+  # Generate spatial weights matrix from SOI neighbourhood
+  ind.complete <- complete.cases(predictors) & complete.cases(response)
+  tdwg.map.subset <- tdwg.map[which(ind.complete), ]
+  nb <- SoiNB(tdwg.map.subset)
+  sar.swmat <<- SWMat(nb, tdwg.map.subset, dist.weight = dist.weight, style = "W")
+
+  # Fit global model
+  sar.mod.formula <<-
+    paste0("response ~ ", paste(colnames(predictors), collapse = " + ")) %>%
+    as.formula()
+  errorsarlm(formula = sar.mod.formula,
+             data = sar.mod.data,
+             listw = sar.swmat,
+             na.action = na.fail
+             )
 }
 

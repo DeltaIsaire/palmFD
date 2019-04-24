@@ -16,6 +16,7 @@
 # SingleOLS
 # SingleModels
 # MultiSelect
+# FitGlobalOLS
 
 library(magrittr)
 library(plyr)
@@ -368,4 +369,23 @@ MultiSelect <- function(response.var, response.name, predictors, k = 10) {
   all.mods
 }
 
+
+
+FitGlobalOLS <- function(response, predictors) {
+# Function to generate a global OLS model object. Provided data is subsetted to
+# complete cases via ParseData().
+# NOTE: this function uses global assignments, for compatibility with dredge() from
+# package MuMIn.
+# Args:
+#   response: vector of response data
+#   predictors: dataframe with predictor variables, in the same order as the response
+#               data.
+  ols.mod.data <<-
+    data.frame(predictors, response = response) %>%
+    ParseData(., response = "response", standardize = TRUE, numeric.only = TRUE)
+  ols.mod.formula <<-
+    paste0("response ~ ", paste(colnames(predictors), collapse = " + ")) %>%
+    as.formula()
+  lm(formula = ols.mod.formula, data = ols.mod.data, na.action = na.fail)
+}
 
