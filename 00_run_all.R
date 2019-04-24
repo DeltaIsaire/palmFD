@@ -70,14 +70,24 @@ source(file = "10_FD_results_overview.R")
 cat("Parsing and preparing environmental predictors for regression:\n")
 source(file = "11_TDWG_environmental.R")
 
+cat("Performing single-predictor OLS regression:\n")
+source(file = "12_OLS_regression.R")
+
+cat("Comparing FD between realms with ANOVA:\n")
+source(file = "13_trait_realm_relation.R")
+
+cat("Performing single-predictor SAR error modeling:\n")
+source(file = "14_SAR_models.R")
+
+cat("Performing multimodel averaging with OLS and SAR models:\n")
+source(file = "15_SAR_OLS_multimodel_averaging.R")
+
 
 cat("EXTRA: Performing k-means clustering of TDWG3 units based on ADF:\n")
 source(file = "adf_kmeans_clustering.R")
 
-
-
-
-
+cat("EXTRA: Creating custom plots for presentations:\n")
+source(file = "presentation_graphics.R")
 
 
 cat("Finished running all main scripts.\n")

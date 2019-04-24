@@ -226,52 +226,8 @@ test <- DredgeBestMod(response = fdis.data[["NewWorld"]] [, "FRic.all.traits"],
 # Using Histogram(), all coefficient distributions appear to be unimodal.
 # Some better than others, but meh.
 
+# TODO: apply modeling to all FD data
 
 
 cat("Done.\n")
 
-
-stop("enough")
-
-# Multimodel averaging
-# --------------------
-# Adapted/expanded from https://drewtyre.rbind.io/post/rebutting_cade/ and also
-# https://sites.google.com/site/rforfishandwildlifegrads/home/mumin_usage_examples
-#
-#   (1) fit all possible models:
-fits <- dredge(global.model, beta = "partial.sd")
-# Standardization by partial sd is reccommended by Cade (2015).
-# TODO: does this work in conjunction with (regularly) standardized predictors?
-# TODO: 'partial.sd' does not work for sarlm models :(
-#  (2) Obtain model selection table:
-fits.table <- model.sel(fits, beta = "partial.sd")
-fits.table %<>% as.data.frame()
-#  (3) From this table, extract estimated coefficients and investigate their
-#      normality. They should have UNIMODAL normal distributions (Cade, 2015).
-# < nonstandard >
-#  (4) Do model averaging:
-fits.avg <- model.avg(fits, beta = "partial.sd")
-fits.coefs <- coefTable(fits.avg, full = TRUE, adjust.se = TRUE)
-#  (5) Get a 95% confidence interval for coefficients
-fits.conf <- conf.int(fits)
-# or directly from the 'fits.coefs' object as "estimate' +/- 1.96 * "Std.Error"
-# >>> Compare these two: they should be equal (in which case, use conf.int)
-#
-# Naive variable importance is obtained with importance(fits), based on the
-# Akaike weights.
-# THIS IS VERY POOR INFORMATION. DON'T USE IT.
-#
-# You might consider extracting the best model and running moran.mc() on it
-#
-# We are NOT getting into variance partitioning. Not enough time, and I am not
-# certain it is helpful: I think the standardized model-averaged coefficients
-# are sufficiently informative, especially when paired with single-predictor
-# model Rsq.
-#
-#  (6) Make a plot (only for hand-picked cases)
-#
-#
-#
-#  (7) For perspective, you could report the pseudo-Rsq of the full model,
-#      and possibly even of the single 'best' model, although that can be
-#      questionable if you don't put it in the right context.
