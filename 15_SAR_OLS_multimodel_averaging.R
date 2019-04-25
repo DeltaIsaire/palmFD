@@ -133,8 +133,10 @@ env.complete <- env[, pred.names]
 ################################
 cat("Automated best model selection:\n")
 
-
-DredgeBestMod <- function(global.model, beta = "none", cluster, ...) {
+# Function for model averaging
+# ----------------------------
+DredgeBestMod <- function(global.model, beta = "none", cluster,
+                          long.output = FALSE, ...) {
 # Function to apply model averaging based on a global model object.
 # The global model object should be called with 'na.action = na.fail', and all
 # objects referenced in the model call should exist in the global environment. This
@@ -145,24 +147,28 @@ DredgeBestMod <- function(global.model, beta = "none", cluster, ...) {
 #   beta: type of coefficient standardization to use, see dredge()
 #   cluster: cluster to use for parallel computation in pdredge() and
 #             model.avg()
+#   long.output: return all model average objects in a list, instead of only
+#                the coefficient average dataframe. The full objects are rather
+#                heavy on RAM, so use long output only for testing and on a machine
+#                with a lot of RAM
 #   ...: additional arguments to pass to dredge()
 
   # Fit all models
-  cat("\tFitting all models...\n")
+  cat("\t\tFitting all models...\n")
   fits <- pdredge(global.model = global.model,
                   cluster = cluster,
                   beta = beta,
                   ...
                   )
   # Extract model coefficients
-  cat("\tGet model coefficients...\n")
+  cat("\t\tGet model coefficients...\n")
   fits.table <-
      model.sel(fits, beta = beta) %>%
      as.data.frame()
   # model averaging
-  cat("\tmodel averaging...\n")
+  cat("\t\tmodel averaging...\n")
   fits.avg <- model.avg(fits, beta = beta, cluster = cluster)
-  cat("\tCalculating statistics of results...\n")
+  cat("\t\tCalculating statistics of results...\n")
   fits.coefs <- coefTable(fits.avg, full = TRUE, adjust.se = FALSE)
   CI95 <- confint(fits.avg, level = 0.95, full = TRUE)
   stats <-
@@ -172,71 +178,105 @@ DredgeBestMod <- function(global.model, beta = "none", cluster, ...) {
   stats[, "best.model"] <- best.coefs[match(rownames(stats), names(best.coefs))]
 
   # Return output as list
-  list(global.model = global.model,
-       fits = fits,
-       coefs = fits.table,
-       mod.avg = fits.avg,
-       coef.avg = stats
-       )
+  if (long.output) {
+    return (list(global.model = global.model,
+                 fits = fits,
+                 coefs = fits.table,
+                 mod.avg = fits.avg,
+                 coef.avg = stats
+                 )
+            )
+  } else {
+    return (list(coef.avg = stats))
+  }
 }
 
 
-
-
-# cases:
-#   - global + 3 realm subsets (4)
-#   - FRic 4 null models + FDis observed (5)
-#   - all traits + 3 single traits (4)
-#   - with/without distance-weighted swmat (2)
-# 4 * 5 * 4 * 2 = 160 runs!
-
-cat("Test run: FRic global all traits in New World\n")
-fdis.data <-
-  GetFD(fd.indices[fric], "global.SES") %>%
-  RealmSubset()
+# Apply model averaging for each FD response variable
+# ---------------------------------------------------
+# prepare globals
+null.models <- c("global.SES", "realm.SES", "realm.ses.noMDG", "adf.SES",
+                 "observed")
 env.complete.realms <- RealmSubset(env.complete)
+n <- 1
 
-response <- fdis.data[["NewWorld"]] [, "FRic.all.traits"]
-predictors <- env.complete.realms[["NewWorld"]]
-
-
-stop("test stop")
-
-# Fit global models
-# -----------------
-global.ols <- FitGlobalOLS(response = response, predictors = predictors)
-global.sar <- FitGlobalSAR(response = response,
-                           predictors = predictors,
-                           tdwg.map = tdwg.map,
-                           dist.weight = TRUE
-                           )
-
-# Create cluster for parallel processing
-# --------------------------------------
-# Initiate cluster:
+# Prepare cluster for parallel processing
 cluster <- makeCluster(num.cores)
-# Export environment to cluster
-clusterExport(cluster,
-              varlist = ls(name = .GlobalEnv),
-              envir = .GlobalEnv
-              )
 clusterEvalQ(cluster, library(spdep))
 
+for (index in fd.names) {
+  for (null.model in null.models) {
+    # Prepare data for cases full + realm subsets
+    index.data <- GetFD(fd.indices[index], null.model)
+    index.data.realms <- RealmSubset(index.data)
+    response.list <- c(list(full = index.data[, index]), index.data.realms)
+    predictors.list <- c(list(full = env.complete), env.complete.realms)
 
-# Perform multimodel averaging
-# ----------------------------
-mod.avg.ols <- DredgeBestMod(global.ols, beta = "none", cluster = cluster)
-mod.avg.ols[["coef.avg"]]
-mod.avg.ols.std <- DredgeBestMod(global.ols, beta = "partial.sd", cluster = cluster)
-mod.avg.ols.std[["coef.avg"]]
-mod.avg.sar <- DredgeBestMod(global.sar, beta = "none", cluster = cluster)
-mod.avg.sar[["coef.avg"]]
+    for (case in names(response.list)) {
+      # verbose output
+      nmax <- length(fd.names) * length(null.models) * length(names(response.list))
+      cat("\t",
+          paste0("(", n, " of ", nmax, ")"),
+          paste(index, null.model, "for", case, "dataset"),
+          "\n"
+          )
+      n <- n + 1
 
+      # Handle process flow: for FDis we only need the 'observed' null model
+      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
+        cat("\tSKIP - for FDis we use only the 'observed' data\n")
+        next
+      }
+
+      # Fit global models
+      response <- response.list[[case]]
+      predictors <- predictors.list[[case]]
+      global.ols <- FitGlobalOLS(response = response, predictors = predictors)
+      global.sar <- suppressMessages(FitGlobalSAR(response = response,
+                                                  predictors = predictors,
+                                                  tdwg.map = tdwg.map,
+                                                  dist.weight = TRUE
+                                                  )
+                                     )
+
+      # Export GLOBAL environment to cluster
+      clusterExport(cluster,
+                    varlist = ls(name = .GlobalEnv),
+                    envir = .GlobalEnv
+                    )
+
+      # Perform multimodel averaging
+      cat("\tOLS:\n")
+      mod.avg.ols <-
+        DredgeBestMod(global.ols, beta = "none", cluster = cluster)
+      cat("\tOLS with standardization:\n")
+      mod.avg.ols.std <-
+        DredgeBestMod(global.ols, beta = "partial.sd", cluster = cluster)
+      cat("\tSAR error:\n")
+      mod.avg.sar <-
+        DredgeBestMod(global.sar, beta = "none", cluster = cluster)
+
+      # Save results summary to disk
+      header <-
+        paste0(output.dir, "multimod_avg_", index, "_", null.model, "_", case, "_")
+      write.csv(mod.avg.ols[["coef.avg"]],
+                file = paste0(header, "OLS.csv"),
+                eol = "\r\n"
+                )
+      write.csv(mod.avg.ols.std[["coef.avg"]],
+                file = paste0(header, "OLS_std.csv"),
+                eol = "\r\n"
+                )
+      write.csv(mod.avg.sar[["coef.avg"]],
+                file = paste0(header, "SAR.csv"),
+                eol = "\r\n"
+                )
+    }
+  }
+}
 
 # Gracefully end cluster
-# ----------------------
 stopCluster(cluster)
-
 
 
 
