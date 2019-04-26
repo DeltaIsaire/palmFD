@@ -195,7 +195,7 @@ DredgeBestMod <- function(global.model, beta = "none", cluster,
 # Apply model averaging for each FD response variable
 # ---------------------------------------------------
 # prepare globals
-null.models <- c("global.SES", "realm.SES", "realm.ses.noMDG", "adf.SES",
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES",
                  "observed")
 env.complete.realms <- RealmSubset(env.complete)
 n <- 1
@@ -225,6 +225,13 @@ for (index in fd.names) {
       # Handle process flow: for FDis we only need the 'observed' null model
       if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
         cat("\tSKIP - for FDis we use only the 'observed' data\n")
+        next
+      }
+      # Handle process flow: skip if output already exists
+      header <-
+        paste0(output.dir, "multimod_avg_", index, "_", null.model, "_", case, "_")
+      if (file.exists(paste0(header, "SAR.csv"))) {
+        cat("\tSKIP - output files already exist\n")
         next
       }
 
@@ -257,8 +264,88 @@ for (index in fd.names) {
         DredgeBestMod(global.sar, beta = "none", cluster = cluster)
 
       # Save results summary to disk
+      write.csv(mod.avg.ols[["coef.avg"]],
+                file = paste0(header, "OLS.csv"),
+                eol = "\r\n"
+                )
+      write.csv(mod.avg.ols.std[["coef.avg"]],
+                file = paste0(header, "OLS_std.csv"),
+                eol = "\r\n"
+                )
+      write.csv(mod.avg.sar[["coef.avg"]],
+                file = paste0(header, "SAR.csv"),
+                eol = "\r\n"
+                )
+    }
+  }
+}
+
+# And do it all again with BIO1_SD removed to minimize collinearity
+# -----------------------------------------------------------------
+env.complete %<>% .[, !colnames(.) %in% "bio1_sd"]
+env.complete.realms <- RealmSubset(env.complete)
+n <- 1
+
+for (index in fd.names) {
+  for (null.model in null.models) {
+    # Prepare data for cases full + realm subsets
+    index.data <- GetFD(fd.indices[index], null.model)
+    index.data.realms <- RealmSubset(index.data)
+    response.list <- c(list(full = index.data[, index]), index.data.realms)
+    predictors.list <- c(list(full = env.complete), env.complete.realms)
+
+    for (case in names(response.list)) {
+      # verbose output
+      nmax <- length(fd.names) * length(null.models) * length(names(response.list))
+      cat("\t",
+          paste0("(", n, " of ", nmax, ")"),
+          paste(index, null.model, "for", case, "dataset"),
+          "\n"
+          )
+      n <- n + 1
+
+      # Handle process flow: for FDis we only need the 'observed' null model
+      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
+        cat("\tSKIP - for FDis we use only the 'observed' data\n")
+        next
+      }
+      # Handle process flow: skip if output already exists
       header <-
-        paste0(output.dir, "multimod_avg_", index, "_", null.model, "_", case, "_")
+        paste0(output.dir, "multimod_avg_noBIO1_", index, "_", null.model, "_", case, "_")
+      if (file.exists(paste0(header, "SAR.csv"))) {
+        cat("\tSKIP - output files already exist\n")
+        next
+      }
+
+      # Fit global models
+      response <- response.list[[case]]
+      predictors <- predictors.list[[case]]
+      global.ols <- FitGlobalOLS(response = response, predictors = predictors)
+      global.sar <- suppressMessages(FitGlobalSAR(response = response,
+                                                  predictors = predictors,
+                                                  tdwg.map = tdwg.map,
+                                                  dist.weight = TRUE
+                                                  )
+                                     )
+
+      # Export GLOBAL environment to cluster
+      clusterExport(cluster,
+                    varlist = ls(name = .GlobalEnv),
+                    envir = .GlobalEnv
+                    )
+
+      # Perform multimodel averaging
+      cat("\tOLS:\n")
+      mod.avg.ols <-
+        DredgeBestMod(global.ols, beta = "none", cluster = cluster)
+      cat("\tOLS with standardization:\n")
+      mod.avg.ols.std <-
+        DredgeBestMod(global.ols, beta = "partial.sd", cluster = cluster)
+      cat("\tSAR error:\n")
+      mod.avg.sar <-
+        DredgeBestMod(global.sar, beta = "none", cluster = cluster)
+
+      # Save results summary to disk
       write.csv(mod.avg.ols[["coef.avg"]],
                 file = paste0(header, "OLS.csv"),
                 eol = "\r\n"
@@ -277,6 +364,187 @@ for (index in fd.names) {
 
 # Gracefully end cluster
 stopCluster(cluster)
+
+
+
+##############################################
+cat("Processing model averaging results...\n")
+##############################################
+
+# Function to load output files into array
+# ----------------------------------------
+ParseDredge <- function(header, fd.names, null.models, cases, model) {
+  # Init array of results, getting basic dimensions from a template
+  template <- read.csv(file = paste0(header,
+                                     fd.names[1], "_",
+                                     null.models[1], "_",
+                                     cases[1], "_",
+                                     model, ".csv"
+                                     ),
+                       row.names = 1
+                       )
+  output <- array(dim = c(nrow(template),
+                          ncol(template),
+                          length(fd.names),
+                          length(cases),
+                          length(null.models)
+                          ),
+                  dimnames = list(predictors = rownames(template),
+                                  statistics = colnames(template),
+                                  fd.indices = fd.names,
+                                  cases      = cases,
+                                  null.model = null.models
+                                  )
+                  )
+
+  # Load data from files into array, matching row and column names
+  for (null.model in null.models) {
+    for (case in cases) {
+      for (index in fd.names) {
+        # load data file
+        data <- read.csv(file = paste0(header,
+                                       index, "_",
+                                       null.model, "_",
+                                       case, "_",
+                                       model, ".csv"
+                                       ),
+                         row.names = 1
+                         )
+        # Match row and column names
+        data %<>% .[match(rownames(.), rownames(output)), ]
+        data %<>% .[, match(colnames(.), colnames(output))]
+        # Insert data into matrix
+        output[, , index, case, null.model] <- as.matrix(data)
+      }
+    }
+  }
+
+  output
+}
+
+
+# Apply ParseDredge() to load data
+# --------------------------------
+avg.FDis.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                            fd.names = fdis,
+                            null.models = "observed",
+                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            model = "OLS"
+                            )
+avg.FDis.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
+                                fd.names = fdis,
+                                null.models = "observed",
+                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                model = "OLS"
+                                )
+
+avg.FDis.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                            fd.names = fdis,
+                            null.models = "observed",
+                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            model = "SAR"
+                            )
+avg.FDis.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
+                                fd.names = fdis,
+                                null.models = "observed",
+                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                model = "SAR"
+                                )
+
+avg.FRic.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                            fd.names = fric,
+                            null.models = c("global.SES", "realm.SES.noMDG",
+                                            "adf.SES"),
+                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            model = "OLS"
+                            )
+avg.FRic.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
+                                fd.names = fric,
+                                null.models = c("global.SES", "realm.SES.noMDG",
+                                            "adf.SES"),
+                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                model = "OLS"
+                                )
+
+avg.FRic.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                            fd.names = fric,
+                            null.models = c("global.SES", "realm.SES.noMDG",
+                                            "adf.SES"),
+                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            model = "SAR"
+                            )
+avg.FRic.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
+                                fd.names = fric,
+                                null.models = c("global.SES", "realm.SES.noMDG",
+                                            "adf.SES"),
+                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                model = "SAR"
+                                )
+
+
+# (Manual) comparison of results
+# ------------------------------
+# Array tables make the data accessible, with the incantation
+#   object[, , index, case, null.model]
+# e.g.
+avg.FDis.SAR[, , "FDis.all.traits", "full", "observed"]
+#
+# Fun stuff can be done with apply functions. For instance, find if the 95% CI
+# includes 0 (i.e. the average coefficient is not significantly different from 0):
+CheckCI <- function(x, value = 0) {
+  output <- value >= x[, "X2.5.."] & value <= x[, "X97.5.."]
+  sign.ind <- which(output == FALSE)
+  output[sign.ind] <- x[sign.ind, "Estimate"]
+  output[output == TRUE] <- "n.s."
+  output
+}
+adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI)
+#
+# In fact, let's do that for each data array, saving the result to disk
+
+write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_OLS.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+write.csv(adply(avg.FDis.OLS.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_OLS_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+
+write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_SAR.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+write.csv(adply(avg.FDis.SAR.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_SAR_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+
+write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_OLS.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+write.csv(adply(avg.FRic.OLS.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_OLS_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+
+write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_SAR.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
+write.csv(adply(avg.FRic.SAR.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_SAR_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE
+          )
 
 
 

@@ -311,7 +311,7 @@ write.csv(fric.rsq,
 fdis.rsq <- SingleSummary("Rsq",
                           "FDis",
                           "observed",
-                          c("NewWorld", "OWWest", "OWEast"),
+                          c("all", "NewWorld", "OWWest", "OWEast"),
                           filter.p = TRUE
                           )
 write.csv(fdis.rsq,
