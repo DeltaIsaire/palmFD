@@ -39,7 +39,8 @@ source(file="functions/base_functions.R")
 
 
 SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
-                        title = NULL, subtitle = NULL) {
+                        title = NULL, subtitle = NULL, legend.position = "right",
+                        labels = waiver(), colors = "viridis") {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
@@ -55,10 +56,18 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
     size <- 3
   }
   if (min(vector, na.rm = TRUE) >= 0) {
-    color.scale <- scale_fill_gradient(low = "yellow", high = "red")
+    color.scale <-
+#      scale_fill_gradient(low = "yellow", high = "red", labels = labels)
+       scale_fill_viridis(discrete = is.discrete(vector),
+                          option = colors,
+                          begin = 0.5,
+                          direction = 1,
+                          labels = labels
+                          )
   } else {
     if (max(vector, na.rm = TRUE) <= 0) {
-      color.scale <- scale_fill_gradient(low = "blue", high = "cyan")
+      color.scale <-
+        scale_fill_gradient(low = "blue", high = "cyan", labels = labels)
     } else {
       color.scale <-
         scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
@@ -68,7 +77,8 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
                                                 1e-10,
                                                 max(vector, na.rm = TRUE)
                                                 )
-                                              )
+                                              ),
+                             labels = labels
                              )
     }
   }
@@ -88,7 +98,8 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
               title = title,
               subtitle = subtitle
               ) +
-         color.scale
+         color.scale +
+         theme(legend.position = legend.position)
 }
 
 

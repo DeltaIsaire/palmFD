@@ -82,6 +82,9 @@ source(file = "14_SAR_models.R")
 cat("Performing multimodel averaging with OLS and SAR models:\n")
 source(file = "15_SAR_OLS_multimodel_averaging.R")
 
+cat("Creating graphs of results:\n")
+source(file = "16_results_graphics.R")
+
 
 cat("EXTRA: Performing k-means clustering of TDWG3 units based on ADF:\n")
 source(file = "adf_kmeans_clustering.R")
