@@ -67,19 +67,31 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
   } else {
     if (max(vector, na.rm = TRUE) <= 0) {
       color.scale <-
-        scale_fill_gradient(low = "blue", high = "cyan", labels = labels)
+#        scale_fill_gradient(low = "blue", high = "cyan", labels = labels)
+       scale_fill_viridis(discrete = is.discrete(vector),
+                          option = colors,
+                          begin = 0.5,
+                          direction = -1,
+                          labels = labels
+                          )
     } else {
       color.scale <-
-        scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
-                             values = rescale(c(min(vector, na.rm = TRUE),
-                                                -1e-10,
-                                                0,
-                                                1e-10,
-                                                max(vector, na.rm = TRUE)
-                                                )
-                                              ),
-                             labels = labels
-                             )
+#        scale_fill_gradientn(colours = c("blue", "cyan", "white", "yellow", "red"),
+#                             values = rescale(c(min(vector, na.rm = TRUE),
+#                                                -1e-10,
+#                                                0,
+#                                                1e-10,
+#                                                max(vector, na.rm = TRUE)
+#                                                )
+#                                              ),
+#                             labels = labels
+#                             )
+       scale_fill_viridis(discrete = is.discrete(vector),
+                          option = colors,
+                          begin = 0.0,
+                          direction = 1,
+                          labels = labels
+                          )
     }
   }
 

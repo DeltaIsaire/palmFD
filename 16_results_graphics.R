@@ -23,6 +23,8 @@ library(corrplot)
 library(leaps)
 library(gridExtra)
 
+theme_set(theme_bw())
+
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
 source(file = "functions/plotting_functions_ggplot2.R")
@@ -110,7 +112,7 @@ GraphSVG(Correlogram(env.complete),
 
 # 2. All environmental predictors
 exclude <- c("palm.richness", "endemism", "realm")
-GraphSVG(Correlogram(env[, !colnames(env.complete) %in% exclude]),
+GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
          file = paste0(plot.dir, "Correlogram_predictors_ENV.svg"),
          width = 7,
          height = 7
@@ -119,7 +121,7 @@ GraphSVG(Correlogram(env[, !colnames(env.complete) %in% exclude]),
 # 3. Environmental predictors excluding collinear variables,
 #    i.e. without alt_range
 exclude <- c("palm.richness", "endemism", "realm", "alt_range")
-GraphSVG(Correlogram(env[, !colnames(env.complete) %in% exclude]),
+GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
          file = paste0(plot.dir, "Correlogram_predictors_ENV_noncoll.svg"),
          width = 7,
          height = 7
@@ -136,40 +138,48 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
   LabTrans <- function(breaks) {
     round((10 ^ breaks) - 1, digits = 1)
   }
+
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
-  height <- SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                        vector = cwm.observed[no.ANT, "stem.height"],
-                        vector.name = "Stem height (m)",
-                        title = "Mean stem height in palm communities",
-                        legend.position = "bottom",
-                        labels = LabTrans
-                        ) +
-            theme(legend.key.width = unit(1.5, "cm"))
-  blade <- SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                        vector = cwm.observed[no.ANT, "blade.length"],
-                        vector.name = "Blade length (m)",
-                        title = "Mean blade length in palm communities",
-                        legend.position = "bottom",
-                        labels = LabTrans
-                        ) +
-            theme(legend.key.width = unit(1.5, "cm"))
-  fruit <- SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                        vector = cwm.observed[no.ANT, "fruit.length"],
-                        vector.name = "Fruit length (cm)",
-                        title = "Mean fruit length in palm communities",
-                        legend.position = "bottom",
-                        labels = LabTrans
-                        ) +
-            theme(legend.key.width = unit(1.5, "cm"))
+  MakePlot <- function(trait, name, title) {
+    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
+                vector = cwm.observed[no.ANT, trait],
+                vector.name = name,
+                title = title,
+                legend.position = "bottom",
+                labels = LabTrans
+                ) +
+                theme(legend.key.width = unit(1.5, "cm"))
+  }
+
+  height <- MakePlot("stem.height",
+                     "Stem height (m)",
+                     "Mean stem height in palm communities"
+                     )
+  blade <- MakePlot("blade.length",
+                    "Blade length (m)",
+                    "Mean blade length in palm communities"
+                    )
+  fruit <- MakePlot("fruit.length",
+                    "Fruit length (cm)",
+                    "Mean fruit length in botanical countries"
+                    )
 
   arrangeGrob(height, blade, fruit, ncol = 1)
 }
 
+# Full resolution
 ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
-       filename = paste0(plot.dir, "_TDWG3_palm_cwm_traits.png"),
+       filename = paste0(plot.dir, "TDWG3_palm_cwm_traits.png"),
        width = 7,
        height = 12
+       )
+# Low resolution
+ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
+       filename = paste0(plot.dir, "TDWG3_palm_cwm_traits_lowres.png"),
+       width = 7,
+       height = 12,
+       dpi = 100
        )
 
 
@@ -184,16 +194,91 @@ cat("Plotting functional diversity distributions...\n")
 MultiFDPlot <- function(tdwg.map, fd.indices) {
 
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
-  fdis.observed <- SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                               vector = GetFD(fd.indices["FDis.all.traits"],
-                                              "observed"
-                                              ),
-                               vector.name = "FDis (observed)",
-                               title = "Functional Dispersion (observed)",
-                               legend.position = "bottom",
-                               ) +
-                   theme(legend.key.width = unit(1.5, "cm"))
 
+  MakePlot <- function(index, case, name, title) {
+    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
+                vector = GetFD(fd.indices[index], case) [no.ANT, 1],
+                vector.name = name,
+                title = title,
+                legend.position = "bottom"
+                ) +
+                theme(legend.key.width = unit(1.5, "cm"))
+  }
+
+  fdis.obs <- MakePlot("FDis.all.traits",
+                       "observed",
+                       "FDis (observed)",
+                       "Functional Dispersion (observed)"
+                       )
+  fdis.global <- MakePlot("FDis.all.traits",
+                          "global.SES",
+                          "FDis (SES)",
+                          "Functional Dispersion (global)"
+                          )
+  fdis.realm <- MakePlot("FDis.all.traits",
+                         "realm.SES",
+                         "FDis (SES)",
+                         "Functional Dispersion (realm)"
+                         )
+  fdis.realm.noMDG <- MakePlot("FDis.all.traits",
+                               "realm.SES.noMDG",
+                               "FDis (SES)",
+                               "Functional Dispersion (realm, removed Madagascar)"
+                               )
+  fdis.adf <- MakePlot("FDis.all.traits",
+                       "adf.SES",
+                       "FDis (SES)",
+                       "Functional Dispersion (ADF)"
+                       )
+
+  fric.obs <- MakePlot("FRic.all.traits",
+                       "observed",
+                       "FRic (observed)",
+                       "Functional Richness (observed)"
+                       )
+  fric.global <- MakePlot("FRic.all.traits",
+                          "global.SES",
+                          "FRic (SES)",
+                          "Functional Richness (global)"
+                          )
+  fric.realm <- MakePlot("FRic.all.traits",
+                         "realm.SES",
+                         "FRic (SES)",
+                         "Functional Richness (realm)"
+                         )
+  fric.realm.noMDG <- MakePlot("FRic.all.traits",
+                               "realm.SES.noMDG",
+                               "FRic (SES)",
+                               "Functional Richness (realm, removed Madagascar)"
+                               )
+  fric.adf <- MakePlot("FRic.all.traits",
+                       "adf.SES",
+                       "FRic (SES)",
+                       "Functional Richness (ADF)"
+                       )
+
+  arrangeGrob(fdis.obs, fric.obs,
+              fdis.global, fric.global,
+              fdis.realm, fric.realm,
+              fdis.realm.noMDG, fric.realm.noMDG,
+              fdis.adf, fric.adf,
+              ncol = 2
+              )
+}
+
+# Full resolution
+ggsave(plot = MultiFDPlot(tdwg.map, fd.indices),
+       filename = paste0(plot.dir, "TDWG3_FD_distributions.png"),
+       width = 12,
+       height = 18
+       )
+# Low resolution
+ggsave(plot = MultiFDPlot(tdwg.map, fd.indices),
+       filename = paste0(plot.dir, "TDWG3_FD_distributions_lowres.png"),
+       width = 12,
+       height = 18,
+       dpi = 100
+       )
 
 
 
