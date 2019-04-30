@@ -347,5 +347,15 @@ for (stat in c("means", "sds", "z.scores")) {
 }
 
 
+# While we're at it, average the trait estimates.
+StochasticMeans(stat = "",
+                samples = 100,
+                output.dir = "output/trait_matrices/",
+                header = "palm_trait_matrix_filled_"
+                )
+
+
+
+
 cat("Done.\n")
 

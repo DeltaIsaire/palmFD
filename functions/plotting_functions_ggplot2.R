@@ -26,6 +26,8 @@
 # SpatialPlotSegments
 # SpatialPlotFactor
 # SpatialPlotNB
+# TraitTrans
+# NBreaks
 
 
 library(magrittr)
@@ -256,6 +258,24 @@ SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
                                     begin = 0.75
                                     )
   tdwg.plot
+}
+
+
+
+TraitTrans <- function(breaks) {
+# Transform legend or axis tick marks of log-transformed trait values
+# back to real values.
+  round((10 ^ breaks) - 1, digits = 1)
+}
+
+
+NBreaks <- function(limits, n = 5) {
+# Create a custom number of equidistant breaks.
+# For use with e.g. scale_x_continuous()
+  range <- max(limits) - min(limits)
+  dist <- range / (n - 1)
+  breaks <- min(limits) + (0:(n - 1)) * dist
+  round(breaks, digits = 2)
 }
 
 

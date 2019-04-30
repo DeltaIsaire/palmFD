@@ -357,7 +357,7 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
             nonsignificant <- suppressWarnings(which(p.vals[row, ] > 0.05))
            # warnings suppressed because the 1st column is not numeric (originally
            # rownames) which is not in fact a problem
-            stat[row, nonsignificant] <- NA
+            stat[row, nonsignificant] <- "n.s."
           }
         }
       output[[j]] <- stat

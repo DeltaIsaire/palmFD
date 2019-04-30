@@ -305,7 +305,7 @@ for (i in seq_along(SAR.FRic.dw)) {
 # For FDis:
 null.models
 SAR.FDis <- vector("list", length = length(null.models))
-names(sar.FDis) <- null.models
+names(SAR.FDis) <- null.models
 for (i in seq_along(SAR.FDis)) {
   cat("For FDis", null.models[i], "\n")
   SAR.FDis[[i]] <-
@@ -352,7 +352,7 @@ DoParse <- function(output, filename) {
 
 DoParse(SAR.FRic, filename = "00_SAR_single_output_FRic")
 DoParse(SAR.FRic.dw, filename = "00_SAR_single_output_FRic_dw")
-DoParse(SAR.Fdis, filename = "00_SAR_single_output_FDis")
+DoParse(SAR.FDis, filename = "00_SAR_single_output_FDis")
 DoParse(SAR.FDis.dw, filename = "00_SAR_single_output_FDis_dw")
 
 
