@@ -190,7 +190,7 @@ CombineRealm <- function(statistic, fd.index, null.model, realm, filter.p = TRUE
          nonsignificant <- suppressWarnings(which(p.vals[j, ] > 0.05))
          # warnings suppressed because the 1st column is not numeric (originally
          # rownames) which is not in fact a problem
-         stat[j, nonsignificant] <- NA
+         stat[j, nonsignificant] <- "n.s."
        }
      }
     # Asssign (filtered) stat data to output list
@@ -284,39 +284,58 @@ RunSingles(fd.indices[fric], "FRic", "realm.SES.noMDG", env.complete)
 cat("(4) FRic for null model ADF...\n")
 RunSingles(fd.indices[fric], "FRic", "adf.SES", env.complete)
 
+cat("(5) FRic for observed data...\n")
+RunSingles(fd.indices[fric], "FRic", "observed", env.complete)
+
 
 # For functional dispersion (FDis)
 # -------------------------------
-cat("(5) FDis observed...\n")
+cat("(6) FDis observed...\n")
 RunSingles(fd.indices[fdis], "FDis", "observed", env.complete)
+
+cat("(7) FDis for null model Global...\n")
+RunSingles(fd.indices[fdis], "FDis", "global.SES", env.complete)
+
+cat("(8) FDis for null model Realm...\n")
+RunSingles(fd.indices[fdis], "FDis", "realm.SES", env.complete)
+
+cat("(9) FDis for null model Realm without MDG...\n")
+RunSingles(fd.indices[fdis], "FDis", "realm.SES.noMDG", env.complete)
+
+cat("(10) FDis for null model ADF...\n")
+RunSingles(fd.indices[fdis], "FDis", "adf.SES", env.complete)
 
 
 # Summarize results
 # -----------------
 cat("Summarizing single-predictor model results...\n")
 
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed"
+)
 # For FRic
 fric.rsq <- SingleSummary("Rsq",
                           "FRic",
-                          c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES"),
+                          null.models,
                           c("all", "NewWorld", "OWWest", "OWEast"),
                           filter.p = TRUE
                           )
 write.csv(fric.rsq,
-          file = paste0(output.dir, "OLS_single_Rsq_FRic_combined.csv"),
-          row.names = FALSE
+          file = paste0(output.dir, "00_OLS_single_Rsq_FRic_combined.csv"),
+          row.names = FALSE,
+          quote = FALSE
           )
 
 # For FDis
 fdis.rsq <- SingleSummary("Rsq",
                           "FDis",
-                          "observed",
+                          null.models,
                           c("all", "NewWorld", "OWWest", "OWEast"),
                           filter.p = TRUE
                           )
 write.csv(fdis.rsq,
-          file = paste0(output.dir, "OLS_single_Rsq_FDis_combined.csv"),
-          row.names = FALSE
+          file = paste0(output.dir, "00_OLS_single_Rsq_FDis_combined.csv"),
+          row.names = FALSE,
+          quote = FALSE
           )
 
 

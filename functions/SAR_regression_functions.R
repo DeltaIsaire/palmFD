@@ -21,10 +21,12 @@
 # AllSARSingles
 # ParseSARSingle
 # FitGlobalSAR
+# NbPlot
 
 library(magrittr)
 library(plyr)
 library(spdep)
+library(ncf)
 
 source(file = "functions/base_functions.R")
 
@@ -404,5 +406,38 @@ FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = TRUE) {
              listw = sar.swmat,
              na.action = na.fail
              )
+}
+
+
+
+NbPlot <- function(nb, tdwg.map, tdwg.map.subset, title = NULL, subtitle = NULL,
+                   filename = NULL) {
+# Function to plot the Sphere of Influence neighbourhood for a particular dataset.
+#
+# Args:
+#   nb: A neighbourhood object, such as the output of SoiNB()
+#   tdwg.map: the tdwg.map loaded with geom_sf()
+#   tdwg.map.subset: the (subsetted) tdwg.map object used to create the neighbourhood
+#                    (e.g. the object used in the SoiNB() call)
+#   title: title for plot.
+#   subtitle: subtitle for plot
+#   filename: filename for saving the graph (file type by extension, see ggsave()).
+#             Can be NULL, in which case the graph is NOT saved.
+#
+#  Returns:
+#    The neighbourhood graph as a ggplot object
+  segments <- Nb2Segments(nb, tdwg.map.subset)
+  presence <- tdwg.map$LEVEL_3_CO %in% tdwg.map.subset$LEVEL_3_CO
+  presence[!presence] <- NA
+  soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
+                            presence[!tdwg.map$LEVEL_3_CO == "ANT"],
+                            segments,
+                            title = title,
+                            subtitle = subtitle
+                          )
+  if (!is.null(filename)) {
+    ggsave(soi.plot, filename = filename, width = 8, height = 4)
+  }
+  invisible(soi.plot)
 }
 

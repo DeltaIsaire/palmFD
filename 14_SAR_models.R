@@ -156,22 +156,24 @@ Correlogram <- function(obs, increment = 500, resamp = 999, plot = TRUE, ...) {
 # ---------------------------------------------------------------------
 # Quality correlogs take a long time, so execute only if output doesn't exist
 
-cat("(1) For FRic...\n")
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
+
 # Another small function for automating the FRic plots
 MakePlots <- function(x, index) {
-  par(mfrow = c(1, 4), mar = c(4.1, 4.1, 4.1, 1.0))
-  for (model in c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES")) {
+  par(mfrow = c(5, 1), mar = c(4.1, 4.1, 4.1, 1.0))
+  for (model in null.models) {
     Correlogram(x[, model], plot = TRUE, title = paste0(index, " (", model, ")"))
   }
 }
 
+cat("(1) For FRic...\n")
 for (i in seq_along(fric)) {
   filename <- paste0(plot.dir, "Morans_I_", fric[i], ".svg")
   if (!file.exists(filename)) {
     GraphSVG(MakePlots(fd.indices[[fric[i]]], index = fric[i]),
              file = filename,
-             height = 4,
-             width = 16
+             height = 20,
+             width = 5
              )
   }
 }
@@ -180,12 +182,9 @@ cat("(2) For FDis...\n")
 for (i in seq_along(fdis)) {
   filename <- paste0(plot.dir, "Morans_I_", fdis[i], ".svg")
   if (!file.exists(filename)) {
-    GraphSVG(Correlogram(fd.indices[[fdis[i]]] [, "observed"],
-                         plot = TRUE,
-                         title = paste0(fdis[i], " (observed)")
-                         ),
+    GraphSVG(MakePlots(fd.indices[[fdis[i]]], index = fdis[i]),
              file = filename,
-             height = 4,
+             height = 20,
              width = 5
              )
   }
@@ -234,21 +233,8 @@ nb.soi.swmat.dw <- SWMat(nb.soi, tdwg.map.subset, dist.weight = TRUE, style = "W
 # plot(x = nb.soi.swmat, coords = tdwg.coords)
 # Combining it directly with ggplot is difficult, but we can recreate the aesthetic.
 # This is implemented with SpatialPlotNB() and Nb2Segments(), which we can call
-# with a wrapper function:
-NbPlot <- function(nb, tdwg.map, tdwg.map.subset, title = NULL, subtitle = NULL,
-                   filename) {
-  segments <- Nb2Segments(nb, tdwg.map.subset)
-  presence <- tdwg.map$LEVEL_3_CO %in% tdwg.map.subset$LEVEL_3_CO
-  presence[!presence] <- NA
-  soi.plot <- SpatialPlotNB(tdwg.map[!tdwg.map$LEVEL_3_CO == "ANT", ],
-                            presence[!tdwg.map$LEVEL_3_CO == "ANT"],
-                            segments,
-                            title = title,
-                            subtitle = subtitle
-                          )
-  ggsave(soi.plot, filename = filename, width = 8, height = 4)
-  invisible(soi.plot)
-}
+# with the wrapper function NbPlot()
+
 
 # Call it for the default SOI neighbourhood:
 NbPlot(nb.soi,
@@ -290,7 +276,7 @@ RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE) {
 # Run the single-predictor models
 # -------------------------------
 # For FRic:
-null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES")
+null.models
 SAR.FRic <- vector("list", length = length(null.models))
 names(SAR.FRic) <- null.models
 for (i in seq_along(SAR.FRic)) {
@@ -317,20 +303,31 @@ for (i in seq_along(SAR.FRic.dw)) {
 }
 
 # For FDis:
-cat("For FDis observed\n")
-SAR.FDis <- RunSARSingles(fd.indices[fdis],
-                          colname = "observed",
-                          name.all = paste0(output.dir, "SAR_single_FDis_observed")
-                          )
+null.models
+SAR.FDis <- vector("list", length = length(null.models))
+names(sar.FDis) <- null.models
+for (i in seq_along(SAR.FDis)) {
+  cat("For FDis", null.models[i], "\n")
+  SAR.FDis[[i]] <-
+    RunSARSingles(fd.indices[fdis],
+                  colname = null.models[i],
+                  name.all = paste0(output.dir, "SAR_single_FDis_", null.models[i])
+                  )
+}
 # For FDis with distance weighted spatial weights matrix:
-cat("For FDis observed with distance-weighted swmat\n")
-SAR.FDis.dw <- RunSARSingles(fd.indices[fdis],
-                             colname = "observed",
-                             name.all = paste0(output.dir,
-                                               "SAR_single_FDis_observed_dw"
-                                               ),
-                             dist.weight = TRUE
-                             )
+SAR.FDis.dw <- SAR.FDis
+for (i in seq_along(SAR.FDis.dw)) {
+  cat("For FDis", null.models[i], "with distance-weighted swmat\n")
+  SAR.FDis.dw[[i]] <-
+    RunSARSingles(fd.indices[fric],
+                  colname = null.models[i],
+                  name.all = paste0(output.dir,
+                                    "SAR_single_FDis_dw_",
+                                    null.models[i]
+                                    ),
+                  dist.weight = TRUE
+                  )
+}
 
 
 # Parse and save results
@@ -347,15 +344,16 @@ DoParse <- function(output, filename) {
                             ".csv"
                             ),
               eol = "\r\n",
-              row.names = FALSE
+              row.names = FALSE,
+              quote = FALSE
               )
   }
 }
 
 DoParse(SAR.FRic, filename = "00_SAR_single_output_FRic")
 DoParse(SAR.FRic.dw, filename = "00_SAR_single_output_FRic_dw")
-DoParse(list(SAR.FDis), filename = "00_SAR_single_output_FDis")
-DoParse(list(SAR.FDis.dw), filename = "00_SAR_single_output_FDis_dw")
+DoParse(SAR.Fdis, filename = "00_SAR_single_output_FDis")
+DoParse(SAR.FDis.dw, filename = "00_SAR_single_output_FDis_dw")
 
 
 

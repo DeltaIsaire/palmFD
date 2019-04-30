@@ -223,10 +223,10 @@ for (index in fd.names) {
       n <- n + 1
 
       # Handle process flow: for FDis we only need the 'observed' null model
-      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
-        cat("\tSKIP - for FDis we use only the 'observed' data\n")
-        next
-      }
+#      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
+#        cat("\tSKIP - for FDis we use only the 'observed' data\n")
+#        next
+#      }
       # Handle process flow: skip if output already exists
       header <-
         paste0(output.dir, "multimod_avg_", index, "_", null.model, "_", case, "_")
@@ -305,10 +305,10 @@ for (index in fd.names) {
       n <- n + 1
 
       # Handle process flow: for FDis we only need the 'observed' null model
-      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
-        cat("\tSKIP - for FDis we use only the 'observed' data\n")
-        next
-      }
+#      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
+#        cat("\tSKIP - for FDis we use only the 'observed' data\n")
+#        next
+#      }
       # Handle process flow: skip if output already exists
       header <-
         paste0(output.dir, "multimod_avg_noBIO1_", index, "_", null.model, "_", case, "_")
@@ -411,9 +411,9 @@ ParseDredge <- function(header, fd.names, null.models, cases, model) {
                          row.names = 1
                          )
         # Match row and column names
-        data %<>% .[match(rownames(.), rownames(output)), ]
-        data %<>% .[, match(colnames(.), colnames(output))]
-        # Insert data into matrix
+        data <- data[match(rownames(output), rownames(data)), ]
+        data <- data[, match(colnames(output), colnames(data))]
+        # Insert data into array
         output[, , index, case, null.model] <- as.matrix(data)
       }
     }
@@ -425,59 +425,57 @@ ParseDredge <- function(header, fd.names, null.models, cases, model) {
 
 # Apply ParseDredge() to load data
 # --------------------------------
+cases <- c("full", "NewWorld", "OWWest", "OWEast")
+
 avg.FDis.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fdis,
-                            null.models = "observed",
-                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            null.models = null.models,
+                            cases = cases,
                             model = "OLS"
                             )
 avg.FDis.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
                                 fd.names = fdis,
-                                null.models = "observed",
-                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                null.models = null.models,
+                                cases = cases,
                                 model = "OLS"
                                 )
 
 avg.FDis.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fdis,
-                            null.models = "observed",
-                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            null.models = null.models,
+                            cases = cases,
                             model = "SAR"
                             )
 avg.FDis.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
                                 fd.names = fdis,
-                                null.models = "observed",
-                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                null.models = null.models,
+                                cases = cases,
                                 model = "SAR"
                                 )
 
 avg.FRic.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fric,
-                            null.models = c("global.SES", "realm.SES.noMDG",
-                                            "adf.SES"),
-                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            null.models = null.models,
+                            cases = cases,
                             model = "OLS"
                             )
 avg.FRic.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
                                 fd.names = fric,
-                                null.models = c("global.SES", "realm.SES.noMDG",
-                                            "adf.SES"),
-                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                null.models = null.models,
+                                cases = cases,
                                 model = "OLS"
                                 )
 
 avg.FRic.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fric,
-                            null.models = c("global.SES", "realm.SES.noMDG",
-                                            "adf.SES"),
-                            cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                            null.models = null.models,
+                            cases = cases,
                             model = "SAR"
                             )
 avg.FRic.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
                                 fd.names = fric,
-                                null.models = c("global.SES", "realm.SES.noMDG",
-                                            "adf.SES"),
-                                cases = c("full", "NewWorld", "OWWest", "OWEast"),
+                                null.models = null.models,
+                                cases = cases,
                                 model = "SAR"
                                 )
 
@@ -505,45 +503,53 @@ adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI)
 write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 write.csv(adply(avg.FDis.OLS.noT, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS_noT.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 
 write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_SAR.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 write.csv(adply(avg.FDis.SAR.noT, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_SAR_noT.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 
 write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 write.csv(adply(avg.FRic.OLS.noT, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS_noT.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 
 write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_SAR.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 write.csv(adply(avg.FRic.SAR.noT, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_SAR_noT.csv"),
           eol = "\r\n",
-          quote = FALSE
+          quote = FALSE,
+          row.names = FALSE
           )
 
 
