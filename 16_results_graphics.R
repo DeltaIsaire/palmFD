@@ -574,6 +574,63 @@ ggsave(DoPlot(),
 
 
 
+##############################################################
+cat("Plotting distributions of environmental predictors...\n")
+##############################################################
+
+# First the all-traits data. 
+# A single huge grid. Two columns: FDis and FRic.
+# Five rows: observed, global, realm, realmnoMDG, ADF.
+MultiEnvPlot <- function(tdwg.map, env.complete) {
+
+  no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+  MakePlot <- function(predictor, name, title) {
+    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
+                vector = env.complete[, predictor] [no.ANT],
+                vector.name = name,
+                title = title,
+                legend.position = "bottom",
+                colors = "inferno"
+                ) +
+                theme(legend.key.width = unit(1.5, "cm"))
+  }
+
+  soilcount <- MakePlot("soilcount", "no. soiltypes", "Soilcount")
+  ch <- MakePlot("CH_SD", "<units>", "Canopy Height (sd)")
+  temp <- MakePlot("bio1_sd", "log10(<units>)", "Mean annual temperature (sd)")
+  precip <- MakePlot("bio12_sd", "sqrt(<units>)", "Annual Precipitation (sd)")
+  temp.seas <-
+    MakePlot("bio4_mean", "log10(<units>)", "Temperature Seasonality")
+  precip.seas <-
+    MakePlot("bio15_mean", "<units>y", "Precipitation Seasonality")
+  lgmt <- MakePlot("lgm_Tano", "<units>", "LGM Temperature Anomaly")
+  lgmp <- MakePlot("lgm_Pano", "<units>", "LGM Precipitation Anomaly")
+
+  arrangeGrob(soilcount, ch,
+              temp, precip,
+              temp.seas, precip.seas,
+              lgmt, lgmp,
+              ncol = 2
+              )
+}
+
+# Full resolution
+ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
+       filename = paste0(plot.dir, "TDWG3_predictor_distributions.png"),
+       width = 12,
+       height = 15
+       )
+# Low resolution
+ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
+       filename = paste0(plot.dir, "TDWG3_predictor_distributions_lowres.png"),
+       width = 12,
+       height = 15,
+       dpi = 100
+       )
+
+
+
 
 
 
