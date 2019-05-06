@@ -440,6 +440,21 @@ avg.FDis.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1
                                 model = "OLS"
                                 )
 
+avg.FDis.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                                fd.names = fdis,
+                                null.models = null.models,
+                                cases = cases,
+                                model = "OLS_std"
+                                )
+avg.FDis.OLS.std.noT <- ParseDredge(header = paste0(output.dir,
+                                                    "multimod_avg_noBIO1_"
+                                                    ),
+                                    fd.names = fdis,
+                                    null.models = null.models,
+                                    cases = cases,
+                                    model = "OLS_std"
+                                    )
+
 avg.FDis.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fdis,
                             null.models = null.models,
@@ -465,6 +480,21 @@ avg.FRic.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1
                                 cases = cases,
                                 model = "OLS"
                                 )
+
+avg.FRic.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
+                                fd.names = fric,
+                                null.models = null.models,
+                                cases = cases,
+                                model = "OLS_std"
+                                )
+avg.FRic.OLS.std.noT <- ParseDredge(header = paste0(output.dir,
+                                                    "multimod_avg_noBIO1_"
+                                                    ),
+                                    fd.names = fric,
+                                    null.models = null.models,
+                                    cases = cases,
+                                    model = "OLS_std"
+                                    )
 
 avg.FRic.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fric,
@@ -513,6 +543,19 @@ write.csv(adply(avg.FDis.OLS.noT, .margins = c(3, 4, 5), CheckCI),
           row.names = FALSE
           )
 
+write.csv(adply(avg.FDis.OLS.std, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_OLS_std.csv"),
+          eol = "\r\n",
+          quote = FALSE,
+          row.names = FALSE
+          )
+write.csv(adply(avg.FDis.OLS.std.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FDis_OLS_std_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE,
+          row.names = FALSE
+          )
+
 write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_SAR.csv"),
           eol = "\r\n",
@@ -534,6 +577,19 @@ write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), CheckCI),
           )
 write.csv(adply(avg.FRic.OLS.noT, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS_noT.csv"),
+          eol = "\r\n",
+          quote = FALSE,
+          row.names = FALSE
+          )
+
+write.csv(adply(avg.FRic.OLS.std, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_OLS_std.csv"),
+          eol = "\r\n",
+          quote = FALSE,
+          row.names = FALSE
+          )
+write.csv(adply(avg.FRic.OLS.std.noT, .margins = c(3, 4, 5), CheckCI),
+          file = paste0(output.dir, "00_95CI_FRic_OLS_std_noT.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
