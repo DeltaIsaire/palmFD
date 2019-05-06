@@ -95,13 +95,13 @@ for (index in fd.names) {
 
 cat("Preparing predictor variables...\n")
 # ---------------------------------------
-env <- read.csv(file = "output/tdwg3_predictors_complete.csv",
+env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
                 row.names = 1
                 )
 
 # The following are the predictors of primary interest:
-pred.names <- c("alt_range", "soilcount", "CH_SD", "bio1_sd", "bio12_sd",
-                "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano"
+pred.names <- c("alt_range", "soilcount", "bio1_sd", "bio12_sd", "bio12_mean",
+                "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano", "bio1_mean",
                 )
 # Collinearity must be accounted for, so filter the predictors with AutoVIF()
 GraphSVG(Correlogram(env[, pred.names]),

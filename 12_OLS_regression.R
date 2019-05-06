@@ -115,16 +115,27 @@ env[, "realm"] <- tdwg3.info[indices, "realm"]
 env.complete <- env
 env.complete[!complete.cases(env.complete), ] <- NA
 # 14 NAs from canopy height + 1 NA from LGM anomalies.
-# Additionally, check for NAs in responses: the exclusion of 100% endemic communities
-# for the ADF null model
-env.complete[!complete.cases(fd.indices[["FRic.all.traits"]] [, "adf.SES"]), ] <- NA
-# 4 NAs from 100% endemism, but 3 of those overlap with canopy height NAs.
+# We also want a version without canopy height:
+env.complete.noch <- env[, !colnames(env) %in% "CH_SD"]
+env.complete.noch[!complete.cases(env.complete.noch), ] <- NA
+# Only one NA, from LGM anomalies
 #
+# Additionally, check for NAs in responses: the exclusion of 100% endemic
+# communities for the ADF null model
+indices <- !complete.cases(fd.indices[["FRic.all.traits"]] [, "adf.SES"])
+env.complete[indices, ] <- NA
+# 4 NAs from 100% endemism, but 3 of those overlap with canopy height NAs.
 # Final sample size is 116  # sum(complete.cases(env.complete))
+env.complete.noch[indices, ] <- NA
+# 4 NAs from 100% endemism. Final sample size is 126.
 
 # Save result for downstream use
 write.csv(env.complete,
           file = "output/tdwg3_predictors_complete.csv",
+          eol = "\r\n"
+          )
+write.csv(env.complete.noch,
+          file = "output/tdwg3_predictors_complete_noch.csv",
           eol = "\r\n"
           )
 
@@ -260,7 +271,7 @@ RunSingles <- function(fd.indices, fd.index, name, env.complete) {
 # Generate single-predictor models
 ##################################
 cat("Generating single-predictor OLS models:\n")
-# Let's put those functions to work
+# Let's put those functions to work.
 
 # Prepare names for easy subsetting
 fric <- names(fd.indices)[1:4]
@@ -268,42 +279,43 @@ fdis <- names(fd.indices)[5:8]
 
 # NOTE: standardization to mean 0 and unit variance is applied to predictors,
 # making slopes comparable.
+# For the predictor dataset we will use the 'noch' version, i.e. no canopy height.
 
 
 # For functional richness (FRic)
 # ------------------------------
 cat("(1) FRic for null model Global...\n")
-RunSingles(fd.indices[fric], "FRic", "global.SES", env.complete)
+RunSingles(fd.indices[fric], "FRic", "global.SES", env.complete.noch)
 
 cat("(2) FRic for null model Realm...\n")
-RunSingles(fd.indices[fric], "FRic", "realm.SES", env.complete)
+RunSingles(fd.indices[fric], "FRic", "realm.SES", env.complete.noch)
 
 cat("(3) FRic for null model Realm without MDG...\n")
-RunSingles(fd.indices[fric], "FRic", "realm.SES.noMDG", env.complete)
+RunSingles(fd.indices[fric], "FRic", "realm.SES.noMDG", env.complete.noch)
 
 cat("(4) FRic for null model ADF...\n")
-RunSingles(fd.indices[fric], "FRic", "adf.SES", env.complete)
+RunSingles(fd.indices[fric], "FRic", "adf.SES", env.complete.noch)
 
 cat("(5) FRic for observed data...\n")
-RunSingles(fd.indices[fric], "FRic", "observed", env.complete)
+RunSingles(fd.indices[fric], "FRic", "observed", env.complete.noch)
 
 
 # For functional dispersion (FDis)
 # -------------------------------
 cat("(6) FDis observed...\n")
-RunSingles(fd.indices[fdis], "FDis", "observed", env.complete)
+RunSingles(fd.indices[fdis], "FDis", "observed", env.complete.noch)
 
 cat("(7) FDis for null model Global...\n")
-RunSingles(fd.indices[fdis], "FDis", "global.SES", env.complete)
+RunSingles(fd.indices[fdis], "FDis", "global.SES", env.complete.noch)
 
 cat("(8) FDis for null model Realm...\n")
-RunSingles(fd.indices[fdis], "FDis", "realm.SES", env.complete)
+RunSingles(fd.indices[fdis], "FDis", "realm.SES", env.complete.noch)
 
 cat("(9) FDis for null model Realm without MDG...\n")
-RunSingles(fd.indices[fdis], "FDis", "realm.SES.noMDG", env.complete)
+RunSingles(fd.indices[fdis], "FDis", "realm.SES.noMDG", env.complete.noch)
 
 cat("(10) FDis for null model ADF...\n")
-RunSingles(fd.indices[fdis], "FDis", "adf.SES", env.complete)
+RunSingles(fd.indices[fdis], "FDis", "adf.SES", env.complete.noch)
 
 
 # Summarize results
@@ -344,6 +356,8 @@ write.csv(fdis.rsq,
 # Investigate missing values
 ############################
 cat("Investigating missing values...\n")
+# NOTE: this is legacy code relating to the case where canopy height is included.
+# Most NAs are due to NAs in canopy height.
 
 # Which TDWG3 units are affected?
 tdwg.observed <-
@@ -585,6 +599,7 @@ ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors
 # Generating best multi-predictor models
 ########################################
 cat("Generating best multi-predictor OLS models:\n")
+# NOTE: excluding canopy height
 
 # Preparation of input parameters for all runs:
 null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
@@ -595,8 +610,9 @@ cat("(1) Predictors related to heterogeneity...\n")
 ApplyMMS(fd.indices,
          fd.names,
          null.models,
-         env.complete,
-         predictors = c("alt_range", "soilcount", "CH_SD", "bio1_sd", "bio12_sd"),
+         env.complete.noch,
+         predictors = c("alt_range", "soilcount", "bio1_sd", "bio12_sd",
+                        "bio1_mean", "bio12_mean"),
          k,
          identifier = "EH"
          )
@@ -605,7 +621,7 @@ cat("(2) Predictors related to stability...\n")
 ApplyMMS(fd.indices,
          fd.names,
          null.models,
-         env.complete,
+         env.complete.noch,
          predictors = c("bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano"),
          k,
          identifier = "stability"
@@ -615,7 +631,7 @@ cat("(3) Meta-predictors: palm richness, endemism, and realm...\n")
 ApplyMMS(fd.indices,
          fd.names,
          null.models,
-         env.complete,
+         env.complete.noch,
          predictors = c("palm.richness", "endemism", "realm"),
          k,
          identifier = "meta"
@@ -625,9 +641,10 @@ cat("(4) All environmental predictors (EH + stability)...\n")
 ApplyMMS(fd.indices,
          fd.names,
          null.models,
-         env.complete,
-         predictors = c("alt_range", "soilcount", "CH_SD", "bio1_sd", "bio12_sd",
-                        "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano"),
+         env.complete.noch,
+         predictors = c("alt_range", "soilcount", "bio1_sd", "bio12_sd",
+                        "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
+                        "bio1_mean", "bio12_mean"),
          k,
          identifier = "envir"
          )

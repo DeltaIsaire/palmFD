@@ -92,6 +92,19 @@ env.clim.h[, "bio12_sd"] %<>% sqrt()
 # Transformed bio1_sd has 1 low outlier, for TCI (Turks-Caicos Island)
 
 
+# Update: we should also include mean temperature and precipitation
+#   bio1_mean
+#   bio12_mean
+env.clim <-
+  env.new[, c("LEVEL_3_CO", "bio1_mean", "bio12_mean")] %>%
+  .[.[, "LEVEL_3_CO"] %in% tdwg3.included, ]
+#
+# No missing values.
+#
+# Distributions visually examined with Histogram().
+# Transforming is not going to do us much good.
+
+
 # Climatic stability
 # ------------------
 # Desired climatic stability predictors from 'env.new' include:
@@ -134,6 +147,7 @@ cat("Merging and saving predictor dataframes...\n")
 # downstream coding.
 predictors <-
   merge(env.nonclim, env.clim.h, by = "LEVEL_3_CO") %>%
+  merge(., env.clim, by = "LEVEL_3_CO") %>%
   merge(., env.clim.stable, by = "LEVEL_3_CO") %>%
   merge(.,
         tdwg3.info[, "tdwg3.code", drop = FALSE],

@@ -98,6 +98,12 @@ for (index in fd.names) {
 env.complete <- read.csv(file = "output/tdwg3_predictors_complete.csv",
                          row.names = 1
                          )
+env.complete.noch <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
+                              row.names = 1
+                              )
+# The 'noch' (no canopy height) version has more data points, because canopy
+# height has some missing values. Since canopy height is a questionable predictor,
+# We don't want to unnecessarily throw away data.
 
 
 
@@ -205,7 +211,7 @@ cat("Defining spatial weights matrix...\n")
 #      to nearest neighbour
 #   2. Polygons whose "influence" circles overlap are neighbours.
 # This is implemented via function SoiNB()
-tdwg.map.subset <- tdwg.map[complete.cases(env.complete), ]
+tdwg.map.subset <- tdwg.map[complete.cases(env.complete.noch), ]
 nb.soi <- SoiNB(tdwg.map.subset)
 
 
@@ -227,7 +233,7 @@ nb.soi.swmat.dw <- SWMat(nb.soi, tdwg.map.subset, dist.weight = TRUE, style = "W
 
 # Visualize the default neighbourhood structure
 # ---------------------------------------------
-# Default meaning the case of all 117 TDWG3 units for which we have data, i.e.
+# Default meaning the case of all 126 TDWG3 units for which we have data, i.e.
 # the 'nb.soi.swmat' neighbourhood defined above.
 # The default plot method is plot.nb() from package spdep:
 # plot(x = nb.soi.swmat, coords = tdwg.coords)
@@ -258,7 +264,7 @@ RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE) {
 # Generate the data, then immediately parse it
   AllSARSingles(fd.indices,
                 colname = colname,
-                predictors = env.complete,
+                predictors = env.complete.noch,
                 tdwg.map = tdwg.map,
                 dist.weight = dist.weight,
                 name.all = name.all,
