@@ -97,7 +97,8 @@ cwm.observed <-
 
 # Environmental data
 # ------------------
-env.complete <- read.csv(file = "output/tdwg3_predictors_complete.csv",
+# Using the noch case!
+env.complete <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
                          row.names = 1
                          )
 
@@ -112,6 +113,11 @@ pres.abs <- read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
 # --------------------
 palm.traits <- read.csv(file = "output/trait_matrices/palm_trait_matrix_filled_stochastic_mean_of.csv",
                         row.names = 1)
+
+
+# Propagate NAs in env.complete to trait data
+# -------------------------------------------
+cwm.observed[!complete.cases(env.complete), ] <- NA
 
 
 
@@ -136,7 +142,7 @@ GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
 
 # 3. Environmental predictors excluding collinear variables,
 #    i.e. without alt_range
-exclude <- c("palm.richness", "endemism", "realm", "alt_range")
+exclude <- c("palm.richness", "endemism", "realm", "alt_range", "bio12_mean")
 GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
          file = paste0(plot.dir, "Correlogram_predictors_ENV_noncoll.svg"),
          width = 7,
@@ -149,20 +155,22 @@ GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
 cat("Plotting community mean trait distributions...\n")
 #######################################################
 
+# The Legend labels are transformed to meters.
+# NOTE: this makes the community mean trait values GEOMETRIC means, not
+# arithmetic means!
 MultiTraitPlot <- function(tdwg.map, cwm.observed) {
 
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
   MakePlot <- function(trait, name, title) {
-    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                vector = cwm.observed[no.ANT, trait],
-                vector.name = name,
-                title = title,
-                legend.position = "bottom",
-                labels = TraitTrans,
-                colors = "inferno"
-                ) +
-                theme(legend.key.width = unit(1.5, "cm"))
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = cwm.observed[no.ANT, trait],
+                    vector.name = name,
+                    title = title,
+                    legend.position = "bottom",
+                    labels = TraitTrans,
+                    colors = "viridis"
+                    )
   }
 
   height <- MakePlot("stem.height",
@@ -195,7 +203,7 @@ ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
        dpi = 100
        )
 
-
+stop("enough")
 
 #######################################################
 cat("Plotting functional diversity distributions...\n")

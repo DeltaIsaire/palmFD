@@ -28,6 +28,7 @@
 # SpatialPlotNB
 # TraitTrans
 # NBreaks
+# SpatialPlotBins
 
 
 library(magrittr)
@@ -105,7 +106,8 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
          geom_point(data = subset,
                     mapping = aes(x = Long, y = Lat, fill = vector),
                     size = size,
-                    shape = 21) +
+                    shape = 21
+                    ) +
          labs(fill = vector.name,
               x = NULL,
               y = NULL,
@@ -278,4 +280,72 @@ NBreaks <- function(limits, n = 5) {
   round(breaks, digits = 2)
 }
 
+
+SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
+                            title = NULL, subtitle = NULL, legend.position = "right",
+                            labels = "default", colors = "viridis") {
+# tdwg.map: the spatial map, as an object of class 'sf'
+# vector: vector with data to plot on the map. Must be of the same length as the
+#         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
+#         Data must be a continuous numeric variable.
+# vector.size: vector of length(vector) giving size of points. If NULL,
+#              size will be scaled by the values of 'vector'
+# vector.name: character string giving name for the vector (used in legend)
+# labels: Legend labels. By default, labels will be names of bins.
+#         Can be a character vector giving legend labels.
+#         Can be a function that takes a numeric vector as input, which will be
+#         applied to vector quantiles.
+  tdwg.map$vector <- vector
+  vector.quantiles <-
+    quantile(vector, probs = seq(0, 1, 0.2), na.rm = TRUE)
+  vector.bins <- cut(vector, vector.quantiles, include.lowest = TRUE)
+  tdwg.map$bins <- vector.bins
+
+  if (!is.null(vector.size)) {
+    tdwg.map$vector.size <- vector.size
+    subset <- tdwg.map[!is.na(tdwg.map$vector), ]
+    size <- rescale(subset$vector.size) * 10
+  } else {
+    subset <- tdwg.map[!is.na(tdwg.map$vector), ]
+    size <- 3
+  }
+
+  if (identical(labels, "default")) {
+    plot.labels <- levels(vector.bins)
+  } else {
+    if (is.function(labels)) {
+      x <- do.call(labels, list(vector.quantiles))
+      lower <- x[1:(length(x) - 1)]
+      upper <- x[2:length(x)]
+      plot.labels <- paste(lower, "-", upper)
+    } else {
+      plot.labels <- labels
+    }
+  }
+
+  color.scale <- scale_fill_viridis(discrete = TRUE,
+                                    option = colors,
+                                    labels = plot.labels,
+                                    breaks = levels(vector.bins)
+                                    )
+
+  ggplot(data = tdwg.map) + 
+         geom_sf(size = 0.15, color = "black") +
+         # This magically only adds axes:
+         geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
+         # While this does NOT add axes but does add points:
+         geom_point(data = subset,
+                    mapping = aes(x = Long, y = Lat, fill = bins),
+                    size = size,
+                    shape = 21
+                    ) +
+         labs(fill = vector.name,
+              x = NULL,
+              y = NULL,
+              title = title,
+              subtitle = subtitle
+              ) +
+         color.scale +
+         theme(legend.position = legend.position)
+}
 
