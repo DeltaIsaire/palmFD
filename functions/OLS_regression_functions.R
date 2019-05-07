@@ -17,6 +17,8 @@
 # SingleModels
 # MultiSelect
 # FitGlobalOLS
+# PlotResids
+# FDResidPlot
 
 library(magrittr)
 library(plyr)
@@ -387,5 +389,47 @@ FitGlobalOLS <- function(response, predictors) {
     paste0("response ~ ", paste(colnames(predictors), collapse = " + ")) %>%
     as.formula()
   lm(formula = ols.mod.formula, data = ols.mod.data, na.action = na.fail)
+}
+
+
+
+PlotResids <- function(df, filename) {
+# A Function to generate a multi-graph
+# Assumes the first column in df is the response variable
+  plot.rows <- ceiling((ncol(df) - 1) / 3)
+  DoPlot <- function() {
+    par(mfrow = c(plot.rows, 3))
+    for (name in colnames(df)[-1]) {
+      mod <- 
+        paste(colnames(df)[1], "~", name) %>%
+        as.formula() %>%
+        lm(., data = df)
+      Histogram(resid(mod), xlab = paste0("Residuals (", name, ")"))
+    }
+  }
+  GraphSVG(DoPlot(),
+           file = filename,
+           width = 9,
+           height = plot.rows * 3
+           )
+  return (0)
+}
+
+
+
+FDResidPlot <- function(index, null.model, predictors, filename) {
+# A wrappper function to apply PlotResids()
+# filename without extension!
+  df <- data.frame(GetFD(fd.indices[index], null.model),
+                   predictors
+                   )
+  PlotResids(df, filename = paste0(filename, "_full.svg"))
+  df.realms <- RealmSubset(df)
+  for (i in seq_along(df.realms)) {
+    PlotResids(df.realms[[i]][, !colnames(df.realms[[i]]) %in% "realm"],
+               filename = paste0(filename, "_", names(df.realms)[i], ".svg")
+               )
+  }
+  return (0)
 }
 

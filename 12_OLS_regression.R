@@ -39,12 +39,20 @@ source(file = "functions/plotting_functions.R")
 source(file = "functions/plotting_functions_ggplot2.R")
 
 # Model output directory (with trailing slash!)
-output.dir <- "output/OLS_models_new/"
+output.dir <- "output/OLS_models/"
+
+# Plotting directory (with trailing slash!)
+plot.dir <- "graphs/OLS_models/"
 
 
 if (!dir.exists(output.dir)) {
   cat("creating directory:", output.dir, "\n")
   dir.create(output.dir)
+}
+
+if (!dir.exists(plot.dir)) {
+  cat("creating directory:", plot.dir, "\n")
+  dir.create(plot.dir)
 }
 
 set.seed(999)
@@ -322,8 +330,8 @@ RunSingles(fd.indices[fdis], "FDis", "adf.SES", env.complete.noch)
 # -----------------
 cat("Summarizing single-predictor model results...\n")
 
-null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed"
-)
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
+
 # For FRic
 fric.rsq <- SingleSummary("Rsq",
                           "FRic",
@@ -390,7 +398,7 @@ ggsave(SpatialPlotFactor(tdwg.map,
                          factor.name =  "Complete data?",
                          title = "TDWG3 units with complete environmental data"
                          ),
-       filename = paste0(output.dir, "environmental_data_missing_values.png"),
+       filename = paste0(plot.dir, "environmental_data_missing_values.png"),
        width = 8,
        height = 4
        )
@@ -648,6 +656,23 @@ ApplyMMS(fd.indices,
          k,
          identifier = "envir"
          )
+
+
+#######################################################
+cat("Attempting to assess normality of residuals...\n")
+#######################################################
+
+# Apply functions to create the plots
+# -----------------------------------
+for (index in fd.names) {
+  for (null.model in null.models) {
+    FDResidPlot(index = index,
+                null.model =  null.model,
+                predictors = env.complete.noch,
+                filename = paste0(plot.dir, "hist_resid_", index, "_", null.model)
+                )
+  }
+}
 
 
 

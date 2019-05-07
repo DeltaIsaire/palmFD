@@ -57,27 +57,24 @@ cat("Processing evironmental data...\n")
 # Non-climatic environmental
 # --------------------------
 # Desired biogeographical heterogeneity predictors from 'env.new' include:
-#   alt_range  (altitude range)
-#   soilcount  (number of different soil types present)
-#   CH_SD      (standard deviation of canopy height)
+#   alt_range  (altitude range) (meters)
+#   soilcount  (number of different soil types present) (count)
+#   CH_SD      (standard deviation of canopy height) (meters)
 env.nonclim <- env.new[, c("LEVEL_3_CO", "alt_range", "soilcount", "CH_SD")]
 # For appropriate evaluation, subset the data to datapoints we are actually
 # investigating, i.e. to those tdwg3 units included in our study.
 env.nonclim %<>% .[.[, "LEVEL_3_CO"] %in% tdwg3.included, ]
 #
-# CH_SD has 14 missing values. This was investigated in the old script, and deemed
-# not problematic.
+# CH_SD has 14 missing values.
 #
 # Distributions visually examined with Histogram().
-# The following transformations were deemed necessary to improve normality:
-env.nonclim[, "alt_range"] %<>% sqrt()
 
 
 # Climatic heterogeneity
 # ----------------------
 # Desired climatic heterogeneity predictors from 'env.new' include:
-#   bio1_sd   (standard deviation of annual temperature)
-#   bio12_sd  (standard deviation of annual precipitation)
+#   bio1_sd   (standard deviation of annual temperature) (degrees * 10)
+#   bio12_sd  (standard deviation of annual precipitation) (mm)
 env.clim.h <-
   env.new[, c("LEVEL_3_CO", "bio1_sd", "bio12_sd")] %>%
   .[.[, "LEVEL_3_CO"] %in% tdwg3.included, ]
@@ -85,16 +82,14 @@ env.clim.h <-
 # No missing values.
 #
 # Distributions visually examined with Histogram().
-# The following transformations were deemed necessary to improve normality:
-env.clim.h[, "bio1_sd"] %<>% log10()
-env.clim.h[, "bio12_sd"] %<>% sqrt()
+# bio1_sd should be converted to degrees
+env.clim.h[, "bio1_sd"] %<>% { . / 10 }
 #
-# Transformed bio1_sd has 1 low outlier, for TCI (Turks-Caicos Island)
 
 
 # Update: we should also include mean temperature and precipitation
-#   bio1_mean
-#   bio12_mean
+#   bio1_mean (degrees celsius *10)
+#   bio12_mean (mm)
 env.clim <-
   env.new[, c("LEVEL_3_CO", "bio1_mean", "bio12_mean")] %>%
   .[.[, "LEVEL_3_CO"] %in% tdwg3.included, ]
@@ -110,10 +105,10 @@ env.clim$bio1_mean %<>% { . / 10 }
 # Climatic stability
 # ------------------
 # Desired climatic stability predictors from 'env.new' include:
-#   "bio4_mean"   (Temperature seasonality)
-#   'bio15_mean"  (Precipitation seasonality)
-#   LGM temperature anomaly
-#   LGM precipitation anomaly
+#   "bio4_mean"   (Temperature seasonality) (degrees * 100)
+#   'bio15_mean"  (Precipitation seasonality) (unitless, coefficient of variation)
+#   LGM temperature anomaly (degrees C)
+#   LGM precipitation anomaly (mm)
 # The LGM anomalies need to be calculated from LGM mean and contemporary mean values
 env.clim.stable <-
   data.frame(env.new[, c("LEVEL_3_CO", "bio4_mean", "bio15_mean")],
@@ -128,10 +123,11 @@ env.clim.stable[env.clim.stable[, "LEVEL_3_CO"] == "FIJ",
                 ] <- NA
 #
 # 1 missing value for the LGM anomalies, per the above.
+# We should transform bio4_mean to degrees
+env.clim.stable$bio4_mean %<>% { . / 100 }
+
 #
 # Distributions visually examined with Histogram().
-# The following transformations were deemed necessary to improve normality:
-env.clim.stable[ "bio4_mean"] %<>% log10()
 #
 # LGM temperature anomaly has two extremely high values. These are CHT (Tibet)
 # and WHM (West Himalaya).

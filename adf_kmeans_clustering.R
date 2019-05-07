@@ -11,7 +11,7 @@ theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
-source(file = "functions/plotting_functions_ggplot2")
+source(file = "functions/plotting_functions_ggplot2.R")
 source(file = "functions/weighted_ADF_null_model_functions.R")
 
 # Directory for saving plots (with a trailing slash):
