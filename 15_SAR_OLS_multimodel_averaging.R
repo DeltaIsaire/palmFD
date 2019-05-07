@@ -21,6 +21,7 @@ library(ncf)
 library(spdep)
 library(MuMIn)
 library(parallel)
+library(spatialreg)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/SAR_regression_functions.R")
@@ -100,8 +101,9 @@ env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
                 )
 
 # The following are the predictors of primary interest:
+# UPDATE: we no longer include CH_SD
 pred.names <- c("alt_range", "soilcount", "bio1_sd", "bio12_sd", "bio12_mean",
-                "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano", "bio1_mean",
+                "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano", "bio1_mean"
                 )
 # Collinearity must be accounted for, so filter the predictors with AutoVIF()
 GraphSVG(Correlogram(env[, pred.names]),
@@ -114,16 +116,20 @@ test.data[, "response"] <- fd.indices[["FRic.all.traits"]] [, "global.SES"]
 pred.names <- AutoVIF(test.data,
                       response = "response",
                       standardize = TRUE,
-                      threshold = 2.5,
+                      threshold = 3,
                       numeric.only = TRUE
                       )
-# alt_range is the only variable that was excluded at threshold 2.5.
+# alt_range was excluded at threshold 3.
 # The correlogram shows it is strongly correlated with bio1_sd, which makes sense.
+#
+# UPDATE: bio12_mean is correlated with bio4_mean, bio15_mean and
+# bio12_sd, and excluded at threshold 3.
+#
 # Restricting the VIF threshold to <2.5 additionaly removes bio1_sd.
 # With bio1_sd also removed, the highest remaining VIF is <1.4, which is awesome.
 # Removing bio1_sd as well should be considered given Cade (2015), depending on how
 # strong th effect of bio1_sd is in the single-predictor models (i.e. is it likely
-# significant?)
+# to be significant?)
 env.complete <- env[, pred.names]
 
 
@@ -155,11 +161,13 @@ DredgeBestMod <- function(global.model, beta = "none", cluster,
 
   # Fit all models
   cat("\t\tFitting all models...\n")
-  fits <- pdredge(global.model = global.model,
-                  cluster = cluster,
-                  beta = beta,
-                  ...
-                  )
+#  fits <- pdredge(global.model = global.model,
+#                  cluster = cluster,
+#                  beta = beta,
+#                  ...
+#                  )
+# PARALLEL FUNCTION DISABLED BECAUSE IT BREAKS WITH ERRORSARLM() IN R 3.6.0
+  fits <- dredge(global.model = global.model, beta = beta)
   # Extract model coefficients
   cat("\t\tGet model coefficients...\n")
   fits.table <-
@@ -167,7 +175,8 @@ DredgeBestMod <- function(global.model, beta = "none", cluster,
      as.data.frame()
   # model averaging
   cat("\t\tmodel averaging...\n")
-  fits.avg <- model.avg(fits, beta = beta, cluster = cluster)
+#  fits.avg <- model.avg(fits, beta = beta, cluster = cluster)
+  fits.avg <- model.avg(fits, beta = beta)
   cat("\t\tCalculating statistics of results...\n")
   fits.coefs <- coefTable(fits.avg, full = TRUE, adjust.se = FALSE)
   CI95 <- confint(fits.avg, level = 0.95, full = TRUE)
@@ -280,87 +289,6 @@ for (index in fd.names) {
   }
 }
 
-# And do it all again with BIO1_SD removed to minimize collinearity
-# -----------------------------------------------------------------
-env.complete %<>% .[, !colnames(.) %in% "bio1_sd"]
-env.complete.realms <- RealmSubset(env.complete)
-n <- 1
-
-for (index in fd.names) {
-  for (null.model in null.models) {
-    # Prepare data for cases full + realm subsets
-    index.data <- GetFD(fd.indices[index], null.model)
-    index.data.realms <- RealmSubset(index.data)
-    response.list <- c(list(full = index.data[, index]), index.data.realms)
-    predictors.list <- c(list(full = env.complete), env.complete.realms)
-
-    for (case in names(response.list)) {
-      # verbose output
-      nmax <- length(fd.names) * length(null.models) * length(names(response.list))
-      cat("\t",
-          paste0("(", n, " of ", nmax, ")"),
-          paste(index, null.model, "for", case, "dataset"),
-          "\n"
-          )
-      n <- n + 1
-
-      # Handle process flow: for FDis we only need the 'observed' null model
-#      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
-#        cat("\tSKIP - for FDis we use only the 'observed' data\n")
-#        next
-#      }
-      # Handle process flow: skip if output already exists
-      header <-
-        paste0(output.dir, "multimod_avg_noBIO1_", index, "_", null.model, "_", case, "_")
-      if (file.exists(paste0(header, "SAR.csv"))) {
-        cat("\tSKIP - output files already exist\n")
-        next
-      }
-
-      # Fit global models
-      response <- response.list[[case]]
-      predictors <- predictors.list[[case]]
-      global.ols <- FitGlobalOLS(response = response, predictors = predictors)
-      global.sar <- suppressMessages(FitGlobalSAR(response = response,
-                                                  predictors = predictors,
-                                                  tdwg.map = tdwg.map,
-                                                  dist.weight = TRUE
-                                                  )
-                                     )
-
-      # Export GLOBAL environment to cluster
-      clusterExport(cluster,
-                    varlist = ls(name = .GlobalEnv),
-                    envir = .GlobalEnv
-                    )
-
-      # Perform multimodel averaging
-      cat("\tOLS:\n")
-      mod.avg.ols <-
-        DredgeBestMod(global.ols, beta = "none", cluster = cluster)
-      cat("\tOLS with standardization:\n")
-      mod.avg.ols.std <-
-        DredgeBestMod(global.ols, beta = "partial.sd", cluster = cluster)
-      cat("\tSAR error:\n")
-      mod.avg.sar <-
-        DredgeBestMod(global.sar, beta = "none", cluster = cluster)
-
-      # Save results summary to disk
-      write.csv(mod.avg.ols[["coef.avg"]],
-                file = paste0(header, "OLS.csv"),
-                eol = "\r\n"
-                )
-      write.csv(mod.avg.ols.std[["coef.avg"]],
-                file = paste0(header, "OLS_std.csv"),
-                eol = "\r\n"
-                )
-      write.csv(mod.avg.sar[["coef.avg"]],
-                file = paste0(header, "SAR.csv"),
-                eol = "\r\n"
-                )
-    }
-  }
-}
 
 # Gracefully end cluster
 stopCluster(cluster)
@@ -433,12 +361,6 @@ avg.FDis.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             cases = cases,
                             model = "OLS"
                             )
-avg.FDis.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
-                                fd.names = fdis,
-                                null.models = null.models,
-                                cases = cases,
-                                model = "OLS"
-                                )
 
 avg.FDis.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                                 fd.names = fdis,
@@ -446,14 +368,6 @@ avg.FDis.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                                 cases = cases,
                                 model = "OLS_std"
                                 )
-avg.FDis.OLS.std.noT <- ParseDredge(header = paste0(output.dir,
-                                                    "multimod_avg_noBIO1_"
-                                                    ),
-                                    fd.names = fdis,
-                                    null.models = null.models,
-                                    cases = cases,
-                                    model = "OLS_std"
-                                    )
 
 avg.FDis.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fdis,
@@ -461,12 +375,6 @@ avg.FDis.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             cases = cases,
                             model = "SAR"
                             )
-avg.FDis.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
-                                fd.names = fdis,
-                                null.models = null.models,
-                                cases = cases,
-                                model = "SAR"
-                                )
 
 avg.FRic.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fric,
@@ -474,12 +382,6 @@ avg.FRic.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             cases = cases,
                             model = "OLS"
                             )
-avg.FRic.OLS.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
-                                fd.names = fric,
-                                null.models = null.models,
-                                cases = cases,
-                                model = "OLS"
-                                )
 
 avg.FRic.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                                 fd.names = fric,
@@ -487,14 +389,6 @@ avg.FRic.OLS.std <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                                 cases = cases,
                                 model = "OLS_std"
                                 )
-avg.FRic.OLS.std.noT <- ParseDredge(header = paste0(output.dir,
-                                                    "multimod_avg_noBIO1_"
-                                                    ),
-                                    fd.names = fric,
-                                    null.models = null.models,
-                                    cases = cases,
-                                    model = "OLS_std"
-                                    )
 
 avg.FRic.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fric,
@@ -502,12 +396,6 @@ avg.FRic.SAR <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             cases = cases,
                             model = "SAR"
                             )
-avg.FRic.SAR.noT <- ParseDredge(header = paste0(output.dir, "multimod_avg_noBIO1_"),
-                                fd.names = fric,
-                                null.models = null.models,
-                                cases = cases,
-                                model = "SAR"
-                                )
 
 
 # (Manual) comparison of results
@@ -536,21 +424,9 @@ write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), CheckCI),
           quote = FALSE,
           row.names = FALSE
           )
-write.csv(adply(avg.FDis.OLS.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FDis_OLS_noT.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
 
 write.csv(adply(avg.FDis.OLS.std, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS_std.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
-write.csv(adply(avg.FDis.OLS.std.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FDis_OLS_std_noT.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
@@ -562,21 +438,9 @@ write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI),
           quote = FALSE,
           row.names = FALSE
           )
-write.csv(adply(avg.FDis.SAR.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FDis_SAR_noT.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
 
 write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
-write.csv(adply(avg.FRic.OLS.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FRic_OLS_noT.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
@@ -588,12 +452,6 @@ write.csv(adply(avg.FRic.OLS.std, .margins = c(3, 4, 5), CheckCI),
           quote = FALSE,
           row.names = FALSE
           )
-write.csv(adply(avg.FRic.OLS.std.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FRic_OLS_std_noT.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
 
 write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), CheckCI),
           file = paste0(output.dir, "00_95CI_FRic_SAR.csv"),
@@ -601,12 +459,7 @@ write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), CheckCI),
           quote = FALSE,
           row.names = FALSE
           )
-write.csv(adply(avg.FRic.SAR.noT, .margins = c(3, 4, 5), CheckCI),
-          file = paste0(output.dir, "00_95CI_FRic_SAR_noT.csv"),
-          eol = "\r\n",
-          quote = FALSE,
-          row.names = FALSE
-          )
+
 
 
 
