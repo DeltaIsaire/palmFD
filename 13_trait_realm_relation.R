@@ -44,6 +44,12 @@ fric <- read.csv(file = "output/FD_summary_FRic.all.traits.csv", row.names = 1)
 # Palm occurrence data
 palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
 
+# List of TDWG3 units with complete env data, for subsetting.
+env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
+                row.names = 1
+                )
+tdwg3.complete <- rownames(env) [complete.cases(env)]
+
 
 #########################################
 # Analysis of variance on traits vs realm
@@ -54,6 +60,8 @@ cat("Performing anova on traits vs realm...\n")
 cwm.traits[, "realm"] <-
   tdwg3.info[match(rownames(cwm.traits), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
   as.factor()
+# Subset
+cwm.traits %<>% .[rownames(.) %in% tdwg3.complete, ]
 
 # Run models:
 mod.height <- aov(stem.height ~ realm, data = cwm.traits)
@@ -147,15 +155,17 @@ ggsave(plot = arrangeGrob(stem.height, blade.length, fruit.length, ncol = 3),
 #############################################
 cat("performing anova on FD indices vs realm...\n")
 
-# Merge FD data with realm data
-# -----------------------------
+# Merge FD data with realm data and subset
+# ----------------------------------------
 fdis[, "realm"] <-
   tdwg3.info[match(rownames(fdis), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
   as.factor()
-# Merge trait data with realm data
+fdis %<>% .[rownames(.) %in% tdwg3.complete, ]
+
 fric[, "realm"] <-
   tdwg3.info[match(rownames(fric), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
   as.factor()
+fric %<>% .[rownames(.) %in% tdwg3.complete, ]
 
 
 # Run models:

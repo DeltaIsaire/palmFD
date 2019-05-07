@@ -201,6 +201,34 @@ SoiNB <- function(tdwg.map) {
   nb.soi <-
     soi.graph(nb.dlny, tdwg.coords) %>%
     graph2nb()
+
+  # Correct neighbours of SAM if SAM is in the dataset
+  tdwg.names <- tdwg.map$LEVEL_3_CO
+  if ("SAM" %in% tdwg.names) {
+    # Find neighbours of SAM within large distance
+    test.nb <- dnearneigh(x = tdwg.coords, d1 = 1, d2 = 5000, longlat = TRUE)
+    sam.ind <- match("SAM", tdwg.names)
+    sam.nb <- test.nb[[sam.ind]]
+    # Find distances of those neighbours
+    test.dists <- nbdists(test.nb, tdwg.coords, longlat = TRUE)
+    sam.dists <- test.dists[[sam.ind]]
+    # Select closest neighbour plus any neighbours within similar distance
+    closest.ind <- sam.nb[sam.dists < (min(sam.dists) * 1.2)]
+    closest.names <- tdwg.names[closest.ind]
+    # These are Vanuate (VAN) and Santa Cruz Island (SCZ)
+    # Replace SAM neighbours with these neighbours, and remove SAM as neighbour
+    # from its original neighbours:
+    for (index in nb.soi[[sam.ind]]) {
+      nb.soi[[index]] %<>% .[!. == sam.ind]
+    }
+    nb.soi[[sam.ind]] <- closest.ind
+    # And symmetrically add SAM as neighbour to its neighbours.
+    # The neighbour IDs must be in ascending order, hence we sort
+    for (index in closest.ind) {
+      nb.soi[[index]] <- sort(c(nb.soi[[index]], sam.ind))
+    }
+  }
+
   nb.soi
 }
 
@@ -223,7 +251,7 @@ SWMat <- function(nb, tdwg.map = NULL, longlat = TRUE, dist.weight = FALSE, ...)
     # 2. The greatest (great circle) distance between any two neighbours:
     nb.maxdist <- max(unlist(nb.dist))
     # 3. For each polygon, weight neighbour distances by the greatest distance
-    nb.wdist <- lapply(nb.dist, function(x) { 1 - x / nb.maxdist } )
+    nb.wdist <- lapply(nb.dist, function(x) { 1 - x / nb.maxdist + 1e-6 } )
     # 4. Create distance-weighted weights matrix:
     swmat <- nb2listw(nb, glist = nb.wdist, ...)
   } else {
@@ -374,7 +402,7 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
 
 
 
-FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = TRUE) {
+FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE) {
 # Function to fit a SAR error model to the provided data, using a Sphere of
 # Influence neighbourhood based on the provided spatial data.
 # Provided data is subsetted to complete cases via ParseData().

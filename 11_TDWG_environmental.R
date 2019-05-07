@@ -98,6 +98,8 @@ env.clim.h[, "bio12_sd"] %<>% sqrt()
 env.clim <-
   env.new[, c("LEVEL_3_CO", "bio1_mean", "bio12_mean")] %>%
   .[.[, "LEVEL_3_CO"] %in% tdwg3.included, ]
+# Convert bio1_mean to Celsius:
+env.clim$bio1_mean %<>% { . / 10 }
 #
 # No missing values.
 #
@@ -115,7 +117,8 @@ env.clim <-
 # The LGM anomalies need to be calculated from LGM mean and contemporary mean values
 env.clim.stable <-
   data.frame(env.new[, c("LEVEL_3_CO", "bio4_mean", "bio15_mean")],
-             lgm_Tano = (env.new[, "lgm_ens_Tmean"] / 10) - env.new[, "bio1_mean"],
+             lgm_Tano = (env.new[, "lgm_ens_Tmean"] / 10 - 273.15) -
+                         (env.new[, "bio1_mean"] / 10),
              lgm_Pano = (env.new[, "lgm_ens_Pmean"] / 10) - env.new[, "bio12_mean"]
              ) %>%
   .[.$LEVEL_3_CO %in% tdwg3.included, ]

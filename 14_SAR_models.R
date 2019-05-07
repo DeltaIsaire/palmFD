@@ -25,6 +25,7 @@ library(spdep)
 library(ggplot2)
 library(scales)
 library(viridis)
+library(spatialreg)
 
 theme_set(theme_bw())
 
@@ -226,6 +227,9 @@ nb.soi <- SoiNB(tdwg.map.subset)
 #   3. For each polygon, weight neighbour distances by the greatest distance
 #   4. Create the distance-weighted weights matrix
 # spatial weights matrix creation is implemented via function SWMat()
+# Note that this function applies a correct for Samoa, because SOI neighbourhood
+# is graph-based, which doesn't wrap around the globe (as it doesn't use great
+# circle distance)
 nb.soi.swmat <- SWMat(nb.soi, style = "W")
 
 nb.soi.swmat.dw <- SWMat(nb.soi, tdwg.map.subset, dist.weight = TRUE, style = "W")
@@ -290,7 +294,8 @@ for (i in seq_along(SAR.FRic)) {
   SAR.FRic[[i]] <-
     RunSARSingles(fd.indices[fric],
                   colname = null.models[i],
-                  name.all = paste0(output.dir, "SAR_single_FRic_", null.models[i])
+                  name.all = paste0(output.dir, "SAR_single_FRic_", null.models[i]),
+                  dist.weight = FALSE
                   )
 }
 # For FRic With distance weighted spatial weights matrix:
@@ -317,7 +322,8 @@ for (i in seq_along(SAR.FDis)) {
   SAR.FDis[[i]] <-
     RunSARSingles(fd.indices[fdis],
                   colname = null.models[i],
-                  name.all = paste0(output.dir, "SAR_single_FDis_", null.models[i])
+                  name.all = paste0(output.dir, "SAR_single_FDis_", null.models[i]),
+                  dist.weight = FALSE
                   )
 }
 # For FDis with distance weighted spatial weights matrix:
