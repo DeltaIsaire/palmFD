@@ -166,6 +166,7 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
     SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
                     vector = cwm.observed[no.ANT, trait],
                     vector.name = name,
+                    vector.size = cwm.observed[no.ANT, trait],
                     title = title,
                     legend.position = "bottom",
                     labels = TraitTrans,
@@ -174,15 +175,15 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
   }
 
   height <- MakePlot("stem.height",
-                     "Stem height (m)",
+                     "Geometric mean (m)",
                      "Mean stem height in palm communities"
                      )
   blade <- MakePlot("blade.length",
-                    "Blade length (m)",
+                    "Geometric mean (m)",
                     "Mean blade length in palm communities"
                     )
   fruit <- MakePlot("fruit.length",
-                    "Fruit length (cm)",
+                    "Geometric mean (cm)",
                     "Mean fruit length in botanical countries"
                     )
 
@@ -203,7 +204,7 @@ ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
        dpi = 100
        )
 
-stop("enough")
+
 
 #######################################################
 cat("Plotting functional diversity distributions...\n")
@@ -217,14 +218,18 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
   MakePlot <- function(index, case, name, title) {
-    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                vector = GetFD(fd.indices[index], case) [no.ANT, 1],
-                vector.name = name,
-                title = title,
-                legend.position = "bottom",
-                colors = "inferno"
-                ) +
-                theme(legend.key.width = unit(1.5, "cm"))
+    fd.index <- GetFD(fd.indices[index], case)
+    fd.index[!complete.cases(env.complete), ] <- NA
+    fd.index %<>% .[no.ANT, 1]
+
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = fd.index,
+                    vector.name = name,
+                    vector.size = fd.index,
+                    title = title,
+                    legend.position = "bottom",
+                    colors = "viridis"
+                    )
   }
 
   fdis.obs <- MakePlot("FDis.all.traits",
@@ -452,14 +457,17 @@ RealmPlot <- function(data, x.var, y.var, title = NULL, subtitle = NULL,
   # Plot the community mean of each TDWG3 unit as a dot, then superimpose a boxplot.
   # In both cases, the points are split by realm.
   y.max <- max(data[, y.var])
+  y.min <- min(data[, y.var])
   ggplot(data) +
-    geom_jitter(aes_string(x = x.var, y = y.var),
+    geom_hline(yintercept = 0, color = "#808080", linetype = "dashed") +
+    geom_jitter(aes_string(x = x.var, y = y.var, fill = "realm"),
                 pch = 21,
-                bg = "#D0D0D0",
+#                bg = "#D0D0D0",
                 size = 2,
                 height = 0,
                 width = 0.15,
-                alpha = 0.8
+                alpha = 0.8,
+                show.legend = FALSE
                 ) +
     geom_boxplot(aes_string(x = x.var, y = y.var),
                  outlier.size = 0,
@@ -467,9 +475,10 @@ RealmPlot <- function(data, x.var, y.var, title = NULL, subtitle = NULL,
                  alpha = 0.7,
                  lwd = 0.75
                  ) +
-    expand_limits(y = 0) +
+    expand_limits(y = (0 - 0.05 * (y.max - y.min))) +
     labs(title = title, subtitle = subtitle, x = xlab, y = ylab) +
-    scale_y_continuous(breaks = breaks, labels = labels)
+    scale_y_continuous(breaks = breaks, minor_breaks = NULL, labels = labels) +
+    scale_fill_viridis(discrete = TRUE, option = "plasma")
 }
 
 
@@ -594,29 +603,29 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
   MakePlot <- function(predictor, name, title) {
-    SpatialPlot(tdwg.map = tdwg.map[no.ANT, ],
-                vector = env.complete[, predictor] [no.ANT],
-                vector.name = name,
-                title = title,
-                legend.position = "bottom",
-                colors = "inferno"
-                ) +
-                theme(legend.key.width = unit(1.5, "cm"))
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = env.complete[, predictor] [no.ANT],
+                    vector.name = name,
+                    vector.size = env.complete[, predictor] [no.ANT],
+                    title = title,
+                    legend.position = "bottom",
+                    colors = "viridis"
+                    )
   }
 
   soilcount <- MakePlot("soilcount", "no. soiltypes", "Soilcount")
-  ch <- MakePlot("CH_SD", "<units>", "Canopy Height (sd)")
-  temp <- MakePlot("bio1_sd", "log10(<units>)", "Mean annual temperature (sd)")
-  precip <- MakePlot("bio12_sd", "sqrt(<units>)", "Annual Precipitation (sd)")
+  temp <- MakePlot("bio1_mean", "°C", "Mean annual temperature")
+  temp.sd <- MakePlot("bio1_sd", "°C", "Mean annual temperature (sd)")
+  precip <- MakePlot("bio12_sd", "mm", "Annual Precipitation (sd)")
   temp.seas <-
-    MakePlot("bio4_mean", "log10(<units>)", "Temperature Seasonality")
+    MakePlot("bio4_mean", "°C", "Temperature Seasonality")
   precip.seas <-
-    MakePlot("bio15_mean", "<units>y", "Precipitation Seasonality")
-  lgmt <- MakePlot("lgm_Tano", "<units>", "LGM Temperature Anomaly")
-  lgmp <- MakePlot("lgm_Pano", "<units>", "LGM Precipitation Anomaly")
+    MakePlot("bio15_mean", "CV", "Precipitation Seasonality")
+  lgmt <- MakePlot("lgm_Tano", "°C", "LGM Temperature Anomaly")
+  lgmp <- MakePlot("lgm_Pano", "mm", "LGM Precipitation Anomaly")
 
-  arrangeGrob(soilcount, ch,
-              temp, precip,
+  arrangeGrob(soilcount, temp,
+              temp.sd, precip,
               temp.seas, precip.seas,
               lgmt, lgmp,
               ncol = 2

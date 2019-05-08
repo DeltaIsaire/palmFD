@@ -137,7 +137,7 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
                       title = title,
                       subtitle = subtitle
                       ) +
-                 scale_fill_viridis(na.value = "#C0C0C0",
+                 scale_fill_viridis(na.value = "#B0B0B0",
                                     discrete = is.discrete(vector),
                                     option = colors,
                                     direction = direction,
@@ -163,7 +163,7 @@ SpatialPlotSegments <- function(tdwg.map, segments = NULL, fill.vector, fill.nam
                       title = title,
                       subtitle = subtitle
                       ) +
-                 scale_fill_viridis(na.value = "#C0C0C0",
+                 scale_fill_viridis(na.value = "#B0B0B0",
                                     discrete = is.discrete(fill.vector),
                                     option = colors,
                                     direction = direction,
@@ -254,7 +254,7 @@ SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
                               size = 0.35,
                               show.legend = FALSE
                               ) +
-                 scale_fill_viridis(na.value = "#C0C0C0",
+                 scale_fill_viridis(na.value = "#B0B0B0",
                                     discrete = is.discrete(presence),
                                     option = "inferno",
                                     begin = 0.75
@@ -274,9 +274,17 @@ TraitTrans <- function(breaks) {
 NBreaks <- function(limits, n = 5) {
 # Create a custom number of equidistant breaks.
 # For use with e.g. scale_x_continuous()
+# IF the range encompasses 0, 0 is added as a break because the origin is important,
+# and breaks too close to 0 will be removed
   range <- max(limits) - min(limits)
-  dist <- range / (n - 1)
-  breaks <- min(limits) + (0:(n - 1)) * dist
+  margin <- range * 0.05
+  dist <- (range - 2 * margin) / (n - 1)
+  breaks <- (min(limits) + margin) + (0:(n - 1)) * dist
+  if (any(breaks < 0) & any(breaks > 0)) {
+    remove.ind <- breaks > (0 - margin * 2) & breaks < (0 + margin * 2)
+    breaks <- breaks[!remove.ind]
+    breaks <- sort(c(breaks, 0))
+  }
   round(breaks, digits = 2)
 }
 
@@ -297,26 +305,30 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
 #         applied to vector quantiles.
   tdwg.map$vector <- vector
   vector.quantiles <-
-    quantile(vector, probs = seq(0, 1, 0.2), na.rm = TRUE)
+    quantile(vector, probs = seq(0, 1, 0.125), na.rm = TRUE)
   vector.bins <- cut(vector, vector.quantiles, include.lowest = TRUE)
   tdwg.map$bins <- vector.bins
 
   if (!is.null(vector.size)) {
     tdwg.map$vector.size <- vector.size
     subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-    size <- rescale(subset$vector.size) * 10
+    size <- rescale(subset$vector.size, to = c(0.25, 1)) * 3.5
   } else {
     subset <- tdwg.map[!is.na(tdwg.map$vector), ]
     size <- 3
   }
+  legend.size <- rescale(vector.quantiles[-1], to = c(0.25, 1)) * 3.5 * 1.3
 
   if (identical(labels, "default")) {
-    plot.labels <- levels(vector.bins)
+    x <- vector.quantiles
+    lower <- round(x[1:(length(x) - 1)], digits = 2)
+    upper <- round(x[2:length(x)], digits = 2)
+    plot.labels <- paste(lower, "-", upper)
   } else {
     if (is.function(labels)) {
       x <- do.call(labels, list(vector.quantiles))
-      lower <- x[1:(length(x) - 1)]
-      upper <- x[2:length(x)]
+      lower <- round(x[1:(length(x) - 1)], digits = 2)
+      upper <- round(x[2:length(x)], digits = 2)
       plot.labels <- paste(lower, "-", upper)
     } else {
       plot.labels <- labels
@@ -330,7 +342,7 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
                                     )
 
   ggplot(data = tdwg.map) + 
-         geom_sf(size = 0.15, color = "black") +
+         geom_sf(size = 0.15, color = "white", fill = "#B0B0B0") +
          # This magically only adds axes:
          geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
          # While this does NOT add axes but does add points:
@@ -346,6 +358,7 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
               subtitle = subtitle
               ) +
          color.scale +
-         theme(legend.position = legend.position)
+         theme(legend.position = legend.position) +
+         guides(fill = guide_legend(override.aes = list(size = legend.size)))
 }
 
