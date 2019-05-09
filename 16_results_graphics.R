@@ -894,7 +894,7 @@ SavePlots <- function(plot, filename, width, height, dpi.lowres) {
          )
   # Low resolution
   ggsave(plot = plot,
-         filename = paste0(filename, "lowres.png"),
+         filename = paste0(filename, "_lowres.png"),
          width = width,
          height = height,
          dpi = dpi.lowres
@@ -976,6 +976,62 @@ SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
           height = 7,
           dpi.lowres = 100
           )
+
+
+
+########################################
+cat("Multimodel averaging results...\n")
+########################################
+
+PlotModAvg <- function(filename, title, subtitle = NULL) {
+  predictors <- c("lambda", "(Intercept)", "soilcount", "bio1_mean", "bio1_sd",
+                  "bio12_sd", "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano")
+  df <- read.csv(file = filename)
+  df %<>% { .[match(predictors, .[, "X"]), ] }
+  df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
+  df[, "X"] <- c("Soil", "Temp", "Temp.sd", "Prec.sd", "T.seas", "P.seas",
+                 "T.anom", "P.anom")
+  df[, 1] %<>% { factor(., levels = .) }
+
+  ggplot(df) +
+    geom_hline(yintercept = 0, color = "#808080", linetype = "dashed") +
+    geom_linerange(aes(x = X, ymin = X2.5.., ymax = X97.5..),
+                   color = "black",
+                   size = 1
+                   ) +
+    geom_point(aes(x = X, y = Estimate), color = "red", size = 3) +
+    labs(x = NULL,
+         y = "Estimate (+/- 95% CI)",
+         title = title,
+         subtitle = subtitle
+         ) #+
+#    theme(axis.text.x = element_text(vjust = unit(c(0, -0.5), "points")))
+}
+
+fdis.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_observed_full_SAR.csv",
+                       title = "A. Functional Dispersion (observed)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+fric.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_observed_full_SAR.csv",
+                       title = "B. Functional Richness (observed)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+
+fdis.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_adf.SES_full_SAR.csv",
+                       title = "C. Functional Dispersion (ADF null model)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+fric.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_adf.SES_full_SAR.csv",
+                       title = "D. Functional Richness (ADF null model)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+
+ggsave(plot = arrangeGrob(fdis.obs, fric.obs, fdis.adf, fric.adf, ncol = 2),
+       filename = paste0(plot.dir, "mod_avg_full_SAR.png"),
+       width = 12,
+       height = 7,
+       dpi = 100
+       )
 
 
 
