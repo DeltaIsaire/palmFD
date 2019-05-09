@@ -121,14 +121,15 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
 
 SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
                             subtitle = NULL, colors = "viridis",
-                            direction = 1, begin = 0) {
+                            direction = 1, begin = 0, legend.position = "right",
+                            poly.col = "black") {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units)
 # vector.name: character string giving name for the vector (used in legend)
   tdwg.map$vector <- vector
   tdwg.plot <- ggplot(data = tdwg.map) + 
-                 geom_sf(size = 0.15, color = "black", aes(fill = vector)) +
+                 geom_sf(size = 0.15, color = poly.col, aes(fill = vector)) +
                  # This magically only adds axes:
                  geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
                  labs(fill = vector.name,
@@ -142,7 +143,8 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
                                     option = colors,
                                     direction = direction,
                                     begin = begin
-                                    )
+                                    ) +
+                 theme(legend.position = legend.position)
   tdwg.plot
 }
 
@@ -358,7 +360,10 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
               subtitle = subtitle
               ) +
          color.scale +
-         theme(legend.position = legend.position) +
+         theme(legend.position = legend.position,
+               legend.margin = margin(t = 0, r = 1, b = 1, l = 1, unit = "pt"),
+               legend.box.spacing = unit(0.1, "cm")
+               ) +
          guides(fill = guide_legend(override.aes = list(size = legend.size)))
 }
 

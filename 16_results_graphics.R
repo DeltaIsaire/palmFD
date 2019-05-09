@@ -501,21 +501,36 @@ DoPlot <- function(cwm.data) {
                       title = "Stem height",
                       xlab = "Realm",
                       ylab = "Stem height (m)"
-                      )
+                      ) +
+              annotate(geom = "text",
+                       x = c(1, 2, 3),
+                       y = 0.05,
+                       label = c("A", "B", "C")
+                       )
   blade <- RealmPlot(data = cwm.data,
                      x.var = "realm",
                      y.var = "blade.length",
                      title = "Blade length",
                      xlab = "Realm",
                      ylab = "Blade length (m)"
-                     )
+                     ) +
+              annotate(geom = "text",
+                       x = c(1, 2, 3),
+                       y = 0.05,
+                       label = c("A", "A", "B")
+                       )
   fruit <- RealmPlot(data = cwm.data,
                      x.var = "realm",
                      y.var = "fruit.length",
                      title = "Fruit length",
                      xlab = "Realm",
                      ylab = "Fruit length (cm)"
-                     )
+                     ) +
+              annotate(geom = "text",
+                       x = c(1, 2, 3),
+                       y = 0.05,
+                       label = c("A", "B", "C")
+                       )
 
   arrangeGrob(height, blade, fruit, ncol = 3)
 }
@@ -647,6 +662,68 @@ ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        )
 
 
+##############################################################
+cat("Figure 1. Realm division and community trait means...\n")
+##############################################################
+
+# The Legend labels for trait values are transformed to meters.
+# NOTE: this makes the community mean trait values GEOMETRIC means, not
+# arithmetic means!
+TraitRealmPlot <- function(tdwg.map, cwm.observed) {
+
+  no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+  threerealm <- SpatialPlotFill(tdwg.map =tdwg.map[no.ANT, ],
+                                vector = tdwg3.info[no.ANT, "realm"],
+                                vector.name = "Realm",
+                                title = "A. Division of TDWG3 units into realms",
+                                legend.position = "bottom",
+                                colors = "plasma",
+                                begin = 0.25
+                                )
+
+  MakePlot <- function(trait, name, title) {
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = cwm.observed[no.ANT, trait],
+                    vector.name = name,
+                    vector.size = cwm.observed[no.ANT, trait],
+                    title = title,
+                    legend.position = "bottom",
+                    labels = TraitTrans,
+                    colors = "viridis"
+                    )
+  }
+
+  # Add text labels indicating ANOVA post-hoc results
+  height <- MakePlot("stem.height",
+                     "Geometric mean (m)",
+                     "B. Stem height"
+                     )
+  blade <- MakePlot("blade.length",
+                    "Geometric mean (m)",
+                    "C. Blade length"
+                    )
+  fruit <- MakePlot("fruit.length",
+                    "Geometric mean (cm)",
+                    "D. Fruit length"
+                    )
+
+  arrangeGrob(threerealm, height, blade, fruit, ncol = 2)
+}
+
+# Full resolution
+ggsave(plot = TraitRealmPlot(tdwg.map, cwm.observed),
+       filename = paste0(plot.dir, "TDWG3_Trait_Realm.png"),
+       width = 12,
+       height = 7
+       )
+# Low resolution
+ggsave(plot = TraitRealmPlot(tdwg.map, cwm.observed),
+       filename = paste0(plot.dir, "TDWG3_Trait_Realm_lowres.png"),
+       width = 12,
+       height = 7,
+       dpi = 100
+       )
 
 
 
