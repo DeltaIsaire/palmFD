@@ -834,5 +834,151 @@ ggsave(DoPlot(),
        )
 
 
+
+#######################################################
+cat("Comparison of all-traits with single-trait FD:\n")
+#######################################################
+
+# Function for plotting
+# ---------------------
+MakePlot <- function(index, case, name, title) {
+  fd.index <- GetFD(fd.indices[index], case)
+  fd.index[!complete.cases(env.complete), ] <- NA
+  fd.index %<>% .[no.ANT, 1]
+  SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                  vector = fd.index,
+                  vector.name = name,
+                  vector.size = fd.index,
+                  title = title,
+                  legend.position = "bottom",
+                  colors = "viridis"
+                  )
+}
+
+no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+
+FDPlot <- function(tdwg.map, fd.indices, fd.index, null.model, unit, titles) {
+  all.traits <- MakePlot(index = fd.index[1],
+                         case = null.model,
+                         name = unit,
+                         title = titles[1]
+                         )
+  height <- MakePlot(index = fd.index[2],
+                     case = null.model,
+                     name = unit,
+                     title = titles[2]
+                     )
+  blade <- MakePlot(index = fd.index[3],
+                    case = null.model,
+                    name = unit,
+                    title = titles[3]
+                    )
+  fruit <- MakePlot(index = fd.index[4],
+                    case = null.model,
+                    name = unit,
+                    title = titles[4]
+                    )
+
+  arrangeGrob(all.traits, height,
+              blade, fruit,
+              ncol = 2
+              )
+}
+
+SavePlots <- function(plot, filename, width, height, dpi.lowres) {
+  ggsave(plot = plot,
+         filename = paste0(filename, ".png"),
+         width = width,
+         height = height
+         )
+  # Low resolution
+  ggsave(plot = plot,
+         filename = paste0(filename, "lowres.png"),
+         width = width,
+         height = height,
+         dpi = dpi.lowres
+         )
+}
+
+cat("(1) FRic observed...\n")
+# ---------------------------
+SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
+                        fd.indices = fd.indices,
+                        fd.index = fric,
+                        null.model = "observed",
+                        unit = "FRic (unitless)",
+                        titles = c("A. FRic of all traits (observed)",
+                                   "B. FRic of stem height (observed)",
+                                   "C. FRic of blade length (observed)",
+                                   "D. FRic of fruit length (observed)"
+                                   )
+                        ),
+          filename = paste0(plot.dir, "TDWG3_FRic_observed_traits"),
+          width = 12,
+          height = 7,
+          dpi.lowres = 100
+          )
+
+cat("(2) FDis observed...\n")
+# ---------------------------
+SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
+                        fd.indices = fd.indices,
+                        fd.index = fdis,
+                        null.model = "observed",
+                        unit = "FDis (unitless)",
+                        titles = c("A. FDis of all traits (observed)",
+                                   "B. FDis of stem height (observed)",
+                                   "C. FDis of blade length (observed)",
+                                   "D. FDis of fruit length (observed)"
+                                   )
+                        ),
+          filename = paste0(plot.dir, "TDWG3_FDis_observed_traits"),
+          width = 12,
+          height = 7,
+          dpi.lowres = 100
+          )
+
+cat("(3) FRic ADF...\n")
+# ---------------------------
+SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
+                        fd.indices = fd.indices,
+                        fd.index = fric,
+                        null.model = "adf.SES",
+                        unit = "FRic (SES)",
+                        titles = c("A. FRic of all traits (ADF null model)",
+                                   "B. FRic of stem height (ADF null model)",
+                                   "C. FRic of blade length (ADF null model)",
+                                   "D. FRic of fruit length (ADF null model)"
+                                   )
+                        ),
+          filename = paste0(plot.dir, "TDWG3_FRic_ADF_traits"),
+          width = 12,
+          height = 7,
+          dpi.lowres = 100
+          )
+
+cat("(4) FDis ADF...\n")
+# ---------------------------
+SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
+                        fd.indices = fd.indices,
+                        fd.index = fdis,
+                        null.model = "adf.SES",
+                        unit = "FDis (SES)",
+                        titles = c("A. FDis of all traits (ADF null model)",
+                                   "B. FDis of stem height (ADF null model)",
+                                   "C. FDis of blade length (ADF null model)",
+                                   "D. FDis of fruit length (ADF null model)"
+                                   )
+                        ),
+          filename = paste0(plot.dir, "TDWG3_FDis_ADF_traits"),
+          width = 12,
+          height = 7,
+          dpi.lowres = 100
+          )
+
+
+
+
 cat("Done.\n")
 
