@@ -500,7 +500,7 @@ DoPlot <- function(cwm.data) {
                       y.var = "stem.height",
                       title = "Stem height",
                       xlab = "Realm",
-                      ylab = "Stem height (m)"
+                      ylab = "A. Stem height (m)"
                       ) +
               annotate(geom = "text",
                        x = c(1, 2, 3),
@@ -512,7 +512,7 @@ DoPlot <- function(cwm.data) {
                      y.var = "blade.length",
                      title = "Blade length",
                      xlab = "Realm",
-                     ylab = "Blade length (m)"
+                     ylab = "B. Blade length (m)"
                      ) +
               annotate(geom = "text",
                        x = c(1, 2, 3),
@@ -524,7 +524,7 @@ DoPlot <- function(cwm.data) {
                      y.var = "fruit.length",
                      title = "Fruit length",
                      xlab = "Realm",
-                     ylab = "Fruit length (cm)"
+                     ylab = "C. Fruit length (cm)"
                      ) +
               annotate(geom = "text",
                        x = c(1, 2, 3),
@@ -538,7 +538,8 @@ DoPlot <- function(cwm.data) {
 ggsave(DoPlot(cwm.data),
        filename = paste0(plot.dir, "realm_comparison_traits.png"),
        width = 12,
-       height = 4
+       height = 4,
+       dpi = 100
        )
 
 
@@ -662,9 +663,9 @@ ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        )
 
 
-##############################################################
-cat("Figure 1. Realm division and community trait means...\n")
-##############################################################
+####################################################
+cat("Realm division and community trait means...\n")
+####################################################
 
 # The Legend labels for trait values are transformed to meters.
 # NOTE: this makes the community mean trait values GEOMETRIC means, not
@@ -727,6 +728,110 @@ ggsave(plot = TraitRealmPlot(tdwg.map, cwm.observed),
 
 
 
+###########################################
+cat("FD distributions observed + ADF...\n")
+###########################################
+
+FDPlot <- function(tdwg.map, fd.indices) {
+
+  no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+  MakePlot <- function(index, case, name, title) {
+    fd.index <- GetFD(fd.indices[index], case)
+    fd.index[!complete.cases(env.complete), ] <- NA
+    fd.index %<>% .[no.ANT, 1]
+
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = fd.index,
+                    vector.name = name,
+                    vector.size = fd.index,
+                    title = title,
+                    legend.position = "bottom",
+                    colors = "viridis"
+                    )
+  }
+
+  fdis.obs <- MakePlot("FDis.all.traits",
+                       "observed",
+                       "FDis (unitless)",
+                       "A. Functional Dispersion (observed)"
+                       )
+
+  fdis.adf <- MakePlot("FDis.all.traits",
+                       "adf.SES",
+                       "FDis (SES)",
+                       "C. Functional Dispersion (ADF null model)"
+                       )
+
+  fric.obs <- MakePlot("FRic.all.traits",
+                       "observed",
+                       "FRic (unitless)",
+                       "B. Functional Richness (observed)"
+                       )
+
+  fric.adf <- MakePlot("FRic.all.traits",
+                       "adf.SES",
+                       "FRic (SES)",
+                       "D. Functional Richness (ADF null model)"
+                       )
+
+  arrangeGrob(fdis.obs, fric.obs,
+              fdis.adf, fric.adf,
+              ncol = 2
+              )
+}
+
+# Full resolution
+ggsave(plot = FDPlot(tdwg.map, fd.indices),
+       filename = paste0(plot.dir, "TDWG3_FD_observed_ADF.png"),
+       width = 12,
+       height = 7
+       )
+# Low resolution
+ggsave(plot = FDPlot(tdwg.map, fd.indices),
+       filename = paste0(plot.dir, "TDWG3_FD_observed_ADF_lowres.png"),
+       width = 12,
+       height = 7,
+       dpi = 100
+       )
+
+
+
+##############################################
+cat("FD Realm comparison observed + ADF...\n")
+##############################################
+
+DoPlot <- function() {
+  fdis.obs <-
+    FDRealmPlot("FDis.all.traits", "observed", "A. FDis (observed)", "FDis") +
+    annotate(geom = "text", x = c(1, 2, 3), y = 0.06, label= c("A", "B", "C"))
+
+  fdis.adf <-
+    FDRealmPlot("FDis.all.traits", "adf.SES", "C. FDis (ADF null model)",
+                "FDis (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -7, label= c("A", "B", "AB"))
+
+  fric.obs <-
+    FDRealmPlot("FRic.all.traits", "observed", "B. FRic (observed)", "FRic") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -5, label= c("AB", "A", "B"))
+
+  fric.adf <-
+    FDRealmPlot("FRic.all.traits", "adf.SES", "D. FRic (ADF null model)",
+                "FRic (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -5, label= c("A", "B", "A"))
+
+arrangeGrob(fdis.obs, fric.obs,
+            fdis.adf, fric.adf,
+            ncol = 2
+            )
+}
+
+ggsave(DoPlot(),
+       filename = paste0(plot.dir, "realm_comparison_FD_obs_ADF.png"),
+       width = 9,
+       height = 8,
+       dpi = 100
+       )
 
 
 cat("Done.\n")
