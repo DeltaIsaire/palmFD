@@ -331,7 +331,7 @@ SAR.FDis.dw <- SAR.FDis
 for (i in seq_along(SAR.FDis.dw)) {
   cat("For FDis", null.models[i], "with distance-weighted swmat\n")
   SAR.FDis.dw[[i]] <-
-    RunSARSingles(fd.indices[fric],
+    RunSARSingles(fd.indices[fdis],
                   colname = null.models[i],
                   name.all = paste0(output.dir,
                                     "SAR_single_FDis_dw_",
