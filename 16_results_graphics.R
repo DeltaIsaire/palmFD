@@ -1074,6 +1074,24 @@ fric.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic
                        subtitle = "Model averaging coefficient estimates"
                        )
 
+fdis.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_global.SES_full_SAR.csv",
+                       title = "Functional Dispersion (global)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+fric.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_global.SES_full_SAR.csv",
+                       title = "Functional Richness (global)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+
+fdis.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_realm.SES.noMDG_full_SAR.csv",
+                       title = "Functional Dispersion (realm)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+fric.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_realm.SES.noMDG_full_SAR.csv",
+                       title = "Functional Richness (realm)",
+                       subtitle = "Model averaging coefficient estimates"
+                       )
+
 fdis.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_adf.SES_full_SAR.csv",
                        title = "C. Functional Dispersion (ADF null model)",
                        subtitle = "Model averaging coefficient estimates"
@@ -1087,6 +1105,24 @@ ggsave(plot = arrangeGrob(fdis.obs, fric.obs, fdis.adf, fric.adf, ncol = 2),
        filename = paste0(plot.dir, "mod_avg_full_SAR.png"),
        width = 12,
        height = 7,
+       dpi = 100
+       )
+
+ggsave(plot = arrangeGrob(fdis.obs, fric.obs, ncol = 2),
+       filename = paste0(plot.dir, "mod_avg_full_SAR_observed.png"),
+       width = 12,
+       height = 4,
+       dpi = 100
+       )
+
+ggsave(plot = arrangeGrob(fdis.global, fric.global,
+                          fdis.realm, fric.realm,
+                          fdis.adf, fric.adf,
+                          ncol = 2
+                          ),
+       filename = paste0(plot.dir, "mod_avg_full_SAR_nullmodels.png"),
+       width = 12,
+       height = 10,
        dpi = 100
        )
 
