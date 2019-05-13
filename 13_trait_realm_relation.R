@@ -174,11 +174,16 @@ mod.fric.global <- aov(global.SES ~ realm, data = fric)
 mod.fric.realm <- aov(realm.SES ~ realm, data = fric)
 mod.fric.realm.noMDG <- aov(realm.SES.noMDG ~ realm, data = fdis)
 
+mod.fdis.realm.noMDG <- aov(realm.SES.noMDG ~ realm, data = fdis)
+
+
 mod.fric.adf <- aov(adf.SES ~ realm, data = fric)
 mod.fdis.adf <- aov(adf.SES ~ realm, data = fdis)
 
 mod.fdis.observed <- aov(observed ~ realm, data = fdis)
 mod.fric.observed <- aov(observed ~ realm, data = fric)
+
+mod.fdis.global <- aov(global.SES ~ realm, data = fdis)
 
 
 # Check assumptions:
@@ -213,9 +218,14 @@ if (FALSE) {
 # Post-hoc Tukey tests:
 # ---------------------
 post.fric.global <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
+post.fdis.global <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
+
 post.fric.realm <- glht(model = mod.fric.realm, linfct = mcp("realm" = "Tukey"))
 post.fric.realm.noMDG <-
   glht(model = mod.fric.realm.noMDG, linfct = mcp("realm" = "Tukey"))
+
+post.fdis.realm.noMDG <-
+  glht(model = mod.fdis.realm.noMDG, linfct = mcp("realm" = "Tukey"))
 
 post.fric.adf <- glht(model = mod.fric.adf, linfct = mcp("realm" = "Tukey"))
 post.fdis.adf <- glht(model = mod.fdis.adf, linfct = mcp("realm" = "Tukey"))

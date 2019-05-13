@@ -801,6 +801,8 @@ ggsave(plot = FDPlot(tdwg.map, fd.indices),
 cat("FD Realm comparison observed + ADF...\n")
 ##############################################
 
+# For observed + ADF null models
+# ------------------------------
 DoPlot <- function() {
   fdis.obs <-
     FDRealmPlot("FDis.all.traits", "observed", "A. FDis (observed)", "FDis") +
@@ -830,6 +832,61 @@ ggsave(DoPlot(),
        filename = paste0(plot.dir, "realm_comparison_FD_obs_ADF.png"),
        width = 9,
        height = 8,
+       dpi = 100
+       )
+
+
+# For all three null models (using noMDG for realm)
+# -------------------------------------------------
+
+# First FRic
+DoPlot <- function() {
+  fric.global <-
+    FDRealmPlot("FRic.all.traits", "global.SES", "A. FRic (global)", "FRic (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -3.4, label = c("A", "B", "B"))
+
+  fric.realm <-
+    FDRealmPlot("FRic.all.traits", "realm.SES", "B. FRic (realm)", "FRic (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -4, label = c("A", "B", "C"))
+
+  fric.adf <-
+    FDRealmPlot("FRic.all.traits", "adf.SES", "D. FRic (ADF null model)",
+                "FRic (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -3.5, label= c("A", "B", "A"))
+  
+  arrangeGrob(fric.global, fric.realm, fric.adf, ncol = 1)
+}
+
+ggsave(DoPlot(),
+       filename = paste0(plot.dir, "realm_comparison_FRic_nullmodels.png"),
+       width = 4,
+       height = 7,
+       dpi = 100
+       )
+
+
+# Second FDis
+DoPlot <- function() {
+  fdis.global <-
+    FDRealmPlot("FDis.all.traits", "global.SES", "A. FDis (global)", "FDis (SES)") +
+    annotate(geom = "text", x = c(1.2, 2, 3), y = -5, label = c("A", "A", "B"))
+
+  fdis.realm <-
+    FDRealmPlot("FDis.all.traits", "realm.SES", "B. FDis (realm)", "FDis (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -6, label = c("A", "B", "C"))
+
+  fdis.adf <-
+    FDRealmPlot("FDis.all.traits", "adf.SES", "C. FDis (ADF null model)",
+                "FDis (SES)") +
+    annotate(geom = "text", x = c(1, 2, 3), y = -6, label= c("A", "B", "AB"))
+
+  arrangeGrob(fdis.global, fdis.realm, fdis.adf, ncol = 1)
+}
+
+ggsave(DoPlot(),
+       filename = paste0(plot.dir, "realm_comparison_FDis_nullmodels.png"),
+       width = 4,
+       height = 7,
        dpi = 100
        )
 
