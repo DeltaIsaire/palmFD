@@ -51,10 +51,20 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
   if (!IsOneDimensional(y)) {
     stop("argument y is not one-dimensional") 
   }
-  data <- data.frame(x = x, y = y)
+  if (is.list(x)) {
+    x.num <- x[[1]]
+  } else {
+    x.num <- x
+  }
+  if (is.list(y)) {
+    y.num <- y[[1]]
+  } else {
+    y.num <- y
+  }
+  data <- data.frame(xdata = x.num, ydata = y.num)
   if (length(which(complete.cases(data))) != length(data[, 1])) {
     data %<>% .[complete.cases(.), ]
-    warning("Omitted pairwise observations with missing values")
+    cat("Omitted pairwise observations with missing values\n")
   }
   # set margins to be nicely narrow
   if (is.null(title)) {
@@ -63,19 +73,19 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
     par(mar = c(4.1, 4.1, 2.1, .5))
   }
   # Initiate plot, but do not plot values yet
-  plot(y ~ x, 
+  plot(ydata ~ xdata, 
        data = data, 
        type = "n", 
-       ylim = if (min(y) < 0) {
-                c(1.02 * min(y), 1.02 * max(y))
+       ylim = if (min(data[, "ydata"]) < 0) {
+                c(1.02 * min(data[, "ydata"]), 1.02 * max(data[, "ydata"]))
               } else {      
-                c(0, 1.02 * max(y))
+                c(0, 1.02 * max(data[, "ydata"]))
               } ,
        xlab = if (!is.null(xlab)) {
                 xlab
               } else {
                 if (length(names(x)) > 0) {
-                  names(x)
+                  names(x)[1]
                 } else {
                   "x"
                 }
@@ -84,7 +94,7 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
                 ylab
               } else {
                 if (length(names(y)) > 0) {
-                  names(y)
+                  names(y)[1]
                 } else {
                   "y"
                 }
@@ -110,7 +120,12 @@ Scatterplot <- function(x, y, grid = TRUE, pch = 21, col = "black",
     abline(v = 0, lty = 2, col = "black")
   }
   # Plot points
-  points(y ~ x, data = data, pch = pch, cex = 1.0, col = col, bg = "transparent")
+  points(ydata ~ xdata,
+         data = data,
+         pch = pch,
+         cex = 1.0,
+         col = col
+         )
   # Draw a clean box around the plotting region
   box(lty = 1, col = "black")
 }
