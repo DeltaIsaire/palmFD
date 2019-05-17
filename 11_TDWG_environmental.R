@@ -48,21 +48,6 @@ tdwg3.included <-
 env.new <- read.csv(file = "data/TDWG_Environment_AllData_2019Feb.csv")
 
 
-# Functional diversity indices
-# ----------------------------
-# A list with all the FD index data.
-# Note these dataframes include richness and endemism variables.
-fd.indices <- vector("list", length = 0)
-fd.names <- c("FRic.all.traits", "FRic.stem.height", "FRic.blade.length",
-              "FRic.fruit.length", "FDis.all.traits", "FDis.stem.height",
-              "FDis.blade.length", "FDis.fruit.length"
-              )
-for (index in fd.names) {
-  fd.indices [[index]] <-
-    read.csv(file = paste0("output/FD_summary_", index, ".csv"), row.names = 1)
-}
-
-
 
 ###############################
 # Subset and process predictors
@@ -124,12 +109,23 @@ env.clim$bio1_mean %<>% { . / 10 }
 #   'bio15_mean"  (Precipitation seasonality) (unitless, coefficient of variation)
 #   LGM temperature anomaly (degrees C)
 #   LGM precipitation anomaly (mm)
-# The LGM anomalies need to be calculated from LGM mean and contemporary mean values
+#   'PLIO_T_ANOM' (pliocene temp anomaly) (degrees C * 10)
+#   'PLIO_P_ANOM' (pliocene prec anomaly) (mm)
+#   Miocene temperature anomaly (hopefully degrees C, Mio_Temp_Mean looks like C)
+#   Miocene precipitation anomaly (hopefully mm, but Mio_Prec_Mean is NOT in mm!)
+# The LGM anomalies and the Miocene anomalies need to be calculated from LGM/Miocene
+# mean and contemporary mean values
+# PLIO_T_ANOM should be divided by 10 to convert to C.
 env.clim.stable <-
   data.frame(env.new[, c("LEVEL_3_CO", "bio4_mean", "bio15_mean")],
              lgm_Tano = (env.new[, "lgm_ens_Tmean"] / 10 - 273.15) -
-                         (env.new[, "bio1_mean"] / 10),
-             lgm_Pano = (env.new[, "lgm_ens_Pmean"] / 10) - env.new[, "bio12_mean"]
+                        (env.new[, "bio1_mean"] / 10),
+             lgm_Pano = (env.new[, "lgm_ens_Pmean"] / 10) - env.new[, "bio12_mean"],
+             plio_Tano = env.new[, "PLIO_T_ANOM"] / 10,
+             plio_Pano = env.new[, "PLIO_P_ANOM"],
+             mio_Tano = (env.new[, "Mio_Temp_Mean"]) -
+                        (env.new[, "bio1_mean"] / 10),
+             mio_Pano = (env.new[, "Mio_Prec_Mean"]) - env.new[, "bio12_mean"]
              ) %>%
   .[.$LEVEL_3_CO %in% tdwg3.included, ]
 # NOTE: The new LGM data for FIJ (Fiji) is faulty due to calculation glitches.
@@ -180,45 +176,6 @@ write.csv(predictors,
           eol = "\r\n",
           row.names = TRUE
           )
-
-
-
-#####################################################################
-cat("Checking linearity of relation between FD and environment...\n")
-#####################################################################
-
-MakePlot <- function(fd.names, null.model, predictors) {
-# fd.indices: character vector of fd index names
-# null.model: character string of null model name
-# predictors: dataframe of predictor variables
-
-  par(mfrow = c(length(fd.indices), ncol(predictors)))
-  for (index in fd.names) {
-    for (predictor in colnames(predictors)) {
-    Scatterplot(x = predictors[, predictor, drop = FALSE],
-                y = GetFD(fd.indices[index], null.model),
-                ylab = paste0(index, " (", null.model, ")"),
-                pch = 16,
-                col = tdwg3.info[, "realm"] [complete.cases(predictors[, predictor]]
-                )
-    }
-  }
-
-  return (0)
-}
-
-for (null.model in c("observed", "global.SES", "realm.SES.noMDG", "adf.SES")) {
-  GraphPNG(MakePlot(fd.names, null.model, predictors),
-           file = paste0("graphs/scatter_predictors_vs_FD_", null.model, ".png"),
-           width = ncol(predictors) * 600,
-           height = length(fd.names) * 600,
-           pointsize = 24
-           )
-}
-# No obvious nonlinearities in any of these.
-# No obvious linearities either. Most of these are pointclouds.
-
-
 
 
 
