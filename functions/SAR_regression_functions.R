@@ -55,7 +55,7 @@ PseudoRsq <- function(sarlm) {
 
 
 SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
-                      numeric.only = FALSE) {
+                      numeric.only = FALSE, double.std = FALSE) {
 # Fit every single-predictor SAR-error model and report the slope, predictor p-value,
 # p-value for spatial autocorrelation of the model residuals via moran.test(),
 # and the pseudo-Rsq following the methods of Kissling & Carl (2008).
@@ -77,7 +77,8 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
   x.complete <- ParseData(x = x,
                           response = response,
                           standardize = standardize,
-                          numeric.only = numeric.only
+                          numeric.only = numeric.only,
+                          double.std = double.std
                           )
 
   # Init output matrix
@@ -402,7 +403,8 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
 
 
 
-FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE) {
+FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE,
+                         double.std = FALSE) {
 # Function to fit a SAR error model to the provided data, using a Sphere of
 # Influence neighbourhood based on the provided spatial data.
 # Provided data is subsetted to complete cases via ParseData().
@@ -417,7 +419,12 @@ FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE) {
 #                weights matrix. See SWMat()
   sar.mod.data <<- 
     data.frame(predictors, response = response) %>%
-    ParseData(., response = "response", standardize = TRUE, numeric.only = TRUE)
+    ParseData(.,
+              response = "response",
+              standardize = TRUE,
+              numeric.only = TRUE,
+              double.std = double.std
+              )
 
   # Generate spatial weights matrix from SOI neighbourhood
   ind.complete <- complete.cases(predictors) & complete.cases(response)

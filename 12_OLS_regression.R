@@ -154,11 +154,11 @@ write.csv(env.complete.noch,
 ################################################
 cat("Loading functions for single-predictor analysis...\n")
 
-# Wrapper function to run SingleModel() and process and save results
+# Wrapper function to run SingleModels() and process and save results
 # ------------------------------------------------------------------
-RunMM <- function(responses, predictors, name) {
+RunMM <- function(responses, predictors, name, double.std = FALSE) {
 # Name: character string as unique data identifier. Used as suffix for file names.
-  output <- SingleModels(responses, predictors)
+  output <- SingleModels(responses, predictors, double.std = double.std)
   write.csv(output[[1]],
             file = paste0(output.dir, "OLS_single_Rsq_", name, ".csv"),
             eol = "\r\n"
@@ -249,7 +249,8 @@ SingleSummary <- function(statistic, fd.index, null.models, realm,
 
 # Wrapper function to apply RunMM() to all data + to each realm subset
 #---------------------------------------------------------------------
-RunSingles <- function(fd.indices, fd.index, name, env.complete) {
+RunSingles <- function(fd.indices, fd.index, name, env.complete,
+                       double.std = FALSE) {
 # fd.indices: the list object 'fd.indices' or a subset thereof
 # fd.index: FD index to analyze, one of c("FRic", "FDis")
 # name: name of column to extract from each df in 'fd.indices' via GetFD(),
@@ -258,7 +259,8 @@ RunSingles <- function(fd.indices, fd.index, name, env.complete) {
   fd.global <- GetFD(fd.indices, name)
   RunMM(fd.global,
         env.complete,
-        paste0(fd.index, "_", name, "_all")
+        paste0(fd.index, "_", name, "_all"),
+        double.std = double.std
         )
   # realm subsets:
   fd.global.realms <- RealmSubset(fd.global)
@@ -267,7 +269,8 @@ RunSingles <- function(fd.indices, fd.index, name, env.complete) {
   for (i in seq_along(fd.global.realms)) {
     RunMM(fd.global.realms[[i]],
           env.complete.realms[[i]],
-          paste0(fd.index, "_", name, "_", names(env.complete.realms)[[i]])
+          paste0(fd.index, "_", name, "_", names(env.complete.realms)[[i]]),
+          double.std = double.std
           )
   }
   return (0)
@@ -289,48 +292,38 @@ fdis <- names(fd.indices)[5:8]
 # making slopes comparable.
 # For the predictor dataset we will use the 'noch' version, i.e. no canopy height.
 
+null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
+
 
 # For functional richness (FRic)
 # ------------------------------
-cat("(1) FRic for null model Global...\n")
-RunSingles(fd.indices[fric], "FRic", "global.SES", env.complete.noch)
-
-cat("(2) FRic for null model Realm...\n")
-RunSingles(fd.indices[fric], "FRic", "realm.SES", env.complete.noch)
-
-cat("(3) FRic for null model Realm without MDG...\n")
-RunSingles(fd.indices[fric], "FRic", "realm.SES.noMDG", env.complete.noch)
-
-cat("(4) FRic for null model ADF...\n")
-RunSingles(fd.indices[fric], "FRic", "adf.SES", env.complete.noch)
-
-cat("(5) FRic for observed data...\n")
-RunSingles(fd.indices[fric], "FRic", "observed", env.complete.noch)
+for (null.model in null.models) {
+  cat("FRic for null model", null.model, "...\n")
+  RunSingles(fd.indices[fric],
+             "FRic",
+             null.model,
+             env.complete.noch,
+             double.std = TRUE
+             )
+}
 
 
 # For functional dispersion (FDis)
 # -------------------------------
-cat("(6) FDis observed...\n")
-RunSingles(fd.indices[fdis], "FDis", "observed", env.complete.noch)
-
-cat("(7) FDis for null model Global...\n")
-RunSingles(fd.indices[fdis], "FDis", "global.SES", env.complete.noch)
-
-cat("(8) FDis for null model Realm...\n")
-RunSingles(fd.indices[fdis], "FDis", "realm.SES", env.complete.noch)
-
-cat("(9) FDis for null model Realm without MDG...\n")
-RunSingles(fd.indices[fdis], "FDis", "realm.SES.noMDG", env.complete.noch)
-
-cat("(10) FDis for null model ADF...\n")
-RunSingles(fd.indices[fdis], "FDis", "adf.SES", env.complete.noch)
+for (null.model in null.models) {
+  cat("FDis for null model", null.model, "...\n")
+  RunSingles(fd.indices[fdis],
+             "FDis",
+             "observed",
+             env.complete.noch,
+             double.std = TRUE
+             )
+}
 
 
 # Summarize results
 # -----------------
 cat("Summarizing single-predictor model results...\n")
-
-null.models <- c("global.SES", "realm.SES", "realm.SES.noMDG", "adf.SES", "observed")
 
 # For FRic
 fric.rsq <- SingleSummary("Rsq",
@@ -456,7 +449,8 @@ EvalMM <- function(multimod) {
 
 # Function to apply mod selection automatically to all fd.indices
 # ---------------------------------------------------------------
-ApplyModSelect <- function(fd.indices, fd.names, predictors, null.models, k) {
+ApplyModSelect <- function(fd.indices, fd.names, predictors, null.models, k,
+                           double.std = FALSE) {
 # fd.indices: the object 'fd.indices' created above.
 # fd.names: character vector giving names of the response variables, e.g. the
 #           'fd.names' object created above, or a subset thereof.
@@ -482,7 +476,8 @@ ApplyModSelect <- function(fd.indices, fd.names, predictors, null.models, k) {
         MultiSelect(response.var = fd.indices[[index]] [, model],
                     response.name = index,
                     predictors = predictors,
-                    k = k
+                    k = k,
+                    double.std = double.std
                     )
       formulae[[model]] [[index]] <-
         multimod[["exhaustive"]] [["formulae"]] [["cross.validation"]]
@@ -551,7 +546,7 @@ GetBestMods <- function(select) {
 # That is sixteen cases in total. Generating 16 files is acceptable, but copying
 # code 16 times is not. We need a wrapper function.
 ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors,
-                     k, identifier) {
+                     k, identifier, double.std = FALSE) {
   # Subset env.complete to selected predictors:
   env.subset <- env.complete[, predictors]
   # Run for worldwide data:
@@ -560,7 +555,8 @@ ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors
                                        fd.names,
                                        env.subset,
                                        null.models,
-                                       k = k
+                                       k = k,
+                                       double.std = double.std
                                        )
                         ),
             file = paste0(output.dir, "OLS_best_models_", identifier, "_all.csv"),
@@ -589,7 +585,8 @@ ApplyMMS <- function(fd.indices, fd.names, null.models, env.complete, predictors
                                          fd.names,
                                          env.subset.realms[[i]],
                                          null.models,
-                                         k = k
+                                         k = k,
+                                         double.std = double.std
                                          )
                           ),
               file = paste0(output.dir, "OLS_best_models_", identifier, "_",
@@ -619,10 +616,10 @@ ApplyMMS(fd.indices,
          fd.names,
          null.models,
          env.complete.noch,
-         predictors = c("alt_range", "soilcount", "bio1_sd", "bio12_sd",
-                        "bio1_mean", "bio12_mean"),
+         predictors = c("soilcount", "bio1_sd", "bio12_sd"),
          k,
-         identifier = "EH"
+         identifier = "EH",
+         double.std = TRUE
          )
 
 cat("(2) Predictors related to stability...\n")
@@ -630,9 +627,11 @@ ApplyMMS(fd.indices,
          fd.names,
          null.models,
          env.complete.noch,
-         predictors = c("bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano"),
+         predictors = c("bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
+                        "plio_Tano", "plio_Pano"),
          k,
-         identifier = "stability"
+         identifier = "stability",
+         double.std = TRUE
          )
 
 cat("(3) Meta-predictors: palm richness, endemism, and realm...\n")
@@ -642,7 +641,8 @@ ApplyMMS(fd.indices,
          env.complete.noch,
          predictors = c("palm.richness", "endemism", "realm"),
          k,
-         identifier = "meta"
+         identifier = "meta",
+         double.std = TRUE
          )
 
 cat("(4) All environmental predictors (EH + stability)...\n")
@@ -650,11 +650,12 @@ ApplyMMS(fd.indices,
          fd.names,
          null.models,
          env.complete.noch,
-         predictors = c("alt_range", "soilcount", "bio1_sd", "bio12_sd",
+         predictors = c("soilcount", "bio1_sd", "bio12_sd",
                         "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
-                        "bio1_mean", "bio12_mean"),
+                        "plio_Tano", "plio_Pano"),
          k,
-         identifier = "envir"
+         identifier = "envir",
+         double.std = TRUE
          )
 
 

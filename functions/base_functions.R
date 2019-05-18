@@ -318,9 +318,12 @@ WhichMax <- function(x, n = 1) {
 
 
 
-ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
+ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE,
+                      double.std = FALSE) {
 # Function to subset a dataframe to complete cases, and optionally standardize
 # all numeric variables EXCEPT the response variable.
+# Unless 'double.std' is TRUE, in which case the response variable is also
+# standardized. 
   if (numeric.only) {
   x.num <- numcolwise(function(x) { x } ) (x)
   x.complete <- x.num[complete.cases(x.num), ]
@@ -332,9 +335,11 @@ ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE) {
     # Re-add non-numeric columns:
     missing.cols <- names(x.complete)[!names(x.complete) %in% names(x.std)]
     x.std[, missing.cols] <- x.complete[, missing.cols]
-    # un-standardize the response variable:
-    x.std[, response] <- x.complete[, response]
-    x.complete <- x.std
+    if (!isTRUE(double.std)) {
+      # un-standardize the response variable:
+      x.std[, response] <- x.complete[, response]
+      x.complete <- x.std
+    }
   }
   # move response variable to last column
   resp.ind <- which(names(x.complete) == response)

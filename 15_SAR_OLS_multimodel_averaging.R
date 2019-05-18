@@ -101,9 +101,9 @@ env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
                 )
 
 # The following are the predictors of primary interest:
-# UPDATE: we no longer include CH_SD
-pred.names <- c("alt_range", "soilcount", "bio1_sd", "bio12_sd", "bio12_mean",
-                "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano", "bio1_mean"
+# UPDATE: we no longer include CH_SD or bio1_mean or bio12_mean
+pred.names <- c("alt_range", "soilcount", "bio1_sd", "bio12_sd", "bio4_mean",
+                "bio15_mean", "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano"
                 )
 # Collinearity must be accounted for, so filter the predictors with AutoVIF()
 GraphSVG(Correlogram(env[, pred.names]),
@@ -124,12 +124,7 @@ pred.names <- AutoVIF(test.data,
 #
 # UPDATE: bio12_mean is correlated with bio4_mean, bio15_mean and
 # bio12_sd, and excluded at threshold 3.
-#
-# Restricting the VIF threshold to <2.5 additionaly removes bio1_sd.
-# With bio1_sd also removed, the highest remaining VIF is <1.4, which is awesome.
-# Removing bio1_sd as well should be considered given Cade (2015), depending on how
-# strong th effect of bio1_sd is in the single-predictor models (i.e. is it likely
-# to be significant?)
+
 env.complete <- env[, pred.names]
 
 
@@ -247,11 +242,15 @@ for (index in fd.names) {
       # Fit global models
       response <- response.list[[case]]
       predictors <- predictors.list[[case]]
-      global.ols <- FitGlobalOLS(response = response, predictors = predictors)
+      global.ols <- FitGlobalOLS(response = response,
+                                 predictors = predictors,
+                                 double.std = TRUE
+                                 )
       global.sar <- suppressMessages(FitGlobalSAR(response = response,
                                                   predictors = predictors,
                                                   tdwg.map = tdwg.map,
-                                                  dist.weight = TRUE
+                                                  dist.weight = TRUE,
+                                                  double.std = TRUE
                                                   )
                                      )
 

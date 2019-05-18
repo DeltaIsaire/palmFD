@@ -45,7 +45,7 @@ Correlogram <- function(x) {
 
 
 SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward",
-                      numeric.only = FALSE, vif.threshold = 3) {
+                      numeric.only = FALSE, vif.threshold = 3, double.std = FALSE) {
 # Function to perform automated OLS regression model selection for a given dataset.
 # The provided data is subsetted to complete cases of all numeric variables. It is 
 # then further subsetted to only non-collinear predictors, using function AutoVIF().
@@ -79,7 +79,8 @@ SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward
   x.complete <- ParseData(x = x,
                           response = response,
                           standardize = standardize,
-                          numeric.only = numeric.only
+                          numeric.only = numeric.only,
+                          double.std = double.std
                           )
 
   # If categorical predictors are included, ensure appropriate parsing.
@@ -251,7 +252,7 @@ if (FALSE) {
 
 
 SingleOLS <- function(x, response, standardize = TRUE, digits = "all",
-                      numeric.only = FALSE) {
+                      numeric.only = FALSE, double.std = FALSE) {
 # Fit every single-predictor OLS model and report the Rsq, slope and P-value.
 #
 # Args:
@@ -271,7 +272,8 @@ SingleOLS <- function(x, response, standardize = TRUE, digits = "all",
   x.complete <- ParseData(x = x,
                           response = response,
                           standardize = standardize,
-                          numeric.only = numeric.only
+                          numeric.only = numeric.only,
+                          double.std = double.std
                           )
 
   # Init output matrix
@@ -326,7 +328,7 @@ if (FALSE) {
 
 
 # Function to generate single-predictor model data
-SingleModels <- function(responses, predictors) {
+SingleModels <- function(responses, predictors, double.std = FALSE) {
 # responses: data frame with response variables
 # Predictors: data frame with predictor variables
 
@@ -344,7 +346,11 @@ SingleModels <- function(responses, predictors) {
     response <- colnames(responses)[i]
     model.data <- predictors
     model.data[, response] <- responses[, response]
-    mat <- SingleOLS(model.data, response, standardize = TRUE)
+    mat <- SingleOLS(model.data,
+                     response,
+                     standardize = TRUE,
+                     double.std = double.std
+                     )
     indices <- match(rownames(mat), colnames(output[[1]]))
     output[[1]] [i, indices] <- mat[, 1]
     output[[2]] [i, indices] <- mat[, 2]
@@ -356,7 +362,8 @@ SingleModels <- function(responses, predictors) {
 
 # Wrapper function to automate the auto-selection process
 # -------------------------------------------------------
-MultiSelect <- function(response.var, response.name, predictors, k = 10) {
+MultiSelect <- function(response.var, response.name, predictors, k = 10,
+                        double.std = FALSE) {
   model.data <- predictors
   model.data[, response.name] <- response.var
   all.mods <- vector("list", length = 4)
@@ -365,7 +372,8 @@ MultiSelect <- function(response.var, response.name, predictors, k = 10) {
     all.mods[[i]] <- SelectOLS(x = model.data,
                                response = response.name,
                                method = names(all.mods)[i],
-                               k = k
+                               k = k,
+                               double.std = double.std
                                )
   }
   all.mods
@@ -373,7 +381,7 @@ MultiSelect <- function(response.var, response.name, predictors, k = 10) {
 
 
 
-FitGlobalOLS <- function(response, predictors) {
+FitGlobalOLS <- function(response, predictors, double.std = FALSE) {
 # Function to generate a global OLS model object. Provided data is subsetted to
 # complete cases via ParseData().
 # NOTE: this function uses global assignments, for compatibility with dredge() from
@@ -384,7 +392,12 @@ FitGlobalOLS <- function(response, predictors) {
 #               data.
   ols.mod.data <<-
     data.frame(predictors, response = response) %>%
-    ParseData(., response = "response", standardize = TRUE, numeric.only = TRUE)
+    ParseData(.,
+              response = "response",
+              standardize = TRUE,
+              numeric.only = TRUE,
+              double.std = double.std
+              )
   ols.mod.formula <<-
     paste0("response ~ ", paste(colnames(predictors), collapse = " + ")) %>%
     as.formula()

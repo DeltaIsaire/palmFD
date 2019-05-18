@@ -115,6 +115,7 @@ env.clim$bio1_mean %<>% { . / 10 }
 #   Miocene precipitation anomaly (hopefully mm, but Mio_Prec_Mean is NOT in mm!)
 # The LGM anomalies and the Miocene anomalies need to be calculated from LGM/Miocene
 # mean and contemporary mean values
+# TODO: fix Miocene precipitation anomaly. DO NOT USE until fixed!
 # PLIO_T_ANOM should be divided by 10 to convert to C.
 env.clim.stable <-
   data.frame(env.new[, c("LEVEL_3_CO", "bio4_mean", "bio15_mean")],

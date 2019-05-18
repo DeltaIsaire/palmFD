@@ -264,7 +264,8 @@ cat("Generating single-predictor SAR error models:\n")
 
 # Wrapper function for awesomeness
 # --------------------------------
-RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE) {
+RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE,
+                          double.std = FALSE) {
 # Generate the data, then immediately parse it
   AllSARSingles(fd.indices,
                 colname = colname,
@@ -273,7 +274,8 @@ RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE) {
                 dist.weight = dist.weight,
                 name.all = name.all,
                 standardize = TRUE,
-                numeric.only = FALSE
+                numeric.only = FALSE,
+                double.std = double.std
                 )
   ParseSARSingle(name.all = name.all,
                  cases = c("full", "NewWorld", "OWWest", "OWEast"),
@@ -295,7 +297,8 @@ for (i in seq_along(SAR.FRic)) {
     RunSARSingles(fd.indices[fric],
                   colname = null.models[i],
                   name.all = paste0(output.dir, "SAR_single_FRic_", null.models[i]),
-                  dist.weight = FALSE
+                  dist.weight = FALSE,
+                  double.std = TRUE
                   )
 }
 # For FRic With distance weighted spatial weights matrix:
@@ -309,7 +312,8 @@ for (i in seq_along(SAR.FRic.dw)) {
                                     "SAR_single_FRic_dw_",
                                     null.models[i]
                                     ),
-                  dist.weight = TRUE
+                  dist.weight = TRUE,
+                  double.std = TRUE
                   )
 }
 
@@ -323,7 +327,8 @@ for (i in seq_along(SAR.FDis)) {
     RunSARSingles(fd.indices[fdis],
                   colname = null.models[i],
                   name.all = paste0(output.dir, "SAR_single_FDis_", null.models[i]),
-                  dist.weight = FALSE
+                  dist.weight = FALSE,
+                  double.std = TRUE
                   )
 }
 # For FDis with distance weighted spatial weights matrix:
@@ -337,7 +342,8 @@ for (i in seq_along(SAR.FDis.dw)) {
                                     "SAR_single_FDis_dw_",
                                     null.models[i]
                                     ),
-                  dist.weight = TRUE
+                  dist.weight = TRUE,
+                  double.std = TRUE
                   )
 }
 
