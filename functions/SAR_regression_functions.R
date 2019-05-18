@@ -97,7 +97,8 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
     sar.mod <-
       errorsarlm(as.formula(paste(response, "~", colnames(x.complete)[index])),
                  data = x.complete,
-                 listw = listw
+                 listw = listw,
+                 tol.solve = 1e-12
                  )
     # slope:
     mat[match(names(x.complete)[index], rownames(mat)), 1] <-
@@ -439,7 +440,8 @@ FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE,
   errorsarlm(formula = sar.mod.formula,
              data = sar.mod.data,
              listw = sar.swmat,
-             na.action = na.fail
+             na.action = na.fail,
+             tol.solve = 1e-12
              )
 }
 
