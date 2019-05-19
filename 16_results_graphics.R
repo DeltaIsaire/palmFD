@@ -142,7 +142,8 @@ GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
 
 # 3. Environmental predictors excluding collinear variables,
 #    i.e. without alt_range
-exclude <- c("palm.richness", "endemism", "realm", "alt_range", "bio12_mean")
+exclude <- c("palm.richness", "endemism", "realm", "alt_range", "bio12_mean",
+             "bio1_mean", "mio_Tano", "mio_Pano")
 GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
          file = paste0(plot.dir, "Correlogram_predictors_ENV_noncoll.svg"),
          width = 7,
@@ -611,9 +612,6 @@ ggsave(DoPlot(),
 cat("Plotting distributions of environmental predictors...\n")
 ##############################################################
 
-# First the all-traits data. 
-# A single huge grid. Two columns: FDis and FRic.
-# Five rows: observed, global, realm, realmnoMDG, ADF.
 MultiEnvPlot <- function(tdwg.map, env.complete) {
 
   no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
@@ -630,20 +628,22 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
   }
 
   soilcount <- MakePlot("soilcount", "no. soiltypes", "Soilcount")
-  temp <- MakePlot("bio1_mean", "°C", "Mean annual temperature")
   temp.sd <- MakePlot("bio1_sd", "°C", "Mean annual temperature (sd)")
-  precip <- MakePlot("bio12_sd", "mm", "Annual Precipitation (sd)")
+  precip.sd <- MakePlot("bio12_sd", "mm", "Annual Precipitation (sd)")
   temp.seas <-
     MakePlot("bio4_mean", "°C", "Temperature Seasonality")
   precip.seas <-
     MakePlot("bio15_mean", "CV", "Precipitation Seasonality")
   lgmt <- MakePlot("lgm_Tano", "°C", "LGM Temperature Anomaly")
   lgmp <- MakePlot("lgm_Pano", "mm", "LGM Precipitation Anomaly")
+  pliot <- MakePlot("plio_Tano", "°C", "Pliocene Temperature Anomaly")
+  pliop <- MakePlot("plio_Pano", "°C", "Pliocene Precipitation Anomaly")
 
-  arrangeGrob(soilcount, temp,
-              temp.sd, precip,
+  arrangeGrob(temp.sd, precip.sd,
               temp.seas, precip.seas,
               lgmt, lgmp,
+              pliot, pliop,
+              soilcount,
               ncol = 2
               )
 }
@@ -652,13 +652,13 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
 ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        filename = paste0(plot.dir, "TDWG3_predictor_distributions.png"),
        width = 12,
-       height = 15
+       height = 17
        )
 # Low resolution
 ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        filename = paste0(plot.dir, "TDWG3_predictor_distributions_lowres.png"),
        width = 12,
-       height = 15,
+       height = 17,
        dpi = 100
        )
 
