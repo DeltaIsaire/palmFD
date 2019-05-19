@@ -224,13 +224,7 @@ for (index in fd.names) {
           paste(index, null.model, "for", case, "dataset"),
           "\n"
           )
-      n <- n + 1
 
-      # Handle process flow: for FDis we only need the 'observed' null model
-#      if (isTRUE(index %in% fdis) & isTRUE(!null.model == "observed")) {
-#        cat("\tSKIP - for FDis we use only the 'observed' data\n")
-#        next
-#      }
       # Handle process flow: skip if output already exists
       header <-
         paste0(output.dir, "multimod_avg_", index, "_", null.model, "_", case, "_")
@@ -253,6 +247,48 @@ for (index in fd.names) {
                                                   double.std = TRUE
                                                   )
                                      )
+
+      # Calculate explained variance of global models and residual SAC
+      # First init dataframe
+      rsq.file <- paste0(output.dir, "00_multimod_avg_global_rsq.csv")
+      if (file.exists(rsq.file) & !exists("global.rsq")) {
+        global.rsq <- read.csv(file = rsq.file, row.names = FALSE)
+      }
+      if (!exists("global.rsq")) {
+        global.rsq <-
+          data.frame(index           = rep(fd.names, each = nmax / length(fd.names)),
+                     null.model      = rep(null.models,
+                                           each = length(names(response.list))
+                                           ) %>%
+                                         rep(., length.out = nmax),
+                     case            = rep(names(response.list), length.out = nmax),
+                     OLS.Rsq         = 0,
+                     SAR.PsRsq.Nagel = 0,
+                     SAR.PsRsq.KC    = 0,
+                     SAR.PsRsq.pred  = 0,
+                     OLS.resid.SAC.P = 0,
+                     SAR.resid.SAC.P = 0
+                     )
+      }
+      # Second, calculate the statistics. For SAR models we use 3 different methods
+      # of calculating pseudo-Rsq.
+      global.rsq[n, "OLS.Rsq"] <- summary(global.ols)[["r.squared"]]
+      # SAR 1: Nagelkerke pseudo-Rsq (Nagelkerke 1991, see ?summary.sarlm
+      global.rsq[n, "SAR.PsRsq.Nagel"] <-
+        summary(global.sar, Nagelkerke = TRUE)[["NK"]]
+      # SAR 2: PseudoRsq following Kissling & Carl (2008)
+      global.rsq[n, "SAR.PsRsq.KC"] <- cor(x = predict(global.sar),
+                                           y = global.sar[["y"]],
+                                           method = "pearson"
+                                           ) ^ 2
+      # SAR 3: PseudoRsq following Kissling & Carl (2008) but excluding lambda
+      global.rsq[n, "SAR.PsRsq.pred"] <- PseudoRsq(global.sar)
+      global.rsq[n, "OLS.resid.SAC.P"] <-
+        moran.test(resid(global.ols), listw = sar.swmat)[["p.value"]]
+      global.rsq[n, "SAR.resid.SAC.P"] <-
+        moran.test(resid(global.sar), listw = sar.swmat)[["p.value"]]
+      # Third, save (partial) dataframe to disk
+      write.csv(global.rsq, file = rsq.file, row.names = FALSE)
 
       # Export GLOBAL environment to cluster
       clusterExport(cluster,
@@ -284,6 +320,8 @@ for (index in fd.names) {
                 file = paste0(header, "SAR.csv"),
                 eol = "\r\n"
                 )
+
+      n <- n + 1
     }
   }
 }
