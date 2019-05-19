@@ -54,7 +54,6 @@ if (!dir.exists(output.dir)) {
   dir.create(output.dir)
 }
 
-set.seed(358)
 
 
 ############################################
@@ -253,7 +252,7 @@ for (index in fd.names) {
       # Calculate explained variance of global models and residual SAC
       # First init dataframe
       rsq.file <- paste0(output.dir, "00_multimod_avg_global_rsq.csv")
-      if (file.exists(rsq.file) & !exists("global.rsq")) {
+      if (file.exists(rsq.file)) {
         global.rsq <- read.csv(file = rsq.file)
       }
       if (!exists("global.rsq")) {

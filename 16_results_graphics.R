@@ -1041,13 +1041,14 @@ cat("Multimodel averaging results...\n")
 ########################################
 
 PlotModAvg <- function(filename, title, subtitle = NULL) {
-  predictors <- c("lambda", "(Intercept)", "soilcount", "bio1_mean", "bio1_sd",
-                  "bio12_sd", "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano")
+  predictors <- c("lambda", "(Intercept)", "soilcount", "bio1_sd",
+                  "bio12_sd", "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
+                  "plio_Tano", "plio_Pano")
   df <- read.csv(file = filename)
   df %<>% { .[match(predictors, .[, "X"]), ] }
   df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
-  df[, "X"] <- c("Soil", "Temp", "Temp.sd", "Prec.sd", "T.seas", "P.seas",
-                 "T.anom", "P.anom")
+  df[, "X"] <- c("Soil", "Temp.sd", "Prec.sd", "T.seas", "P.seas",
+                 "lgm.T.ano", "lgm.P.ano", "pli.T.ano", "pli.P.ano")
   df[, 1] %<>% { factor(., levels = .) }
 
   ggplot(df) +
