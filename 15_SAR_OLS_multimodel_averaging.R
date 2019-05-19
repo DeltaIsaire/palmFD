@@ -248,7 +248,11 @@ for (index in fd.names) {
                                                   )
                                      )
 
+<<<<<<< HEAD
       cat("Calculating global model explained variance and testing residual SAC..\n")
+=======
+      # Calculate explained variance of global models and residual SAC
+>>>>>>> a14a1546d87eecfaddb99a645a17807ecf90d1fd
       # First init dataframe
       rsq.file <- paste0(output.dir, "00_multimod_avg_global_rsq.csv")
       if (file.exists(rsq.file) & !exists("global.rsq")) {
