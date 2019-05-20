@@ -102,7 +102,8 @@ env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
 # The following are the predictors of primary interest:
 # UPDATE: we no longer include CH_SD or bio1_mean or bio12_mean
 pred.names <- c("alt_range", "soilcount", "bio1_sd", "bio12_sd", "bio4_mean",
-                "bio15_mean", "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano"
+                "bio15_mean", "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano",
+                "mio_Tano", "mio_Pano"
                 )
 # Collinearity must be accounted for, so filter the predictors with AutoVIF()
 GraphSVG(Correlogram(env[, pred.names]),

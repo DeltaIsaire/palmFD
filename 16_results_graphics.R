@@ -629,20 +629,23 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
 
   soilcount <- MakePlot("soilcount", "no. soiltypes", "Soilcount")
   temp.sd <- MakePlot("bio1_sd", "°C", "Mean annual temperature (sd)")
-  precip.sd <- MakePlot("bio12_sd", "mm", "Annual Precipitation (sd)")
+  precip.sd <- MakePlot("bio12_sd", "mm/year", "Annual Precipitation (sd)")
   temp.seas <-
     MakePlot("bio4_mean", "°C", "Temperature Seasonality")
   precip.seas <-
     MakePlot("bio15_mean", "CV", "Precipitation Seasonality")
   lgmt <- MakePlot("lgm_Tano", "°C", "LGM Temperature Anomaly")
-  lgmp <- MakePlot("lgm_Pano", "mm", "LGM Precipitation Anomaly")
+  lgmp <- MakePlot("lgm_Pano", "mm/year", "LGM Precipitation Anomaly")
   pliot <- MakePlot("plio_Tano", "°C", "Pliocene Temperature Anomaly")
-  pliop <- MakePlot("plio_Pano", "°C", "Pliocene Precipitation Anomaly")
+  pliop <- MakePlot("plio_Pano", "mm/year", "Pliocene Precipitation Anomaly")
+  miot <- MakePlot("mio_Tano", "°C", "Miocene Temperature Anomaly")
+  miop <- MakePlot("mio_Pano", "mm/year", "Miocene Temperature Anomaly")
 
   arrangeGrob(temp.sd, precip.sd,
               temp.seas, precip.seas,
               lgmt, lgmp,
               pliot, pliop,
+              miot, miop,
               soilcount,
               ncol = 2
               )
@@ -652,13 +655,13 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
 ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        filename = paste0(plot.dir, "TDWG3_predictor_distributions.png"),
        width = 12,
-       height = 17
+       height = 20
        )
 # Low resolution
 ggsave(plot = MultiEnvPlot(tdwg.map, env.complete),
        filename = paste0(plot.dir, "TDWG3_predictor_distributions_lowres.png"),
        width = 12,
-       height = 17,
+       height = 20,
        dpi = 100
        )
 
@@ -1043,12 +1046,13 @@ cat("Multimodel averaging results...\n")
 PlotModAvg <- function(filename, title, subtitle = NULL) {
   predictors <- c("lambda", "(Intercept)", "soilcount", "bio1_sd",
                   "bio12_sd", "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
-                  "plio_Tano", "plio_Pano")
+                  "plio_Tano", "plio_Pano", "mio_Tano", "mio_Pano")
   df <- read.csv(file = filename)
   df %<>% { .[match(predictors, .[, "X"]), ] }
   df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
   df[, "X"] <- c("Soil", "Temp.sd", "Prec.sd", "T.seas", "P.seas",
-                 "lgm.T.ano", "lgm.P.ano", "pli.T.ano", "pli.P.ano")
+                 "lgm.Tano", "lgm.Pano", "pli.Tano", "pli.Pano", "mio.Tano",
+                 "mio.Pano")
   df[, 1] %<>% { factor(., levels = .) }
 
   ggplot(df) +

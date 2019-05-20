@@ -45,7 +45,7 @@ tdwg3.included <-
 
 # Environmental data
 # ------------------
-env.new <- read.csv(file = "data/TDWG_Environment_AllData_2019Feb.csv")
+env.new <- read.csv(file = "data/TDWG_Environment_AllData_20May2019.csv")
 
 
 
@@ -108,25 +108,23 @@ env.clim$bio1_mean %<>% { . / 10 }
 #   "bio4_mean"   (Temperature seasonality) (degrees * 100)
 #   'bio15_mean"  (Precipitation seasonality) (unitless, coefficient of variation)
 #   LGM temperature anomaly (degrees C)
-#   LGM precipitation anomaly (mm)
+#   LGM precipitation anomaly (mm/year)
 #   'PLIO_T_ANOM' (pliocene temp anomaly) (degrees C * 10)
-#   'PLIO_P_ANOM' (pliocene prec anomaly) (mm)
-#   Miocene temperature anomaly (hopefully degrees C, Mio_Temp_Mean looks like C)
-#   Miocene precipitation anomaly (hopefully mm, but Mio_Prec_Mean is NOT in mm!)
-# The LGM anomalies and the Miocene anomalies need to be calculated from LGM/Miocene
-# mean and contemporary mean values
-# TODO: fix Miocene precipitation anomaly. DO NOT USE until fixed!
-# PLIO_T_ANOM should be divided by 10 to convert to C.
+#   'PLIO_P_ANOM' (pliocene prec anomaly) (mm/year)
+#   Miocene temperature anomaly (degrees C)
+#   Miocene precipitation anomaly (mm/year)
+# The LGM anomalies need to be calculated from LGM mean and contemporary mean values
+# PLIO_T_ANOM and miocene_temp_anom_mean should be divided by 10 to convert to C.
 env.clim.stable <-
   data.frame(env.new[, c("LEVEL_3_CO", "bio4_mean", "bio15_mean")],
-             lgm_Tano = (env.new[, "lgm_ens_Tmean"] / 10 - 273.15) -
-                        (env.new[, "bio1_mean"] / 10),
-             lgm_Pano = (env.new[, "lgm_ens_Pmean"] / 10) - env.new[, "bio12_mean"],
+             lgm_Tano  = (env.new[, "bio1_mean"] / 10) -
+                         (env.new[, "lgm_ens_Tmean"] / 10 - 273.15),
+             lgm_Pano  = env.new[, "bio12_mean"] -
+                         (env.new[, "lgm_ens_Pmean"] / 10),
              plio_Tano = env.new[, "PLIO_T_ANOM"] / 10,
              plio_Pano = env.new[, "PLIO_P_ANOM"],
-             mio_Tano = (env.new[, "Mio_Temp_Mean"]) -
-                        (env.new[, "bio1_mean"] / 10),
-             mio_Pano = (env.new[, "Mio_Prec_Mean"]) - env.new[, "bio12_mean"]
+             mio_Tano  = env.new[, "miocene_temp_anom_mean"] / 10,
+             mio_Pano  = env.new[, "miocene_prec_anom_mean"]
              ) %>%
   .[.$LEVEL_3_CO %in% tdwg3.included, ]
 # NOTE: The new LGM data for FIJ (Fiji) is faulty due to calculation glitches.
