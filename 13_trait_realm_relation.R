@@ -24,6 +24,7 @@ library(sf)
 theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
+source(file = "functions/OLS_regression_functions.R")
 source(file = "functions/SAR_regression_functions.R")
 source(file = "functions/plotting_functions.R")
 
