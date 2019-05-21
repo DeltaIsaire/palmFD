@@ -17,10 +17,14 @@ library(plyr)
 library(multcomp)
 library(ggplot2)
 library(gridExtra)
+library(spdep)
+library(spatialreg)
+library(sf)
 
 theme_set(theme_bw())
 
 source(file = "functions/base_functions.R")
+source(file = "functions/SAR_regression_functions.R")
 source(file = "functions/plotting_functions.R")
 
 
@@ -31,6 +35,9 @@ cat("preparing data...\n")
 
 # tdwg3 info:
 tdwg3.info <- read.csv(file = "output/tdwg3_info_v2.csv")
+
+tdwg.map <- read_sf(dsn = "/home/delta/R_Projects/palm_FD/data/tdwg",
+                    layer = "TDWG_level3_Coordinates")
 
 # traits, based on stochastic gapfilled trait matrix:
 cwm.traits <- read.csv(file = "output/observed_FD/community_trait_means_stochastic_mean_of.csv",
@@ -147,6 +154,61 @@ ggsave(plot = arrangeGrob(stem.height, blade.length, fruit.length, ncol = 3),
        )
 
 # Looks about like you'd expect.
+
+
+###############################
+# SAR models of traits vs realm
+###############################
+# because ANOVA does not account for spatial autocorrelation.
+cat("Fitting SARerror models of traits vs realm...\n")
+
+sarmods.traits <- vector("list", length = 3)
+names(sarmods.traits) <- c("stem.height", "blade.length", "fruit.length")
+sarmods.swmats <- sarmods.traits
+ols.traits <- sarmods.traits
+for (trait in names(sarmods.traits)) {
+  cat(trait, "...\n")
+  sarmods.traits[[trait]] <-
+    FitGlobalSAR(response = cwm.traits[, trait],
+                 predictors = cwm.traits[, "realm", drop = FALSE],
+                 tdwg.map = tdwg.map,
+                 dist.weight = TRUE,
+                 double.std = TRUE,
+                 numeric.only = FALSE
+                 )
+  sarmods.swmats[[trait]] <- sar.swmat
+  ols.traits[[trait]] <-
+    FitGlobalOLS(response = cwm.traits[, trait],
+                 predictors = cwm.traits[, "realm", drop = FALSE],
+                 double.std = TRUE,
+                 numeric.only = FALSE
+                 )
+}
+
+# explained variance
+ldply(sarmods.traits, PseudoRsq)
+# 0.45 for stem height
+# 0.46 for blade length
+# 0.61 for fruit length
+# Those are strong differences between realms!
+#
+# The models are indeed significant as well
+
+# spatial autocorrelation
+moran.test(resid(sarmods.traits[[1]]), listw = sarmods.swmats[[1]])  # n.s.
+moran.test(resid(sarmods.traits[[2]]), listw = sarmods.swmats[[2]])  # n.s.
+moran.test(resid(sarmods.traits[[3]]), listw = sarmods.swmats[[3]])  # n.s.
+# There is no residual spatial autocorrelation.
+# But is there any SAC in the original data?
+moran.test(resid(ols.traits[[1]]), listw = sarmods.swmats[[1]])  # n.s.
+moran.test(resid(ols.traits[[2]]), listw = sarmods.swmats[[2]])  # n.s.
+moran.test(resid(ols.traits[[3]]), listw = sarmods.swmats[[3]])  # n.s.
+# (note that the 3 different spatial weights matrices are identical)
+# Additionally, the r-squared of the OLS models is pretty much the same as the
+# pseudo-Rsq of the SAR models.
+# All of this indicates that there is no SAC in the data.
+# That means the ANOVA results are valid.
+# Of course the R-squared values are a useful addition to the ANOVA result.
 
 
 

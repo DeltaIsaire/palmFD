@@ -381,7 +381,8 @@ MultiSelect <- function(response.var, response.name, predictors, k = 10,
 
 
 
-FitGlobalOLS <- function(response, predictors, double.std = FALSE) {
+FitGlobalOLS <- function(response, predictors, double.std = FALSE,
+                         numeric.only = TRUE) {
 # Function to generate a global OLS model object. Provided data is subsetted to
 # complete cases via ParseData().
 # NOTE: this function uses global assignments, for compatibility with dredge() from
@@ -395,7 +396,7 @@ FitGlobalOLS <- function(response, predictors, double.std = FALSE) {
     ParseData(.,
               response = "response",
               standardize = TRUE,
-              numeric.only = TRUE,
+              numeric.only = numeric.only,
               double.std = double.std
               )
   ols.mod.formula <<-

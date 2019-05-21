@@ -405,7 +405,7 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
 
 
 FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE,
-                         double.std = FALSE) {
+                         double.std = FALSE, numeric.only = TRUE) {
 # Function to fit a SAR error model to the provided data, using a Sphere of
 # Influence neighbourhood based on the provided spatial data.
 # Provided data is subsetted to complete cases via ParseData().
@@ -423,7 +423,7 @@ FitGlobalSAR <- function(predictors, response, tdwg.map, dist.weight = FALSE,
     ParseData(.,
               response = "response",
               standardize = TRUE,
-              numeric.only = TRUE,
+              numeric.only = numeric.only,
               double.std = double.std
               )
 
