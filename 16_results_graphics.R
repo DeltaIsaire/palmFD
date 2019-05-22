@@ -143,7 +143,7 @@ GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
 # 3. Environmental predictors excluding collinear variables,
 #    i.e. without alt_range
 exclude <- c("palm.richness", "endemism", "realm", "alt_range", "bio12_mean",
-             "bio1_mean", "mio_Tano", "mio_Pano")
+             "bio1_mean")
 GraphSVG(Correlogram(env.complete[, !colnames(env.complete) %in% exclude]),
          file = paste0(plot.dir, "Correlogram_predictors_ENV_noncoll.svg"),
          width = 7,
@@ -639,7 +639,7 @@ MultiEnvPlot <- function(tdwg.map, env.complete) {
   pliot <- MakePlot("plio_Tano", "°C", "Pliocene Temperature Anomaly")
   pliop <- MakePlot("plio_Pano", "mm/year", "Pliocene Precipitation Anomaly")
   miot <- MakePlot("mio_Tano", "°C", "Miocene Temperature Anomaly")
-  miop <- MakePlot("mio_Pano", "mm/year", "Miocene Temperature Anomaly")
+  miop <- MakePlot("mio_Pano", "mm/year", "Miocene Precipitation Anomaly")
 
   arrangeGrob(temp.sd, precip.sd,
               temp.seas, precip.seas,
