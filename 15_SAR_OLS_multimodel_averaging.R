@@ -22,6 +22,7 @@ library(spdep)
 library(MuMIn)
 library(parallel)
 library(spatialreg)
+library(car)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/SAR_regression_functions.R")
@@ -161,8 +162,9 @@ DredgeBestMod <- function(global.model, beta = "none", cluster,
 #                  beta = beta,
 #                  ...
 #                  )
-# PARALLEL FUNCTION DISABLED BECAUSE IT BREAKS WITH ERRORSARLM() IN R 3.6.0
-  fits <- dredge(global.model = global.model, beta = beta)
+# PARALLEL FUNCTION DISABLED BECAUSE IT BREAKS WITH spatialreg::errorsarlm()
+# IN R 3.6.0
+  fits <- dredge(global.model = global.model, beta = beta, ...)
   # Extract model coefficients
   cat("\t\tGet model coefficients...\n")
   fits.table <-
@@ -215,10 +217,11 @@ for (index in fd.names) {
     index.data.realms <- RealmSubset(index.data)
     response.list <- c(list(full = index.data[, index]), index.data.realms)
     predictors.list <- c(list(full = env.complete), env.complete.realms)
+    cases <- names(response.list)
 
-    for (case in names(response.list)) {
+    for (case in cases) {
       # verbose output
-      nmax <- length(fd.names) * length(null.models) * length(names(response.list))
+      nmax <- length(fd.names) * length(null.models) * length(cases)
       cat("\t",
           paste0("(", n, " of ", nmax, ")"),
           paste(index, null.model, "for", case, "dataset"),
@@ -260,16 +263,17 @@ for (index in fd.names) {
         global.rsq <-
           data.frame(index           = rep(fd.names, each = nmax / length(fd.names)),
                      null.model      = rep(null.models,
-                                           each = length(names(response.list))
+                                           each = length(cases)
                                            ) %>%
                                          rep(., length.out = nmax),
-                     case            = rep(names(response.list), length.out = nmax),
+                     case            = rep(cases, length.out = nmax),
                      OLS.Rsq         = 0,
                      SAR.PsRsq.Nagel = 0,
                      SAR.PsRsq.KC    = 0,
                      SAR.PsRsq.pred  = 0,
                      OLS.resid.SAC.P = 0,
-                     SAR.resid.SAC.P = 0
+                     SAR.resid.SAC.P = 0,
+                     SAR.bptest.P    = 0
                      )
       }
       # Second, calculate the statistics. For SAR models we use 3 different methods
@@ -289,8 +293,33 @@ for (index in fd.names) {
         moran.test(resid(global.ols), listw = sar.swmat)[["p.value"]]
       global.rsq[n, "SAR.resid.SAC.P"] <-
         moran.test(resid(global.sar), listw = sar.swmat)[["p.value"]]
+      # bruch pagan test for heteroskedasticity in SAR model
+      global.rsq[n, "SAR.bptest.P"] <- bptest.sarlm(global.sar)[["p.value"]]
       # Third, save (partial) dataframe to disk
       write.csv(global.rsq, file = rsq.file, row.names = FALSE)
+
+      cat("Plotting partial residuals of SAR model...\n")
+      # Assemble spatially-corrected data
+      sar.y <- global.sar[["tary"]]
+      sar.x <- as.data.frame(global.sar[["tarX"]])
+      names(sar.x) <- names(global.sar[["coefficients"]])
+      sar.data <- cbind(sar.y, sar.x[, -1])
+      # Fit linear model to this data. The result is not the same as a real SAR
+      # model, but the coefficient estimates and therefore the residuals are
+      # (approximately) the same, which we can then plot
+      tarlm <- lm(sar.y ~ ., data = sar.data)
+      # Make and save crPlot
+      GraphPNG(crPlots(tarlm, layout = c(4, 3), main = paste("Partial Residuals")),
+               file = paste0(plot.dir,
+                             "partial_resids_",
+                             index, "_",
+                             null.model, "_",
+                             case, ".png"
+                             ),
+               width = 900,
+               height = 1200,
+               pointsize = 18
+               )
 
       # Export GLOBAL environment to cluster
       clusterExport(cluster,
@@ -299,15 +328,33 @@ for (index in fd.names) {
                     )
 
       # Perform multimodel averaging
+      # For Realm subsets, to prevent overfitting we limit the models to having
+      # at most 5 predictors.
+      if (!case == "full") {
+        m.max <- 5
+        cat("Limiting model length to", m.max, "predictors\n")
+      } else {
+        m.max <- NA
+      }
+
       cat("\tOLS:\n")
-      mod.avg.ols <-
-        DredgeBestMod(global.ols, beta = "none", cluster = cluster)
+      mod.avg.ols <- DredgeBestMod(global.ols,
+                                   beta = "none",
+                                   cluster = cluster,
+                                   m.max = m.max
+                                   )
       cat("\tOLS with standardization:\n")
-      mod.avg.ols.std <-
-        DredgeBestMod(global.ols, beta = "partial.sd", cluster = cluster)
+      mod.avg.ols.std <- DredgeBestMod(global.ols,
+                                       beta = "partial.sd",
+                                       cluster = cluster,
+                                       m.max = m.max
+                                       )
       cat("\tSAR error:\n")
-      mod.avg.sar <-
-        DredgeBestMod(global.sar, beta = "none", cluster = cluster)
+      mod.avg.sar <- DredgeBestMod(global.sar,
+                                   beta = "none",
+                                   cluster = cluster,
+                                   m.max = m.max
+                                   )
 
       # Save results summary to disk
       write.csv(mod.avg.ols[["coef.avg"]],
@@ -392,8 +439,6 @@ ParseDredge <- function(header, fd.names, null.models, cases, model) {
 
 # Apply ParseDredge() to load data
 # --------------------------------
-cases <- c("full", "NewWorld", "OWWest", "OWEast")
-
 avg.FDis.OLS <- ParseDredge(header = paste0(output.dir, "multimod_avg_"),
                             fd.names = fdis,
                             null.models = null.models,
@@ -454,45 +499,54 @@ CheckCI <- function(x, value = 0) {
   output
 }
 adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI)
-#
-# In fact, let's do that for each data array, saving the result to disk
 
-write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), CheckCI),
+# Or, we could use a function to report the estimate +/- 95% CI as a string
+ReportCI <- function(x, digits = 3) {
+  x <- round(x, digits = digits)
+  output <- paste0(x[, "Estimate"], " (", x[, "X2.5.."], " - ", x[, "X97.5.."], ")")
+  names(output) <- rownames(x)
+  output
+  }
+
+
+
+
+write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
           )
 
-write.csv(adply(avg.FDis.OLS.std, .margins = c(3, 4, 5), CheckCI),
+write.csv(adply(avg.FDis.OLS.std, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS_std.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
           )
 
-write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), CheckCI),
+write.csv(adply(avg.FDis.SAR, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FDis_SAR.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
           )
 
-write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), CheckCI),
+write.csv(adply(avg.FRic.OLS, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
           )
 
-write.csv(adply(avg.FRic.OLS.std, .margins = c(3, 4, 5), CheckCI),
+write.csv(adply(avg.FRic.OLS.std, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FRic_OLS_std.csv"),
           eol = "\r\n",
           quote = FALSE,
           row.names = FALSE
           )
 
-write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), CheckCI),
+write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FRic_SAR.csv"),
           eol = "\r\n",
           quote = FALSE,

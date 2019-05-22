@@ -338,8 +338,8 @@ ParseData <- function(x, response, standardize = TRUE, numeric.only = FALSE,
     if (!isTRUE(double.std)) {
       # un-standardize the response variable:
       x.std[, response] <- x.complete[, response]
-      x.complete <- x.std
     }
+    x.complete <- x.std
   }
   # move response variable to last column
   resp.ind <- which(names(x.complete) == response)
