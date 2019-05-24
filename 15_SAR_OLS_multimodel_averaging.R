@@ -257,27 +257,26 @@ for (index in fd.names) {
       # First init dataframe
       rsq.file <- paste0(output.dir, "00_multimod_avg_global_rsq.csv")
       if (file.exists(rsq.file)) {
-        global.rsq <- read.csv(file = rsq.file)
+        global.rsq <- read.csv(file = rsq.file, as.is = c(1:3))
       }
       if (!exists("global.rsq")) {
         global.rsq <-
-          data.frame(index           = rep(fd.names, each = nmax / length(fd.names)),
-                     null.model      = rep(null.models,
-                                           each = length(cases)
-                                           ) %>%
-                                         rep(., length.out = nmax),
-                     case            = rep(cases, length.out = nmax),
-                     OLS.Rsq         = 0,
-                     SAR.PsRsq.Nagel = 0,
-                     SAR.PsRsq.KC    = 0,
-                     SAR.PsRsq.pred  = 0,
-                     OLS.resid.SAC.P = 0,
-                     SAR.resid.SAC.P = 0,
-                     SAR.bptest.P    = 0
-                     )
+          matrix(data = NA, nrow = nmax, ncol = 10,
+                 dimnames = list(NULL,
+                                 c("index", "null.model", "case", "OLS.Rsq",
+                                   "SAR.PsRsq.Nagel", "SAR.PsRsq.KC",
+                                   "SAR.PsRsq.pred", "OLS.resid.SAC.P",
+                                   "SAR.resid.SAC.P", "SAR.bptest.P"
+                                   )
+                                 )
+                 ) %>%
+         as.data.frame()
       }
-      # Second, calculate the statistics. For SAR models we use 3 different methods
-      # of calculating pseudo-Rsq.
+      # Second, calculate the statistics. 
+      global.rsq[n, "index"] <- index
+      global.rsq[n, "null.model"] <- null.model
+      global.rsq[n, "case"] <- case
+      # For SAR models we use 3 different methods of calculating pseudo-Rsq.
       global.rsq[n, "OLS.Rsq"] <- summary(global.ols)[["r.squared"]]
       # SAR 1: Nagelkerke pseudo-Rsq (Nagelkerke 1991, see ?summary.sarlm
       global.rsq[n, "SAR.PsRsq.Nagel"] <-
@@ -289,8 +288,10 @@ for (index in fd.names) {
                                            ) ^ 2
       # SAR 3: PseudoRsq following Kissling & Carl (2008) but excluding lambda
       global.rsq[n, "SAR.PsRsq.pred"] <- PseudoRsq(global.sar)
+      # Test for spatial autocorrelation (SAC) in OLS model residuals
       global.rsq[n, "OLS.resid.SAC.P"] <-
         moran.test(resid(global.ols), listw = sar.swmat)[["p.value"]]
+      # Test for SAC in SAR model residuals
       global.rsq[n, "SAR.resid.SAC.P"] <-
         moran.test(resid(global.sar), listw = sar.swmat)[["p.value"]]
       # bruch pagan test for heteroskedasticity in SAR model
