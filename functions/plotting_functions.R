@@ -17,9 +17,11 @@
 # BarPlot
 # Histogram
 # OrdinationPlot
+# Correlogram
 
 
 library(magrittr)
+library(corrplot)
 
 source(file="functions/base_functions.R")
 
@@ -381,6 +383,30 @@ OrdinationPlot <- function(x) {
   # Add species scores points and labels
   points(x, display = "species", scaling = scale, pch = 3, col = "darkred")
   text(x, display = "species", scaling = scale, cex = 0.8, col = "red", pos = 3)
+}
+
+
+
+Correlogram <- function(x, names = NULL, method = "square", order = "FPC",
+                        addCoef.col = "grey", ...) {
+# Function to create corrgrams.
+# Args:
+#   x: dataframe with predictor variables. Will be subsetted to numerical variables.
+# Returns:
+#   a corrplot
+  if (!is.null(names)) {
+    colnames(x) <- names
+  }
+  subset <- x[, unlist(lapply(x, is.numeric))]
+  corr.matrix <- 
+    cor(subset[complete.cases(subset), ]) %>%
+    round(., digits = 2)
+  corrplot(corr.matrix,
+           method = method,
+           order = order,
+           addCoef.col = addCoef.col,
+           ...
+           )
 }
 
 

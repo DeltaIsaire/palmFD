@@ -122,7 +122,7 @@ SpatialPlot <- function(tdwg.map, vector, vector.name, vector.size = NULL,
 SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
                             subtitle = NULL, colors = "viridis",
                             direction = 1, begin = 0, legend.position = "right",
-                            poly.col = "black") {
+                            poly.col = "black", legend.labels = waiver()) {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units)
@@ -142,7 +142,8 @@ SpatialPlotFill <- function(tdwg.map, vector, vector.name, title = NULL,
                                     discrete = is.discrete(vector),
                                     option = colors,
                                     direction = direction,
-                                    begin = begin
+                                    begin = begin,
+                                    labels = legend.labels
                                     ) +
                  theme(legend.position = legend.position)
   tdwg.plot

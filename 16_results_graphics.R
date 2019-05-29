@@ -169,23 +169,23 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
                     vector.name = name,
                     vector.size = cwm.observed[no.ANT, trait],
                     title = title,
-                    legend.position = "bottom",
+                    legend.position = "right",
                     labels = TraitTrans,
                     colors = "viridis"
                     )
   }
 
   height <- MakePlot("stem.height",
-                     "Geometric mean (m)",
-                     "Mean stem height in palm communities"
+                     "Geometric mean\n(m)",
+                     "A. Stem height"
                      )
   blade <- MakePlot("blade.length",
-                    "Geometric mean (m)",
-                    "Mean blade length in palm communities"
+                    "Geometric mean\n(m)",
+                    "B. Blade length"
                     )
   fruit <- MakePlot("fruit.length",
-                    "Geometric mean (cm)",
-                    "Mean fruit length in botanical countries"
+                    "Geometric mean\n(cm)",
+                    "C. Fruit length"
                     )
 
   arrangeGrob(height, blade, fruit, ncol = 1)
@@ -193,17 +193,12 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
 
 # Full resolution
 ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
-       filename = paste0(plot.dir, "TDWG3_palm_cwm_traits.png"),
-       width = 7,
-       height = 12
+       filename = paste0(plot.dir, "1_Palm_functional_trait_distributions.png"),
+       width = 8,
+       height = 10
        )
-# Low resolution
-ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
-       filename = paste0(plot.dir, "TDWG3_palm_cwm_traits_lowres.png"),
-       width = 7,
-       height = 12,
-       dpi = 100
-       )
+
+
 
 
 
@@ -333,8 +328,7 @@ MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
   global <- NbPlot(nb.soi,
                    tdwg.map,
                    tdwg.map.subset,
-                   title = "Global dataset",
-                   subtitle = "Sphere of Influence neighbourhood",
+                   title = "A. Global SOI neighborhood",
                    filename = paste0(plot.dir, "NB_SOI_global.png")
                    )
 
@@ -348,24 +342,21 @@ MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
   newworld <- NbPlot(SoiNB(tdwg.newworld),
                      tdwg.map,
                      tdwg.newworld,
-                     title = "New World",
-                     subtitle = "Sphere of Influence neighbourhood",
+                     title = "B. New World SOI neighborhood",
                      filename = NULL
                      )
 
   owwest <- NbPlot(SoiNB(tdwg.owwest),
                    tdwg.map,
                    tdwg.owwest,
-                   title = "Old World West",
-                   subtitle = "Sphere of Influence neighbourhood",
+                   title = "C. Old World West SOI neighborhood",
                    filename = NULL
                    )
 
   oweast <- NbPlot(SoiNB(tdwg.oweast),
                      tdwg.map,
                      tdwg.oweast,
-                     title = "Old World East",
-                     subtitle = "Sphere of Influence neighbourhood",
+                     title = "D. Old World East SOI neighborhood",
                      filename = NULL
                      )
 
@@ -374,7 +365,7 @@ MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
 
 # Full resolution
 ggsave(plot = MultiSOIPlot(tdwg.map, env.complete, realm.tdwg3),
-       filename = paste0(plot.dir, "NB_SOI_realms.png"),
+       filename = paste0(plot.dir, "S3_SOI_neighborhoods.png"),
        width = 12,
        height = 6
        )
@@ -1131,6 +1122,193 @@ ggsave(plot = arrangeGrob(fdis.global, fric.global,
        dpi = 100
        )
 
+
+
+
+###############################
+# supplementary 1: Three Realms
+###############################
+
+no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+threerealm <-
+  SpatialPlotFill(tdwg.map =tdwg.map[no.ANT, ],
+                  vector = tdwg3.info[no.ANT, "realm"],
+                  vector.name = "Realm",
+                  legend.position = "bottom",
+                  colors = "plasma",
+                  begin = 0.25,
+                  legend.labels = c("New World", "Old World East", "Old World West")
+                  )
+
+ggsave(threerealm,
+       filename = paste0(plot.dir, "S1_three_realms.png"),
+       width = 8,
+       height = 4,
+       dpi = 300
+       )
+
+
+############################################################
+# Supplementary 2: Correlation matrix of predictor variables
+############################################################
+
+predictors <- c("soilcount", "bio1_sd", "bio12_sd", "bio4_mean", "bio15_mean",
+                "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano", "mio_Tano",
+                "mio_Pano"
+                )
+S2 <- function() {
+  Correlogram(env.complete[, predictors],
+              names = c("Soilcount", "T_sd", "P_sd", "T_Seas", "P_Seas",
+                        "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano",
+                        "mio_Tano", "mio_Pano"
+                        ),
+              addCoef.col = "#404040",
+              type = "upper",
+              order = "original",
+              diag = FALSE,
+              number.cex = 0.8,
+              tl.srt = 45,
+              cl.ratio = 0.2,
+              mar = c(0.01, 0.01, 0.01, 0.01)
+              )
+  text(x = 11.9, y = 6.5, label = "Pearson correlation coefficient", srt = 90)
+}
+
+GraphPNG(S2(),
+         file = paste0(plot.dir, "S2_predictors_correlation_matrix.png"),
+         width = 1024,
+         height = 1024,
+         pointsize = 28
+         )
+
+
+############################################
+# Supplementary 4: Observed FD distributions
+############################################
+
+MakePlot <- function(index, case = "observed", name, title) {
+  fd.index <- GetFD(fd.indices[index], case)
+  fd.index[!complete.cases(env.complete), ] <- NA
+  fd.index %<>% .[no.ANT, 1]
+  SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                  vector = fd.index,
+                  vector.name = name,
+                  vector.size = fd.index,
+                  title = title,
+                  legend.position = "bottom",
+                  colors = "viridis"
+                  )
+}
+
+no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+FDPlot <- function() {
+  fdis.all <- MakePlot(index = "FDis.all.traits",
+                       name = "FDis (unitless)",
+                       title = "FDis of all traits"
+                       )
+  fric.all <- MakePlot(index = "FRic.all.traits",
+                       name = "FRic (unitless)",
+                       title = "FRic of all traits"
+                       )
+  fdis.height <- MakePlot(index = "FDis.stem.height",
+                          name = "FDis (unitless)",
+                          title = "FDis of stem height"
+                          )
+  fdis.blade <- MakePlot(index = "FDis.blade.length",
+                         name = "FDis (unitless)",
+                         title = "FDis of blade length"
+                         )
+  fdis.fruit <- MakePlot(index = "FDis.fruit.length",
+                         name = "FDis (unitless)",
+                         title = "FDis of fruit length"
+                         )
+  fric.height <- MakePlot(index = "FRic.stem.height",
+                          name = "FRic (unitless)",
+                          title = "FRic of stem height"
+                          )
+  fric.blade <- MakePlot(index = "FRic.blade.length",
+                         name = "FRic (unitless)",
+                         title = "FRic of blade length"
+                         )
+  fric.fruit <- MakePlot(index = "FRic.fruit.length",
+                         name = "FRic (unitless)",
+                         title = "FRic of fruit length"
+                         )
+
+  arrangeGrob(fric.all, fdis.all,
+              fric.height, fdis.height,
+              fric.blade, fdis.blade,
+              fric.fruit, fdis.fruit,
+              ncol = 2
+              )
+}
+
+ggsave(FDPlot(),
+       filename = paste0(plot.dir, "S4_raw_functional_diversity.png"),
+       width = 12,
+       height = 14
+       )
+
+
+##########################################
+# Figure 2: Corrected functional diversity
+##########################################
+
+MultiFDPlot <- function(tdwg.map, fd.indices) {
+
+  no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
+
+  MakePlot <- function(index, case, name, title) {
+    fd.index <- GetFD(fd.indices[index], case)
+    fd.index[!complete.cases(env.complete), ] <- NA
+    fd.index %<>% .[no.ANT, 1]
+
+    SpatialPlotBins(tdwg.map = tdwg.map[no.ANT, ],
+                    vector = fd.index,
+                    vector.name = name,
+                    vector.size = fd.index,
+                    title = title,
+                    legend.position = "bottom",
+                    colors = "viridis"
+                    )
+  }
+
+  fdis.global <- MakePlot("FDis.all.traits",
+                          "global.SES",
+                          "FDis (SES)",
+                          "B. FDis (global null model)"
+                          )
+  fdis.realm <- MakePlot("FDis.all.traits",
+                         "realm.SES",
+                         "FDis (SES)",
+                         "D. FDis (realm null model)"
+                         )
+
+  fric.global <- MakePlot("FRic.all.traits",
+                          "global.SES",
+                          "FRic (SES)",
+                          "A. FRic (global null model)"
+                          )
+  fric.realm <- MakePlot("FRic.all.traits",
+                         "realm.SES",
+                         "FRic (SES)",
+                         "C. FRic (realm null model)"
+                         )
+
+  arrangeGrob(fric.global, fdis.global,
+              fric.realm, fdis.realm,
+              ncol = 2
+              )
+}
+
+# Full resolution
+ggsave(plot = MultiFDPlot(tdwg.map, fd.indices),
+       filename = paste0(plot.dir, "2_corrected_functional_diversity.png"),
+       width = 12,
+       height = 7
+       )
 
 
 

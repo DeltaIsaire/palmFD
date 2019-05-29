@@ -11,7 +11,6 @@
 #   none
 #
 # FUNCTION LIST:
-# Correlogram
 # SelectOLS
 # SingleOLS
 # SingleModels
@@ -22,26 +21,11 @@
 
 library(magrittr)
 library(plyr)
-library(corrplot)
 library(leaps)
 library(car)
 
 source(file = "functions/base_functions.R")
 
-
-Correlogram <- function(x) {
-# Function to create corrgrams.
-# Args:
-#   x: dataframe with predictor variables. Will be subsetted to numerical variables.
-# Returns:
-#   0, while producing a corrplot
-  subset <- x[, unlist(lapply(x, is.numeric))]
-  corr.matrix <- 
-    cor(subset[complete.cases(subset), ]) %>%
-    round(., digits = 2)
-  corrplot(corr.matrix, method = "square", order = "FPC", addCoef.col = "red")
-  return (0)
-}
 
 
 SelectOLS <- function(x, response, k = 10, standardize = TRUE, method = "forward",
