@@ -14,24 +14,19 @@
 cat("Loading required packages and functions...\n")
 library(magrittr)
 library(plyr)
-library(multcomp)
-library(ggplot2)
-library(gridExtra)
 library(spdep)
 library(spatialreg)
 library(sf)
 
-theme_set(theme_bw())
-
 source(file = "functions/base_functions.R")
 source(file = "functions/OLS_regression_functions.R")
 source(file = "functions/SAR_regression_functions.R")
-source(file = "functions/plotting_functions.R")
 
 
-###########
-# Load data
-###########
+
+#######################
+# Load and prepare data
+#######################
 cat("preparing data...\n")
 
 # tdwg3 info:
@@ -51,6 +46,12 @@ fric <- read.csv(file = "output/FD_summary_FRic.all.traits.csv", row.names = 1)
 
 # Palm occurrence data
 palm.dist <- read.csv(file = "data/palms_in_tdwg3.csv")
+pres.abs <-
+  read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
+           row.names = 1
+           ) %>%
+   as.matrix()
+
 
 # List of TDWG3 units with complete env data, for subsetting.
 env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
@@ -59,164 +60,14 @@ env <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
 tdwg3.complete <- rownames(env) [complete.cases(env)]
 
 
-#########################################
-# Analysis of variance on traits vs realm
-#########################################
-cat("Performing anova on traits vs realm...\n")
-
 # Merge trait data with realm data
+# --------------------------------
 cwm.traits[, "realm"] <-
   tdwg3.info[match(rownames(cwm.traits), tdwg3.info[, "tdwg3.code"]), "realm"] %>%
   as.factor()
 # Subset
 cwm.traits %<>% .[rownames(.) %in% tdwg3.complete, ]
 
-# Run models:
-mod.height <- aov(stem.height ~ realm, data = cwm.traits)
-mod.blade <- aov(blade.length ~ realm, data = cwm.traits)
-mod.fruit <- aov(fruit.length ~ realm, data = cwm.traits)
-
-# Check assumptions:
-if (FALSE) {
-  # Normality of residuals
-  Histogram(resid(mod.height))  # decent
-  Histogram(resid(mod.blade))  # perfect
-  Histogram(resid(mod.fruit))  # decent
-  # Homogeneity of variance
-  Scatterplot(x = fitted(mod.height), y = resid(mod.height))  # decent
-  Scatterplot(x = fitted(mod.blade), y = resid(mod.blade))  # good
-  Scatterplot(x = fitted(mod.fruit), y = resid(mod.fruit))  # decent
-}
-
-# Evaluation: p < 0.001 for all three traits. We have ourselves a pattern.
-
-# Post-hoc Tukey tests:
-post.height <- glht(model = mod.height, linfct = mcp("realm" = "Tukey"))
-post.blade <- glht(model = mod.blade, linfct = mcp("realm" = "Tukey"))
-post.fruit <- glht(model = mod.fruit, linfct = mcp("realm" = "Tukey"))
-
-# Evaluation:
-#   Stem height: All three realms are significantly different from each other
-#   Blade length: OWWest is different from OWEast and NewWorld, but OWEast and
-#                 NewWorld do not differ.
-#   Fruit length: OWWest is different from OWEast and NewWorld, while OwEast and
-#                 NewWorld are only marginally different from each other (p = 0.023)
-
-# For perspective, we might want to look at the realm means:
-means <- ddply(cwm.traits,
-               "realm",
-               summarize,
-               mean.stem.height = mean(stem.height),
-               mean.blade.length = mean(blade.length),
-               mean.fruit.length = mean(fruit.length)
-               )
-# Keep in mind these are log10-transformed values.
-
-
-# Visualization of trait differences between realms
-# -------------------------------------------------
-CWM_Plot <- function(x, x.var = "realm", y.var, title = NULL, subtitle = NULL,
-                     xlab = x.var, ylab = paste0("Log10 (", y.var, ")")) {
-  # Plot the community mean of each TDWG3 unit as a dot, then superimpose a boxplot.
-  # In both cases, the points are split by realm.
-  y.max <- max(x[, y.var])
-  ggplot(x) +
-    geom_boxplot(aes_string(x = x.var, y = y.var),
-                 outlier.size = 0,
-                 outlier.color = "white"
-                 ) +
-    geom_point(aes_string(x = x.var, y = y.var), pch = 21, size = 2) +
-    expand_limits(y = 0) +
-    labs(title = title, subtitle = subtitle, x = xlab, y = ylab)
-}
-
-for (trait in c("stem.height", "blade.length", "fruit.length")) {
-  ggsave(plot = CWM_Plot(cwm.traits,
-                         x.var = "realm",
-                         y.var = trait,
-                         xlab = "Realm",
-                         ylab = paste0("Log10 (", trait, ")")
-                         ),
-         filename = paste0("graphs/anova_", trait, "_vs_realm.png"),
-         width = 4,
-         height = 4
-         )
-}
-
-
-stem.height <-  CWM_Plot(cwm.traits, y.var = "stem.height", title = "Stem height")
-blade.length <- CWM_Plot(cwm.traits, y.var = "blade.length", title = "Blade length")
-fruit.length <- CWM_Plot(cwm.traits, y.var = "fruit.length", title = "Fruit length")
-
-ggsave(plot = arrangeGrob(stem.height, blade.length, fruit.length, ncol = 3),
-       filename = "graphs/anova_traits_vs_realm.png",
-       width = 9,
-       height = 4
-       )
-
-# Looks about like you'd expect.
-
-
-###############################
-# SAR models of traits vs realm
-###############################
-# because ANOVA does not account for spatial autocorrelation.
-cat("Fitting SARerror models of traits vs realm...\n")
-
-sarmods.traits <- vector("list", length = 3)
-names(sarmods.traits) <- c("stem.height", "blade.length", "fruit.length")
-sarmods.swmats <- sarmods.traits
-ols.traits <- sarmods.traits
-for (trait in names(sarmods.traits)) {
-  cat(trait, "...\n")
-  sarmods.traits[[trait]] <-
-    FitGlobalSAR(response = cwm.traits[, trait],
-                 predictors = cwm.traits[, "realm", drop = FALSE],
-                 tdwg.map = tdwg.map,
-                 dist.weight = TRUE,
-                 double.std = TRUE,
-                 numeric.only = FALSE
-                 )
-  sarmods.swmats[[trait]] <- sar.swmat
-  ols.traits[[trait]] <-
-    FitGlobalOLS(response = cwm.traits[, trait],
-                 predictors = cwm.traits[, "realm", drop = FALSE],
-                 double.std = TRUE,
-                 numeric.only = FALSE
-                 )
-}
-
-# explained variance
-ldply(sarmods.traits, PseudoRsq)
-# 0.45 for stem height
-# 0.46 for blade length
-# 0.61 for fruit length
-# Those are strong differences between realms!
-#
-# The models are indeed significant as well
-
-# spatial autocorrelation
-moran.test(resid(sarmods.traits[[1]]), listw = sarmods.swmats[[1]])  # n.s.
-moran.test(resid(sarmods.traits[[2]]), listw = sarmods.swmats[[2]])  # n.s.
-moran.test(resid(sarmods.traits[[3]]), listw = sarmods.swmats[[3]])  # n.s.
-# There is no residual spatial autocorrelation.
-# But is there any SAC in the original data?
-moran.test(resid(ols.traits[[1]]), listw = sarmods.swmats[[1]])  # n.s.
-moran.test(resid(ols.traits[[2]]), listw = sarmods.swmats[[2]])  # n.s.
-moran.test(resid(ols.traits[[3]]), listw = sarmods.swmats[[3]])  # n.s.
-# (note that the 3 different spatial weights matrices are identical)
-# Additionally, the r-squared of the OLS models is pretty much the same as the
-# pseudo-Rsq of the SAR models.
-# All of this indicates that there is no SAC in the data.
-# That means the ANOVA results are valid.
-# Of course the R-squared values are a useful addition to the ANOVA result.
-
-
-
-#############################################
-# Analysis of variance on FD indices vs realm
-#############################################
-cat("performing anova on FD indices vs realm...\n")
 
 # Merge FD data with realm data and subset
 # ----------------------------------------
@@ -231,148 +82,109 @@ fric[, "realm"] <-
 fric %<>% .[rownames(.) %in% tdwg3.complete, ]
 
 
-# Run models:
-#  ----------
-mod.fric.global <- aov(global.SES ~ realm, data = fric)
-mod.fric.realm <- aov(realm.SES ~ realm, data = fric)
-mod.fric.realm.noMDG <- aov(realm.SES.noMDG ~ realm, data = fdis)
 
-mod.fdis.realm.noMDG <- aov(realm.SES.noMDG ~ realm, data = fdis)
+########################################
+# assemblage mean traits and FD vs realm
+########################################
+# Using SAR error models,
+# because ANOVA does not account for spatial autocorrelation.
+cat("Modelling trait and FD differences between realms...\n")
+
+# For a full analysis we will construct a dataframe with the following columns:
+# - SAR model intercept
+# - SAR model slope
+# - SAR model Pseudo-Rsquared
+# - SAR model pseudo-R-squared of realm
+# - SAR model significance of realm
+# - SAR model lambda
+# - SAR model significance of lambda
+# - SAR model SAC in residuals
+# - SAR model pbtest of homoskedasticity
+
+# Gather realm data and response variables
+# ----------------------------------------
+div.data <-
+  data.frame(realm            = cwm.traits$realm,
+             cwm.traits[, c("stem.height", "blade.length", "fruit.length")],
+             fric.observed    = fric$observed,
+             fric.global      = fric$global.SES,
+             fric.realm       = fric$realm.SES,
+             fric.realm.noMDG = fric$realm.SES.noMDG,
+             fric.adf         = fric$adf.SES,
+             fdis.observed    = fdis$observed,
+             fdis.global      = fdis$global.SES,
+             fdis.realm       = fdis$realm.SES,
+             fdis.realm.noMDG = fdis$realm.SES.noMDG,
+             fdis.adf      = fdis$adf.SES,
+             row.names = rownames(cwm.traits)
+             )
 
 
-mod.fric.adf <- aov(adf.SES ~ realm, data = fric)
-mod.fdis.adf <- aov(adf.SES ~ realm, data = fdis)
+# Init output table
+# -----------------
+div.results <-
+  matrix(data = NA,
+         nrow = (ncol(div.data) - 1) * 5,
+         ncol = 8,
+         dimnames = list(NULL,
+                         c("Response", "Coefficient", "Estimate", "P",
+                           "PsRsq.KC", "PsRsq.realm", "resid.SAC.P", "bptest.P")
+                         )
+         ) %>%
+  as.data.frame()
+div.results[, "Response"] <- rep(colnames(div.data)[-1], each = 5)
 
-mod.fdis.observed <- aov(observed ~ realm, data = fdis)
-mod.fric.observed <- aov(observed ~ realm, data = fric)
 
-mod.fdis.global <- aov(global.SES ~ realm, data = fdis)
-
-
-# Check assumptions:
-# ------------------
-if (FALSE) {
-  # Normality of residuals
-  Histogram(resid(mod.fric.global))  # decent
-  Histogram(resid(mod.fric.realm))  # decent
-  Histogram(resid(mod.fric.realm.noMDG))  # perfect
-  Histogram(resid(mod.fric.adf))  # decent
-
-  Histogram(resid(mod.fdis.observed))  # Good
-
-  # Homogeneity of variance
-  Scatterplot(x = fitted(mod.fric.global), y = resid(mod.fric.global))  # good
-  Scatterplot(x = fitted(mod.fric.realm), y = resid(mod.fric.realm))  # decent
-  Scatterplot(x = fitted(mod.fric.realm.noMDG),
-              y = resid(mod.fric.realm.noMDG)
-              )  # decent
-  Scatterplot(x = fitted(mod.fric.adf), y = resid(mod.fric.adf))  # good
-
-  Scatterplot(x = fitted(mod.fdis.observed), y = resid(mod.fdis.observed))  # good
+# Fit SAR-error model and extract results
+# ---------------------------------------
+for (predictor in seq_along(colnames(div.data)[-1])) {
+  # Fit SAR model with SOI neighbourhood spatial weights matrix
+  # We standardize the response variable to mean 0 and unit variance
+  cat(colnames(div.data)[predictor + 1], "...\n")
+  mod <- FitGlobalSAR(response = div.data[, (predictor + 1)],
+                      predictors = div.data[, "realm", drop = FALSE],
+                      tdwg.map = tdwg.map,
+                      dist.weight = TRUE,
+                      double.std = TRUE,
+                      numeric.only = FALSE
+                      )
+  # Extract coefficient estimate and P-value. We have five coefficients:
+  # Lambda, intercept, the null realm (new world), OWEast andOWWest
+  rows <- (1:5 + 5 * (predictor - 1))
+  div.results[rows, "Coefficient"] <-
+    c("Lambda", "Intercept", "New World", "Old World West", "Old World East")
+  div.results[rows, "Estimate"] <-
+    c(mod$lambda, mod$coefficients[1], NA, mod$coefficients[3], mod$coefficients[2])
+  div.results[rows, "P"] <-
+    c(summary(mod)$LR1$p.value[[1]],
+      summary(mod)$Coef[1, 4],
+      NA,
+      summary(mod)$Coef[3, 4],
+      summary(mod)$Coef[2, 4]
+      )
+  # Calculate pseudo-R-squared
+  row <- 1 + (predictor - 1) * 5
+  div.results[row, "PsRsq.KC"] <-
+    cor(x = predict(mod), y = mod[["y"]], method = "pearson") ^ 2
+  div.results[row,"PsRsq.realm"] <- PseudoRsq(mod)
+  # Evaluate model validity: spatial autocorrelation in residuals and test
+  # for homoskedasticity
+  # Note that the 'sar.swmat' object is created by FitGlobalSar()
+  div.results[row, "resid.SAC.P"] <-
+    moran.test(resid(mod), listw = sar.swmat)[["p.value"]]
+  div.results[row, "bptest.P"] <- bptest.sarlm(mod)[["p.value"]]
 }
 
 
-# Evaluation:
+# Save result
 # -----------
-# summary(mod)
-# p < 0.001 for all cases. We have ourselves a pattern.
+write.csv(div.results,
+          file = "output/SAR_models_realm_effect.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
 
 
-# Post-hoc Tukey tests:
-# ---------------------
-post.fric.global <- glht(model = mod.fric.global, linfct = mcp("realm" = "Tukey"))
-post.fdis.global <- glht(model = mod.fdis.global, linfct = mcp("realm" = "Tukey"))
-
-post.fric.realm <- glht(model = mod.fric.realm, linfct = mcp("realm" = "Tukey"))
-post.fric.realm.noMDG <-
-  glht(model = mod.fric.realm.noMDG, linfct = mcp("realm" = "Tukey"))
-
-post.fdis.realm.noMDG <-
-  glht(model = mod.fdis.realm.noMDG, linfct = mcp("realm" = "Tukey"))
-
-post.fric.adf <- glht(model = mod.fric.adf, linfct = mcp("realm" = "Tukey"))
-post.fdis.adf <- glht(model = mod.fdis.adf, linfct = mcp("realm" = "Tukey"))
-
-post.fdis.observed <-
-  glht(model = mod.fdis.observed, linfct = mcp("realm" = "Tukey"))
-post.fric.observed <-
-  glht(model = mod.fric.observed, linfct = mcp("realm" = "Tukey"))
-
-# Post-hoc Evaluation:
-# --------------------
-# summary(post.mod)
-#   fric.global: NewWorld significantly different from other 2 realms (p < 0.001),
-#                marginal difference between OWWest and OWEast (p = 0.0417
-#   fric.realm: NewWorld significantly different from other two realm (p < 0.001),
-#               no difference between OWWest and OWEast
-#   fric.realm.noMDG: same story as above
-#
-#   fdis.observed: OWWest significantly different from NewWorld and OWEast
-#                  (p < 0.001), marginal difference between OWEast and NewWorld
-#                  (p = 0.045)
-
-
-# Visualize the results
-# ---------------------
-# First prepare FDis data
-fdis.subset <- fdis[, c("observed", "realm")]
-fdis.subset[, "realm"] %<>% as.character()
-fdis.noMDG <- fdis.subset[fdis.subset$realm == "OWWest", ]
-fdis.noMDG %<>% .[!rownames(.) == "MDG", ]
-fdis.noMDG[, "realm"] <- rep("OWWest.noMDG", nrow(fdis.noMDG))
-fdis.subset <- rbind(fdis.subset, fdis.noMDG)
-
-# then plot with CWM_Plot()
-ggsave(CWM_Plot(x = fdis.subset[complete.cases(fdis.subset), ],
-                x.var = "realm",
-                y.var = "observed",
-                title = NULL,
-                subtitle = "Functional Dispersion (FDis) comparison between realms",
-                xlab = "Realm",
-                ylab = "FDis"
-                ),
-       filename = "graphs/anova_realm_vs_FDis_observed.png",
-       width = 5,
-       height = 4
-       )
-
-# Next, plots for FRic
-for (null.mod in c("global", "realm", "adf")) {
-  plot.fric <- CWM_Plot(fric[complete.cases(fric), ],
-                        y.var = paste0(null.mod, ".SES"),
-                        title = "Functional Richness (FRic)",
-                        subtitle = paste("Null model:", null.mod),
-                        ylab = "FRic"
-                        )
-  ggsave(plot = plot.fric,
-         filename = paste0("graphs/anova_realm_vs_FRic_", null.mod, ".png"),
-         width = 4,
-         height = 4
-         )
-}
-
-# And a special plot for realm
-fric.subset <- fric[, ]
-fric.subset[, "realm"] %<>% as.character()
-fric.subset[, "realm.SES.dual"] <- fric.subset[, "realm.SES"]
-fric.noMDG <- fric.subset[fric.subset$realm == "OWWest", ]
-fric.noMDG[, "realm.SES.dual"] <- fric.noMDG[, "realm.SES.noMDG"]
-fric.noMDG %<>% .[!rownames(.) == "MDG", ]
-fric.noMDG[, "realm"] <- rep("OWWest.noMDG", nrow(fric.noMDG))
-fric.subset <- rbind(fric.subset, fric.noMDG)
-
-ggsave(CWM_Plot(x = fric.subset[complete.cases(fric.subset), ],
-                x.var = "realm",
-                y.var = "realm.SES.dual",
-                title = NULL,
-                subtitle = "Functional Richness (FRic) comparison between realms",
-                xlab = "Realm",
-                ylab = "FRic"
-                ),
-       filename = "graphs/anova_realm_vs_FRic_realm_noMDG.png",
-       width = 5,
-       height = 4
-       )
 
 
 
@@ -381,6 +193,8 @@ ggsave(CWM_Plot(x = fric.subset[complete.cases(fric.subset), ],
 ################################
 cat("Comparing species overlap between realms...\n")
 
+# (1) Based on all species in database
+# ------------------------------------
 # init lists
 realms <- levels(tdwg3.info[, "realm"])
 areas <- vector("list", length = 3)
@@ -410,6 +224,38 @@ write.csv(realm.species,
           eol = "\r\n",
           row.names = FALSE
           )
+
+
+# (2) Based on species included in the final dataset
+# --------------------------------------------------
+# subset presabs matrix to included TDWG3 units
+pres.abs %<>% .[rownames(.) %in% tdwg3.complete, ]
+# Find species in each realm
+realm.spec <- vector("list", length = 3)
+names(realm.spec) <- levels(tdwg3.info$realm)
+for (i in seq_along(realm.spec)) {
+  tdwg.ind <- tdwg3.info[, "tdwg3.code"] %in% rownames(pres.abs)
+  realm.ind <- tdwg3.info[tdwg.ind, "realm"] == names(realm.spec)[i]
+  subset <- pres.abs[realm.ind, ]
+  subset %<>% .[, colSums(.) > 0]
+  realm.spec[[i]] <- colnames(subset)
+}
+# Find number of shared species
+shared <- numeric(length = 3)
+for (i in seq_along(realm.spec)) {
+  shared[i] <- sum(realm.spec[[i]] %in% unlist(realm.spec[-i]))
+}
+
+realm.species.2 <- realm.species
+realm.species.2[, "total.species"] <- laply(realm.spec, length)
+realm.species.2[, "shared.species"] <- shared
+
+write.csv(realm.species.2,
+          file = "output/realm_species_count_shared_final.csv",
+          eol = "\r\n",
+          row.names = FALSE
+          )
+
 
 
 cat("Done.\n")
