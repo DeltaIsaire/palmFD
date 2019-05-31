@@ -294,7 +294,7 @@ NBreaks <- function(limits, n = 5) {
 
 SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
                             title = NULL, subtitle = NULL, legend.position = "right",
-                            labels = "default", colors = "viridis") {
+                            labels = "default", colors = "viridis", gfx.scale = 1) {
 # tdwg.map: the spatial map, as an object of class 'sf'
 # vector: vector with data to plot on the map. Must be of the same length as the
 #         number of rows in tdwg.map (i.e. length 368 for the 368 tdwg3 units).
@@ -315,12 +315,12 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
   if (!is.null(vector.size)) {
     tdwg.map$vector.size <- vector.size
     subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-    size <- rescale(subset$vector.size, to = c(0.25, 1)) * 3.5
+    size <- rescale(subset$vector.size, to = c(0.25, 1)) * 3.5 * gfx.scale
   } else {
     subset <- tdwg.map[!is.na(tdwg.map$vector), ]
-    size <- 3
+    size <- 3 * gfx.scale
   }
-  legend.size <- rescale(vector.quantiles[-1], to = c(0.25, 1)) * 3.5 * 1.3
+  legend.size <- rescale(vector.quantiles[-1], to = c(0.25, 1)) * 4.5 * gfx.scale
 
   if (identical(labels, "default")) {
     x <- vector.quantiles
@@ -345,7 +345,7 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
                                     )
 
   ggplot(data = tdwg.map) + 
-         geom_sf(size = 0.15, color = "white", fill = "#B0B0B0") +
+         geom_sf(size = 0.15 * gfx.scale, color = "white", fill = "#B0B0B0") +
          # This magically only adds axes:
          geom_point(aes(x = "Long", y = "Lat"), size = 0, color = "white") +
          # While this does NOT add axes but does add points:
@@ -362,8 +362,13 @@ SpatialPlotBins <- function(tdwg.map, vector, vector.name, vector.size = NULL,
               ) +
          color.scale +
          theme(legend.position = legend.position,
-               legend.margin = margin(t = 0, r = 1, b = 1, l = 1, unit = "pt"),
-               legend.box.spacing = unit(0.1, "cm")
+               legend.margin = margin(t = 0 * gfx.scale,
+                                      r = 1 * gfx.scale,
+                                      b = 1 * gfx.scale,
+                                      l = 1 * gfx.scale,
+                                      unit = "pt"
+                                      ),
+               legend.box.spacing = unit(0.1 * gfx.scale, "cm")
                ) +
          guides(fill = guide_legend(override.aes = list(size = legend.size)))
 }

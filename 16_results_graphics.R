@@ -102,6 +102,16 @@ env.complete <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
                          row.names = 1
                          )
 
+predictors <- c("soilcount", "bio1_sd", "bio12_sd", "bio4_mean", "bio15_mean",
+                "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano", "mio_Tano",
+                "mio_Pano"
+                )
+predictor.names <- c("Soilcount", "T_sd", "P_sd", "T_Seas", "P_Seas",
+                        "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano",
+                        "mio_Tano", "mio_Pano"
+                        )
+
+
 # Palm species presence/absence matrix
 # ------------------------------------
 pres.abs <- read.csv(file = "output/palm_tdwg3_pres_abs_gapfilled.csv",
@@ -195,10 +205,9 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
 ggsave(plot = MultiTraitPlot(tdwg.map, cwm.observed),
        filename = paste0(plot.dir, "1_Palm_functional_trait_distributions.png"),
        width = 8,
-       height = 10
+       height = 9,
+       dpi = 600
        )
-
-
 
 
 
@@ -367,7 +376,8 @@ MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
 ggsave(plot = MultiSOIPlot(tdwg.map, env.complete, realm.tdwg3),
        filename = paste0(plot.dir, "S3_SOI_neighborhoods.png"),
        width = 12,
-       height = 6
+       height = 5.6666,
+       dpi = 600
        )
 # Low resolution
 ggsave(plot = MultiSOIPlot(tdwg.map, env.complete, realm.tdwg3),
@@ -1035,92 +1045,111 @@ cat("Multimodel averaging results...\n")
 ########################################
 
 PlotModAvg <- function(filename, title, subtitle = NULL) {
-  predictors <- c("lambda", "(Intercept)", "soilcount", "bio1_sd",
-                  "bio12_sd", "bio4_mean", "bio15_mean", "lgm_Tano", "lgm_Pano",
-                  "plio_Tano", "plio_Pano", "mio_Tano", "mio_Pano")
+  pred <- c("lambda", "(Intercept)", rev(predictors))
   df <- read.csv(file = filename)
-  df %<>% { .[match(predictors, .[, "X"]), ] }
+  df %<>% { .[match(pred, .[, "X"]), ] }
   df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
-  df[, "X"] <- c("Soil", "Temp.sd", "Prec.sd", "T.seas", "P.seas",
-                 "lgm.Tano", "lgm.Pano", "pli.Tano", "pli.Pano", "mio.Tano",
-                 "mio.Pano")
+  df[, "X"] <- rev(predictor.names)
   df[, 1] %<>% { factor(., levels = .) }
 
   ggplot(df) +
-    geom_hline(yintercept = 0, color = "#808080", linetype = "dashed") +
-    geom_linerange(aes(x = X, ymin = X2.5.., ymax = X97.5..),
+    geom_vline(xintercept = 0, color = "#808080", linetype = "dashed") +
+    geom_errorbarh(aes(y = X, xmin = X2.5.., xmax = X97.5..),
                    color = "black",
-                   size = 1
+                   size = 0.6,
+                   height = 0
                    ) +
-    geom_point(aes(x = X, y = Estimate), color = "red", size = 3) +
-    labs(x = NULL,
-         y = "Estimate (+/- 95% CI)",
+    geom_point(aes(y = X, x = Estimate), color = "red", size = 2) +
+    labs(y = NULL,
+         x = NULL,
          title = title,
          subtitle = subtitle
-         ) #+
-#    theme(axis.text.x = element_text(vjust = unit(c(0, -0.5), "points")))
+         ) +
+    coord_cartesian(xlim = c(-0.7, 0.7))
 }
 
-fdis.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_observed_full_SAR.csv",
-                       title = "A. Functional Dispersion (observed)",
-                       subtitle = "Model averaging coefficient estimates"
-                       )
-fric.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_observed_full_SAR.csv",
-                       title = "B. Functional Richness (observed)",
-                       subtitle = "Model averaging coefficient estimates"
-                       )
 
-fdis.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_global.SES_full_SAR.csv",
-                       title = "Functional Dispersion (global)",
-                       subtitle = "Model averaging coefficient estimates"
+fric.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_observed_full_SAR.csv",
+                       title = "A. FRic (observed)"
                        )
 fric.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_global.SES_full_SAR.csv",
-                       title = "Functional Richness (global)",
-                       subtitle = "Model averaging coefficient estimates"
+                       title = "B. FRic (global)"
                        )
-
-fdis.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_realm.SES.noMDG_full_SAR.csv",
-                       title = "Functional Dispersion (realm)",
-                       subtitle = "Model averaging coefficient estimates"
-                       )
-fric.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_realm.SES.noMDG_full_SAR.csv",
-                       title = "Functional Richness (realm)",
-                       subtitle = "Model averaging coefficient estimates"
-                       )
-
-fdis.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_adf.SES_full_SAR.csv",
-                       title = "C. Functional Dispersion (ADF null model)",
-                       subtitle = "Model averaging coefficient estimates"
+fric.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_realm.SES_full_SAR.csv",
+                       title = "C. FRic (realm)"
                        )
 fric.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_adf.SES_full_SAR.csv",
-                       title = "D. Functional Richness (ADF null model)",
-                       subtitle = "Model averaging coefficient estimates"
+                       title = "D. FRic (ADF)"
                        )
 
-ggsave(plot = arrangeGrob(fdis.obs, fric.obs, fdis.adf, fric.adf, ncol = 2),
-       filename = paste0(plot.dir, "mod_avg_full_SAR.png"),
-       width = 12,
-       height = 7,
-       dpi = 100
-       )
+fdis.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_observed_full_SAR.csv",
+                       title = "E. FDis (observed)"
+                       )
+fdis.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_global.SES_full_SAR.csv",
+                       title = "F. FDis (global)"
+                       )
+fdis.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_realm.SES_full_SAR.csv",
+                       title = "G. FDis (realm)"
+                       )
+fdis.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_adf.SES_full_SAR.csv",
+                       title = "H. FDis (ADF)"
+                       )
 
-ggsave(plot = arrangeGrob(fdis.obs, fric.obs, ncol = 2),
-       filename = paste0(plot.dir, "mod_avg_full_SAR_observed.png"),
-       width = 12,
-       height = 4,
-       dpi = 100
-       )
-
-ggsave(plot = arrangeGrob(fdis.global, fric.global,
-                          fdis.realm, fric.realm,
-                          fdis.adf, fric.adf,
-                          ncol = 2
+ggsave(plot = arrangeGrob(fric.obs, fric.global, fric.realm, fric.adf,
+                          fdis.obs, fdis.global, fdis.realm, fdis.adf,
+                          ncol = 4
                           ),
-       filename = paste0(plot.dir, "mod_avg_full_SAR_nullmodels.png"),
+       filename = paste0(plot.dir, "4_multimodel_averaging_alltraits.png"),
        width = 12,
-       height = 10,
-       dpi = 100
+       height = 6,
+       dpi = 600
        )
+
+PlotAll <- function(index, case) {
+  fric.obs <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_observed_", case, "_SAR.csv"),
+                       title = "A. FRic (observed)"
+                       )
+  fric.global <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_global.SES_", case, "_SAR.csv"),
+                       title = "B. FRic (global)"
+                       )
+  fric.realm <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_realm.SES_", case, "_SAR.csv"),
+                       title = "C. FRic (realm)"
+                       )
+  fric.adf <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_adf.SES_", case, "_SAR.csv"),
+                       title = "D. FRic (ADF)"
+                       )
+
+  fdis.obs <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_observed_", case, "_SAR.csv"),
+                       title = "E. FDis (observed)"
+                       )
+  fdis.global <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_global.SES_", case, "_SAR.csv"),
+                       title = "F. FDis (global)"
+                       )
+  fdis.realm <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_realm.SES_", case, "_SAR.csv"),
+                       title = "G. FDis (realm)"
+                       )
+  fdis.adf <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_adf.SES_", case, "_SAR.csv"),
+                       title = "H. FDis (ADF)"
+                       )
+
+  ggsave(plot = arrangeGrob(fric.obs, fric.global, fric.realm, fric.adf,
+                            fdis.obs, fdis.global, fdis.realm, fdis.adf,
+                            ncol = 4
+                            ),
+         filename = paste0(plot.dir, "multimod_avg_",
+                           index, "_", case, ".png"),
+         width = 12,
+         height = 6,
+         dpi = 100
+         )
+}
+
+for (index in c("all.traits", "stem.height", "blade.length", "fruit.length")) {
+  for (case in c("full", "NewWorld", "OWWest", "OWEast")) {
+    PlotAll(index, case)
+  }
+}
+
 
 
 
@@ -1144,8 +1173,8 @@ threerealm <-
 ggsave(threerealm,
        filename = paste0(plot.dir, "S1_three_realms.png"),
        width = 8,
-       height = 4,
-       dpi = 300
+       height = 3.3333,
+       dpi = 600
        )
 
 
@@ -1153,16 +1182,9 @@ ggsave(threerealm,
 # Supplementary 2: Correlation matrix of predictor variables
 ############################################################
 
-predictors <- c("soilcount", "bio1_sd", "bio12_sd", "bio4_mean", "bio15_mean",
-                "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano", "mio_Tano",
-                "mio_Pano"
-                )
 S2 <- function() {
   Correlogram(env.complete[, predictors],
-              names = c("Soilcount", "T_sd", "P_sd", "T_Seas", "P_Seas",
-                        "lgm_Tano", "lgm_Pano", "plio_Tano", "plio_Pano",
-                        "mio_Tano", "mio_Pano"
-                        ),
+              names = predictor.names,
               addCoef.col = "#404040",
               type = "upper",
               order = "original",
@@ -1177,9 +1199,9 @@ S2 <- function() {
 
 GraphPNG(S2(),
          file = paste0(plot.dir, "S2_predictors_correlation_matrix.png"),
-         width = 1024,
-         height = 1024,
-         pointsize = 28
+         width = 2048,
+         height = 2048,
+         pointsize = 56
          )
 
 
@@ -1246,9 +1268,10 @@ FDPlot <- function() {
 }
 
 ggsave(FDPlot(),
-       filename = paste0(plot.dir, "S4_raw_functional_diversity.png"),
+       filename = paste0(plot.dir, "2_raw_functional_diversity.png"),
        width = 12,
-       height = 14
+       height = 13.3333,
+       dpi = 600
        )
 
 
@@ -1285,6 +1308,11 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
                          "FDis (SES)",
                          "D. FDis (realm null model)"
                          )
+  fdis.adf <- MakePlot("FDis.all.traits",
+                       "adf.SES",
+                       "FDis (SES)",
+                       "F. FDis (ADF null model)"
+                       )
 
   fric.global <- MakePlot("FRic.all.traits",
                           "global.SES",
@@ -1296,18 +1324,26 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
                          "FRic (SES)",
                          "C. FRic (realm null model)"
                          )
+  fric.adf <- MakePlot("FRic.all.traits",
+                       "adf.SES",
+                       "FRic (SES)",
+                       "E. FRic (ADF null model)"
+                       )
+
 
   arrangeGrob(fric.global, fdis.global,
               fric.realm, fdis.realm,
+              fric.adf, fdis.adf,
               ncol = 2
               )
 }
 
 # Full resolution
 ggsave(plot = MultiFDPlot(tdwg.map, fd.indices),
-       filename = paste0(plot.dir, "2_corrected_functional_diversity.png"),
+       filename = paste0(plot.dir, "3_corrected_functional_diversity.png"),
        width = 12,
-       height = 7
+       height = 10,
+       dpi = 600
        )
 
 
