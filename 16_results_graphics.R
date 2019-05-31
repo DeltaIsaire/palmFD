@@ -24,6 +24,7 @@ library(leaps)
 library(gridExtra)
 library(spdep)
 library(ncf)
+library(cowplot)
 
 theme_set(theme_bw())
 
@@ -1044,113 +1045,165 @@ SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
 cat("Multimodel averaging results...\n")
 ########################################
 
-PlotModAvg <- function(filename, title, subtitle = NULL) {
+PlotModAvg <- function(index, traits, null.model, case, title, subtitle = NULL,
+                       show.legend = FALSE, legend.labels = waiver(),
+                       xlim = NULL) {
+  # First construct dataframe of all trait cases
   pred <- c("lambda", "(Intercept)", rev(predictors))
-  df <- read.csv(file = filename)
-  df %<>% { .[match(pred, .[, "X"]), ] }
-  df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
-  df[, "X"] <- rev(predictor.names)
-  df[, 1] %<>% { factor(., levels = .) }
+  traitlist <- vector("list", length = length(traits))
+  names(traitlist) <- traits
+  for (trait in traits) {
+    filename <- paste0("output/multimodel_averaging/multimod_avg_",
+                       index, ".", trait,
+                       "_", null.model, "_",
+                       case,
+                       "_SAR.csv"
+                       )
+    df <- read.csv(file = filename)
+    df %<>% { .[match(pred, .[, "X"]), ] }
+    df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
+    df[, "X"] <- rev(predictor.names)
+    df[, 1] %<>% { factor(., levels = .) }
+    df[, "trait"] <- trait
+    traitlist[[trait]] <- df
+  }
+  df <- ldply(traitlist, rbind)
+  df[, "trait"] %<>% { factor(., levels=unique(as.character(.))) }
+
+  if (is.null(xlim)) {
+    data.range <- max(abs(min(df$X2.5..)),
+                      abs(max(df$X97.5..))
+                      ) * 1.1
+  } else {
+    data.range <- xlim
+  }
 
   ggplot(df) +
-    geom_vline(xintercept = 0, color = "#808080", linetype = "dashed") +
-    geom_errorbarh(aes(y = X, xmin = X2.5.., xmax = X97.5..),
-                   color = "black",
-                   size = 0.6,
-                   height = 0
+    geom_hline(yintercept = 0, color = "#808080", linetype = "dashed") +
+    geom_linerange(aes(x = X, ymin = X2.5.., ymax = X97.5.., colour = trait),
+                   size = 0.8,
+                   show.legend = show.legend,
+                   position = position_dodge(width = 0.5)
                    ) +
-    geom_point(aes(y = X, x = Estimate), color = "red", size = 2) +
+    geom_point(aes(x = X, y = Estimate, colour = trait),
+               size = 2,
+               show.legend = show.legend,
+               position = position_dodge(width = 0.5)
+               ) +
+    scale_colour_viridis(discrete = TRUE,
+                         option = "plasma",
+                         end = 0.8,
+                         labels = legend.labels
+                         ) +
     labs(y = NULL,
          x = NULL,
          title = title,
          subtitle = subtitle
          ) +
-    coord_cartesian(xlim = c(-0.7, 0.7))
+#    coord_cartesian(ylim = c(-10, 10)) +
+    ylim(-data.range, data.range) +
+    coord_flip()
 }
 
+traits <- c("all.traits", "stem.height", "blade.length", "fruit.length")
 
-fric.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_observed_full_SAR.csv",
-                       title = "A. FRic (observed)"
-                       )
-fric.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_global.SES_full_SAR.csv",
-                       title = "B. FRic (global)"
-                       )
-fric.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_realm.SES_full_SAR.csv",
-                       title = "C. FRic (realm)"
-                       )
-fric.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FRic.all.traits_adf.SES_full_SAR.csv",
-                       title = "D. FRic (ADF)"
-                       )
+MakePlot <- function(case, xlim) {
+  # FRic
+  fric.obs <- PlotModAvg(index = "FRic",
+                         traits = traits,
+                         null.model = "observed",
+                         case = case,
+                         xlim = xlim,
+                         title = "A. FRic (observed)"
+                         )
+  fric.global <- PlotModAvg(index = "FRic",
+                            traits = traits,
+                            null.model = "global.SES",
+                            case = case,
+                            xlim = xlim,
+                            title = "B. FRic (global)"
+                            )
+  fric.realm <- PlotModAvg(index = "FRic",
+                           traits = traits,
+                           null.model = "realm.SES",
+                           case = case,
+                           xlim = xlim,
+                           title = "C. FRic (realm)"
+                           )
+  fric.adf <- PlotModAvg(index = "FRic",
+                         traits = traits,
+                         null.model = "adf.SES",
+                         case = case,
+                         xlim = xlim,
+                         title = "D. FRic (ADF)"
+                         )
+  # FDis
+  fdis.obs <- PlotModAvg(index = "FDis",
+                         traits = traits,
+                         null.model = "observed",
+                         case = case,
+                         xlim = xlim,
+                         title = "E. FDis (observed)"
+                         )
+  fdis.global <- PlotModAvg(index = "FDis",
+                            traits = traits,
+                            null.model = "global.SES",
+                            case = case,
+                            xlim = xlim,
+                            title = "F. FDis (global)"
+                            )
+  fdis.realm <- PlotModAvg(index = "FDis",
+                           traits = traits,
+                           null.model = "realm.SES",
+                           case = case,
+                           xlim = xlim,
+                           title = "G. FDis (realm)"
+                           )
+  fdis.adf <- PlotModAvg(index = "FDis",
+                         traits = traits,
+                         null.model = "adf.SES",
+                         case = case,
+                         xlim = xlim,
+                         title = "H. FDis (ADF)"
+                         )
+  # Legend
+  leg <- PlotModAvg(index = "FRic",
+                    traits = traits,
+                    null.model = "observed",
+                    case = case,
+                    xlim = xlim,
+                    title = "legend plot",
+                    show.legend = TRUE,
+                    legend.labels = c("All traits", "Stem height", "Blade length",
+                                      "Fruit length"
+                                      )
+                    ) +
+         theme(legend.position = "bottom",
+               legend.key.size = unit(20, "pt"),
+               legend.text = element_text(size = 12)
+               ) +
+         labs(colour = NULL)
+  leg <- get_legend(leg)
+  # empty filler
+  filler <- ggplot() + theme_void()
 
-fdis.obs <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_observed_full_SAR.csv",
-                       title = "E. FDis (observed)"
-                       )
-fdis.global <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_global.SES_full_SAR.csv",
-                       title = "F. FDis (global)"
-                       )
-fdis.realm <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_realm.SES_full_SAR.csv",
-                       title = "G. FDis (realm)"
-                       )
-fdis.adf <- PlotModAvg(filename = "output/multimodel_averaging/multimod_avg_FDis.all.traits_adf.SES_full_SAR.csv",
-                       title = "H. FDis (ADF)"
-                       )
-
-ggsave(plot = arrangeGrob(fric.obs, fric.global, fric.realm, fric.adf,
-                          fdis.obs, fdis.global, fdis.realm, fdis.adf,
-                          ncol = 4
-                          ),
-       filename = paste0(plot.dir, "4_multimodel_averaging_alltraits.png"),
-       width = 12,
-       height = 6,
-       dpi = 600
-       )
-
-PlotAll <- function(index, case) {
-  fric.obs <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_observed_", case, "_SAR.csv"),
-                       title = "A. FRic (observed)"
-                       )
-  fric.global <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_global.SES_", case, "_SAR.csv"),
-                       title = "B. FRic (global)"
-                       )
-  fric.realm <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_realm.SES_", case, "_SAR.csv"),
-                       title = "C. FRic (realm)"
-                       )
-  fric.adf <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FRic.", index, "_adf.SES_", case, "_SAR.csv"),
-                       title = "D. FRic (ADF)"
-                       )
-
-  fdis.obs <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_observed_", case, "_SAR.csv"),
-                       title = "E. FDis (observed)"
-                       )
-  fdis.global <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_global.SES_", case, "_SAR.csv"),
-                       title = "F. FDis (global)"
-                       )
-  fdis.realm <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_realm.SES_", case, "_SAR.csv"),
-                       title = "G. FDis (realm)"
-                       )
-  fdis.adf <- PlotModAvg(filename = paste0("output/multimodel_averaging/multimod_avg_FDis.", index, "_adf.SES_", case, "_SAR.csv"),
-                       title = "H. FDis (ADF)"
-                       )
-
-  ggsave(plot = arrangeGrob(fric.obs, fric.global, fric.realm, fric.adf,
+  ggsave(plot = arrangeGrob(filler, leg, filler, filler,
+                            fric.obs, fric.global, fric.realm, fric.adf,
                             fdis.obs, fdis.global, fdis.realm, fdis.adf,
-                            ncol = 4
+                            ncol = 4,
+                            heights = c(0.05, 0.475, 0.475)
                             ),
-         filename = paste0(plot.dir, "multimod_avg_",
-                           index, "_", case, ".png"),
+         filename = paste0(plot.dir, "multimodel_averaging_", case, ".png"),
          width = 12,
-         height = 6,
-         dpi = 100
+         height = 12,
+         dpi = 600
          )
 }
 
-for (index in c("all.traits", "stem.height", "blade.length", "fruit.length")) {
-  for (case in c("full", "NewWorld", "OWWest", "OWEast")) {
-    PlotAll(index, case)
-  }
-}
-
-
+MakePlot("full", xlim = 0.8)
+MakePlot("NewWorld", xlim = 1.2)
+MakePlot("OWWest", xlim = 1.1)
+MakePlot("OWEast", xlim = 1.3)
 
 
 
