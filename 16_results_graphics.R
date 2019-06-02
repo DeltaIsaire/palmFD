@@ -25,6 +25,7 @@ library(gridExtra)
 library(spdep)
 library(ncf)
 library(cowplot)
+library(reshape2)
 
 theme_set(theme_bw())
 
@@ -129,6 +130,15 @@ palm.traits <- read.csv(file = "output/trait_matrices/palm_trait_matrix_filled_s
 # Propagate NAs in env.complete to trait data
 # -------------------------------------------
 cwm.observed[!complete.cases(env.complete), ] <- NA
+
+
+# Pseudo-R-squared of full SARerror models
+# ----------------------------------------
+global.rsq <-
+  read.csv(file = "output/multimodel_averaging/00_multimod_avg_global_rsq.csv")
+global.rsq[, "trait"]  <- substring(global.rsq[, "index"], 6)
+global.rsq[, "index"] %<>% substr(., 0, 4)
+
 
 
 
@@ -1095,19 +1105,61 @@ PlotModAvg <- function(index, traits, null.model, case, title, subtitle = NULL,
                          end = 0.8,
                          labels = legend.labels
                          ) +
-    labs(y = NULL,
-         x = NULL,
+    labs(x = NULL,
+         y = "Mod. avg. Coefficient (+/- 95% CI)",
          title = title,
          subtitle = subtitle
          ) +
 #    coord_cartesian(ylim = c(-10, 10)) +
     ylim(-data.range, data.range) +
-    coord_flip()
+    coord_flip() +
+    theme(axis.title.x = element_text(size = 8))
 }
 
-traits <- c("all.traits", "stem.height", "blade.length", "fruit.length")
+GetRsq <- function(index, null.model, case) {
+  x <- global.rsq[global.rsq$index %in% index &
+                  global.rsq$null.model %in% null.model &
+                  global.rsq$case %in% case,
+                  c("index", "trait", "null.model", "case",
+                    "SAR.PsRsq.KC", "SAR.PsRsq.pred"
+                    ),
+                  drop = FALSE
+                  ]
+  melt(x,
+       measure.vars = c("SAR.PsRsq.KC", "SAR.PsRsq.pred"),
+       variable.name = "rsq.type",
+       value.name = "rsq"
+       )
+}
+
+Rsq.Barplot <- function(x) {
+# Where x is the output of GetRsq()
+  ggplot(x) +
+    geom_col(mapping = aes(x = rsq.type, y = rsq, fill = trait),
+             position = position_dodge(),
+             show.legend = FALSE,
+             width = 0.65
+             ) +
+    scale_fill_viridis(discrete = TRUE, option = "plasma", end = 0.8) +
+    ylim(0, 1) +
+    labs(x = NULL,
+         y = expression(paste("Pseudo-R", ""^2, sep=""))
+         ) +
+    scale_x_discrete(labels = c("SAR.PsRsq.KC" = "Full model",
+                                "SAR.PsRsq.pred" = "Full model\nwithout Lambda"
+                                )
+                     ) +
+    coord_flip() +
+    theme(axis.text.y = element_text(size = 8, face = "bold"),
+          axis.title.x = element_text(size = 8)
+          )
+}
+
+GetRsq("FRic", "observed", "full")
+
 
 MakePlot <- function(case, xlim) {
+  traits <- c("all.traits", "stem.height", "blade.length", "fruit.length")
   # FRic
   fric.obs <- PlotModAvg(index = "FRic",
                          traits = traits,
@@ -1116,6 +1168,7 @@ MakePlot <- function(case, xlim) {
                          xlim = xlim,
                          title = "A. FRic (observed)"
                          )
+  fric.obs.rsq <- Rsq.Barplot(GetRsq("FRic", "observed", case))
   fric.global <- PlotModAvg(index = "FRic",
                             traits = traits,
                             null.model = "global.SES",
@@ -1123,6 +1176,7 @@ MakePlot <- function(case, xlim) {
                             xlim = xlim,
                             title = "B. FRic (global)"
                             )
+  fric.global.rsq <- Rsq.Barplot(GetRsq("FRic", "global.SES", case))
   fric.realm <- PlotModAvg(index = "FRic",
                            traits = traits,
                            null.model = "realm.SES",
@@ -1130,6 +1184,7 @@ MakePlot <- function(case, xlim) {
                            xlim = xlim,
                            title = "C. FRic (realm)"
                            )
+  fric.realm.rsq <- Rsq.Barplot(GetRsq("FRic", "realm.SES", case))
   fric.adf <- PlotModAvg(index = "FRic",
                          traits = traits,
                          null.model = "adf.SES",
@@ -1137,6 +1192,7 @@ MakePlot <- function(case, xlim) {
                          xlim = xlim,
                          title = "D. FRic (ADF)"
                          )
+  fric.adf.rsq <- Rsq.Barplot(GetRsq("FRic", "adf.SES", case))
   # FDis
   fdis.obs <- PlotModAvg(index = "FDis",
                          traits = traits,
@@ -1145,6 +1201,7 @@ MakePlot <- function(case, xlim) {
                          xlim = xlim,
                          title = "E. FDis (observed)"
                          )
+  fdis.obs.rsq <- Rsq.Barplot(GetRsq("FDis", "observed", case))
   fdis.global <- PlotModAvg(index = "FDis",
                             traits = traits,
                             null.model = "global.SES",
@@ -1152,6 +1209,7 @@ MakePlot <- function(case, xlim) {
                             xlim = xlim,
                             title = "F. FDis (global)"
                             )
+  fdis.global.rsq <- Rsq.Barplot(GetRsq("FDis", "global.SES", case))
   fdis.realm <- PlotModAvg(index = "FDis",
                            traits = traits,
                            null.model = "realm.SES",
@@ -1159,6 +1217,7 @@ MakePlot <- function(case, xlim) {
                            xlim = xlim,
                            title = "G. FDis (realm)"
                            )
+  fdis.realm.rsq <- Rsq.Barplot(GetRsq("FDis", "realm.SES", case))
   fdis.adf <- PlotModAvg(index = "FDis",
                          traits = traits,
                          null.model = "adf.SES",
@@ -1166,6 +1225,8 @@ MakePlot <- function(case, xlim) {
                          xlim = xlim,
                          title = "H. FDis (ADF)"
                          )
+  fdis.adf.rsq <- Rsq.Barplot(GetRsq("FDis", "adf.SES", case))
+
   # Legend
   leg <- PlotModAvg(index = "FRic",
                     traits = traits,
@@ -1189,13 +1250,17 @@ MakePlot <- function(case, xlim) {
 
   ggsave(plot = arrangeGrob(filler, leg, filler, filler,
                             fric.obs, fric.global, fric.realm, fric.adf,
+                            fric.obs.rsq, fric.global.rsq, fric.realm.rsq,
+                            fric.adf.rsq,
                             fdis.obs, fdis.global, fdis.realm, fdis.adf,
+                            fdis.obs.rsq, fdis.global.rsq, fdis.realm.rsq,
+                            fdis.adf.rsq,
                             ncol = 4,
-                            heights = c(0.05, 0.475, 0.475)
+                            heights = c(0.04, 0.39, 0.09, 0.39, 0.09)
                             ),
          filename = paste0(plot.dir, "multimodel_averaging_", case, ".png"),
          width = 12,
-         height = 12,
+         height = 14,
          dpi = 600
          )
 }
@@ -1204,6 +1269,11 @@ MakePlot("full", xlim = 0.8)
 MakePlot("NewWorld", xlim = 1.2)
 MakePlot("OWWest", xlim = 1.1)
 MakePlot("OWEast", xlim = 1.3)
+
+
+
+
+
 
 
 
