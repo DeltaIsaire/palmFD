@@ -1055,31 +1055,8 @@ SavePlots(plot = FDPlot(tdwg.map = tdwg.map,
 cat("Multimodel averaging results...\n")
 ########################################
 
-PlotModAvg <- function(index, traits, null.model, case, title, subtitle = NULL,
-                       show.legend = FALSE, legend.labels = waiver(),
-                       xlim = NULL) {
-  # First construct dataframe of all trait cases
-  pred <- c("lambda", "(Intercept)", rev(predictors))
-  traitlist <- vector("list", length = length(traits))
-  names(traitlist) <- traits
-  for (trait in traits) {
-    filename <- paste0("output/multimodel_averaging/multimod_avg_",
-                       index, ".", trait,
-                       "_", null.model, "_",
-                       case,
-                       "_SAR.csv"
-                       )
-    df <- read.csv(file = filename)
-    df %<>% { .[match(pred, .[, "X"]), ] }
-    df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
-    df[, "X"] <- rev(predictor.names)
-    df[, 1] %<>% { factor(., levels = .) }
-    df[, "trait"] <- trait
-    traitlist[[trait]] <- df
-  }
-  df <- ldply(traitlist, rbind)
-  df[, "trait"] %<>% { factor(., levels=unique(as.character(.))) }
-
+PlotModAvg <- function(df, var, title, subtitle = NULL, show.legend = FALSE,
+                       legend.labels = waiver(), xlim = NULL) {
   if (is.null(xlim)) {
     data.range <- max(abs(min(df$X2.5..)),
                       abs(max(df$X97.5..))
@@ -1090,12 +1067,16 @@ PlotModAvg <- function(index, traits, null.model, case, title, subtitle = NULL,
 
   ggplot(df) +
     geom_hline(yintercept = 0, color = "#808080", linetype = "dashed") +
-    geom_linerange(aes(x = X, ymin = X2.5.., ymax = X97.5.., colour = trait),
+    geom_linerange(aes_string(x = "X",
+                              ymin = "X2.5..",
+                              ymax = "X97.5..",
+                              colour = var
+                              ),
                    size = 0.8,
                    show.legend = show.legend,
                    position = position_dodge(width = 0.5)
                    ) +
-    geom_point(aes(x = X, y = Estimate, colour = trait),
+    geom_point(aes_string(x = "X", y = "Estimate", colour = var),
                size = 2,
                show.legend = show.legend,
                position = position_dodge(width = 0.5)
@@ -1116,10 +1097,10 @@ PlotModAvg <- function(index, traits, null.model, case, title, subtitle = NULL,
     theme(axis.title.x = element_text(size = 8))
 }
 
-GetRsq <- function(index, null.model, case) {
+GetRsq <- function(index, null.model, altvarname, altvar) {
   x <- global.rsq[global.rsq$index %in% index &
                   global.rsq$null.model %in% null.model &
-                  global.rsq$case %in% case,
+                  global.rsq[, altvarname] %in% altvar,
                   c("index", "trait", "null.model", "case",
                     "SAR.PsRsq.KC", "SAR.PsRsq.pred"
                     ),
@@ -1132,10 +1113,10 @@ GetRsq <- function(index, null.model, case) {
        )
 }
 
-Rsq.Barplot <- function(x) {
+Rsq.Barplot <- function(x, varname) {
 # Where x is the output of GetRsq()
   ggplot(x) +
-    geom_col(mapping = aes(x = rsq.type, y = rsq, fill = trait),
+    geom_col(mapping = aes_string(x = "rsq.type", y = "rsq", fill = varname),
              position = position_dodge(),
              show.legend = FALSE,
              width = 0.65
@@ -1155,89 +1136,190 @@ Rsq.Barplot <- function(x) {
           )
 }
 
-GetRsq("FRic", "observed", "full")
+MultimodData <- function(vars, varname, namefun, ...) {
+  # Construct dataframe of all var cases
+  # namefun: function taking values in 'vars' as first argument, and producing
+  # filenames of data as output
+  # ... : further arguments passed to 'namefun'
+  # varname: character string to give to 'vars' vector in output dataframe
+  pred <- c("lambda", "(Intercept)", rev(predictors))
+  varlist <- vector("list", length = length(vars))
+  names(varlist) <- vars
+  for (var in vars) {
+    filename <- namefun(var, ...)
+    df <- read.csv(file = filename)
+    df %<>% { .[match(pred, .[, "X"]), ] }
+    df %<>% { .[!.[, "X"] %in% c("lambda", "(Intercept)"), ] }
+    df[, "X"] <- rev(predictor.names)
+    df[, 1] %<>% { factor(., levels = .) }
+    df[, varname] <- var
+    varlist[[var]] <- df
+  }
+  df <- ldply(varlist, rbind)
+  df[, varname] %<>% { factor(., levels=unique(as.character(.))) }
+  df
+}
+
+MultimodName_trait <- function(trait, index, null.model, case) {
+  paste0("output/multimodel_averaging/multimod_avg_",
+         index, ".", trait,
+         "_", null.model, "_",
+         case,
+         "_SAR.csv"
+         )
+}
+
+MultimodName_case <- function(case, index, null.model, trait) {
+  paste0("output/multimodel_averaging/multimod_avg_",
+         index, ".", trait,
+         "_", null.model, "_",
+         case,
+         "_SAR.csv"
+         )
+}
 
 
-MakePlot <- function(case, xlim) {
-  traits <- c("all.traits", "stem.height", "blade.length", "fruit.length")
+MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
+                         legend.labels = waiver(), filename) {
+  # vars: character vector giving cases of a variable to compare (traits or cases)
+  # varname: a name for the 'vars' vector ("trait" or "case")
+  # namefun: appropriate filename function for MultimodData(),
+  # altvar: trait or case to keep constant
+  # altvarname: ("trait" or "case"), opposite of varname
+
   # FRic
-  fric.obs <- PlotModAvg(index = "FRic",
-                         traits = traits,
-                         null.model = "observed",
-                         case = case,
+  fric.obs <- PlotModAvg(df = MultimodData(vars = vars,
+                                           varname = varname,
+                                           namefun = namefun,
+                                           "FRic",
+                                           "observed",
+                                           altvar
+                                           ),
+                         var = varname,
                          xlim = xlim,
                          title = "A. FRic (observed)"
                          )
-  fric.obs.rsq <- Rsq.Barplot(GetRsq("FRic", "observed", case))
-  fric.global <- PlotModAvg(index = "FRic",
-                            traits = traits,
-                            null.model = "global.SES",
-                            case = case,
+  fric.obs.rsq <- Rsq.Barplot(GetRsq("FRic", "observed", altvarname, altvar),
+                              varname = varname
+                             )
+
+  fric.global <- PlotModAvg(df = MultimodData(vars = vars,
+                                              varname = varname,
+                                              namefun = namefun,
+                                              "FRic",
+                                              "global.SES",
+                                              altvar
+                                              ),
+                            var = varname,
                             xlim = xlim,
                             title = "B. FRic (global)"
                             )
-  fric.global.rsq <- Rsq.Barplot(GetRsq("FRic", "global.SES", case))
-  fric.realm <- PlotModAvg(index = "FRic",
-                           traits = traits,
-                           null.model = "realm.SES",
-                           case = case,
-                           xlim = xlim,
-                           title = "C. FRic (realm)"
-                           )
-  fric.realm.rsq <- Rsq.Barplot(GetRsq("FRic", "realm.SES", case))
-  fric.adf <- PlotModAvg(index = "FRic",
-                         traits = traits,
-                         null.model = "adf.SES",
-                         case = case,
+  fric.global.rsq <- Rsq.Barplot(GetRsq("FRic", "global.SES", altvarname, altvar),
+                                 varname = varname
+                                 )
+
+  fric.realm <- PlotModAvg(df = MultimodData(vars = vars,
+                                             varname = varname,
+                                             namefun = namefun,
+                                             "FRic",
+                                             "realm.SES",
+                                             altvar
+                                             ),
+                            var = varname,
+                            xlim = xlim,
+                            title = "C. FRic (realm)"
+                            )
+  fric.realm.rsq <- Rsq.Barplot(GetRsq("FRic", "realm.SES", altvarname, altvar),
+                                varname = varname
+                                )
+  fric.adf <- PlotModAvg(df = MultimodData(vars = vars,
+                                           varname = varname,
+                                           namefun = namefun,
+                                           "FRic",
+                                           "adf.SES",
+                                           altvar
+                                           ),
+                         var = varname,
                          xlim = xlim,
                          title = "D. FRic (ADF)"
                          )
-  fric.adf.rsq <- Rsq.Barplot(GetRsq("FRic", "adf.SES", case))
+  fric.adf.rsq <- Rsq.Barplot(GetRsq("FRic", "adf.SES", altvarname, altvar),
+                              varname = varname
+                              )
+
   # FDis
-  fdis.obs <- PlotModAvg(index = "FDis",
-                         traits = traits,
-                         null.model = "observed",
-                         case = case,
+  fdis.obs <- PlotModAvg(df = MultimodData(vars = vars,
+                                           varname = varname,
+                                           namefun = namefun,
+                                           "FDis",
+                                           "observed",
+                                           altvar
+                                           ),
+                         var = varname,
                          xlim = xlim,
                          title = "E. FDis (observed)"
                          )
-  fdis.obs.rsq <- Rsq.Barplot(GetRsq("FDis", "observed", case))
-  fdis.global <- PlotModAvg(index = "FDis",
-                            traits = traits,
-                            null.model = "global.SES",
-                            case = case,
+  fdis.obs.rsq <- Rsq.Barplot(GetRsq("FDis", "observed", altvarname, altvar),
+                              varname = varname
+                             )
+
+  fdis.global <- PlotModAvg(df = MultimodData(vars = vars,
+                                              varname = varname,
+                                              namefun = namefun,
+                                              "FDis",
+                                              "global.SES",
+                                              altvar
+                                              ),
+                            var = varname,
                             xlim = xlim,
                             title = "F. FDis (global)"
                             )
-  fdis.global.rsq <- Rsq.Barplot(GetRsq("FDis", "global.SES", case))
-  fdis.realm <- PlotModAvg(index = "FDis",
-                           traits = traits,
-                           null.model = "realm.SES",
-                           case = case,
-                           xlim = xlim,
-                           title = "G. FDis (realm)"
-                           )
-  fdis.realm.rsq <- Rsq.Barplot(GetRsq("FDis", "realm.SES", case))
-  fdis.adf <- PlotModAvg(index = "FDis",
-                         traits = traits,
-                         null.model = "adf.SES",
-                         case = case,
+  fdis.global.rsq <- Rsq.Barplot(GetRsq("FDis", "global.SES", altvarname, altvar),
+                                 varname = varname
+                                 )
+
+  fdis.realm <- PlotModAvg(df = MultimodData(vars = vars,
+                                             varname = varname,
+                                             namefun = namefun,
+                                             "FDis",
+                                             "realm.SES",
+                                             altvar
+                                             ),
+                            var = varname,
+                            xlim = xlim,
+                            title = "G. FDis (realm)"
+                            )
+  fdis.realm.rsq <- Rsq.Barplot(GetRsq("FDis", "realm.SES", altvarname, altvar),
+                                varname = varname
+                                )
+  fdis.adf <- PlotModAvg(df = MultimodData(vars = vars,
+                                           varname = varname,
+                                           namefun = namefun,
+                                           "FDis",
+                                           "adf.SES",
+                                           altvar
+                                           ),
+                         var = varname,
                          xlim = xlim,
                          title = "H. FDis (ADF)"
                          )
-  fdis.adf.rsq <- Rsq.Barplot(GetRsq("FDis", "adf.SES", case))
+  fdis.adf.rsq <- Rsq.Barplot(GetRsq("FDis", "adf.SES", altvarname, altvar),
+                              varname = varname
+                              )
 
   # Legend
-  leg <- PlotModAvg(index = "FRic",
-                    traits = traits,
-                    null.model = "observed",
-                    case = case,
+  leg <- PlotModAvg(df = MultimodData(vars = vars,
+                                      varname = varname,
+                                      namefun = namefun,
+                                      "FDis",
+                                      "adf.SES",
+                                      altvar
+                                      ),
+                    var = varname,
                     xlim = xlim,
                     title = "legend plot",
                     show.legend = TRUE,
-                    legend.labels = c("All traits", "Stem height", "Blade length",
-                                      "Fruit length"
-                                      )
+                    legend.labels = legend.labels
                     ) +
          theme(legend.position = "bottom",
                legend.key.size = unit(20, "pt"),
@@ -1258,21 +1340,156 @@ MakePlot <- function(case, xlim) {
                             ncol = 4,
                             heights = c(0.04, 0.39, 0.09, 0.39, 0.09)
                             ),
-         filename = paste0(plot.dir, "multimodel_averaging_", case, ".png"),
+         filename = filename,
          width = 12,
          height = 14,
          dpi = 600
          )
 }
 
-MakePlot("full", xlim = 0.8)
-MakePlot("NewWorld", xlim = 1.2)
-MakePlot("OWWest", xlim = 1.1)
-MakePlot("OWEast", xlim = 1.3)
+
+traits <- c("all.traits", "stem.height", "blade.length", "fruit.length")
+cases <- c("full", "NewWorld", "OWWest", "OWEast")
+
+trait.labels <- c("All traits", "Stem height", "Blade length", "Fruit length")
+case.labels <- c("Global", "New World", "Old World West", "Old World East")
+
+xlim.traits <- c(0.8, 1.2, 1.1, 1.3)
+xlim.cases <- c(1.3, 1.3, 1.2, 1)
+
+# Trait differences
+for (i in seq_along(cases)) {
+  MultimodPlot(vars = traits,
+               varname = "trait",
+               namefun = MultimodName_trait,
+               altvarname = "case",
+               altvar = cases[i],
+               xlim = xlim.traits[i],
+               legend.labels = trait.labels,
+               filename = paste0(plot.dir, "multimodel_averaging_traits_",
+                                 cases[i], ".png")
+               )
+}
+
+# realm (case) differences
+for (i in seq_along(traits)) {
+  MultimodPlot(vars = cases,
+               varname = "case",
+               namefun = MultimodName_case,
+               altvarname = "trait",
+               altvar = traits[i],
+               xlim = xlim.cases[i],
+               legend.labels = case.labels,
+               filename = paste0(plot.dir, "multimodel_averaging_cases_",
+                                 traits[i], ".png")
+               )
+}
 
 
+MultimodAfrica <- function(xlim, legend.labels = waiver(), filename) {
 
+  fric.realm <- PlotModAvg(df = MultimodData(vars = traits,
+                                             varname = "trait",
+                                             namefun = MultimodName_trait,
+                                             "FRic",
+                                             "realm.SES",
+                                             "OWWest"
+                                             ),
+                           var = "trait",
+                           xlim = xlim,
+                           title = "A. FRic"
+                           )
+  fric.rsq <- Rsq.Barplot(GetRsq("FRic", "realm.SES", "case", "OWWest"),
+                          varname = "trait"
+                          )
+  fric.realm2 <- PlotModAvg(df = MultimodData(vars = traits,
+                                              varname = "trait",
+                                              namefun = MultimodName_trait,
+                                              "FRic",
+                                              "realm.SES.noMDG",
+                                              "OWWest"
+                                              ),
+                            var = "trait",
+                            xlim = xlim,
+                            title = "B. FRic (no Madagascar)"
+                            )
+  fric.rsq2 <- Rsq.Barplot(GetRsq("FRic", "realm.SES.noMDG", "case", "OWWest"),
+                           varname = "trait"
+                           )
 
+  fdis.realm <- PlotModAvg(df = MultimodData(vars = traits,
+                                             varname = "trait",
+                                             namefun = MultimodName_trait,
+                                             "FDis",
+                                             "realm.SES",
+                                             "OWWest"
+                                             ),
+                            var = "trait",
+                            xlim = xlim,
+                            title = "C. FDis"
+                            )
+  fdis.rsq <- Rsq.Barplot(GetRsq("FDis", "realm.SES", "case", "OWWest"),
+                          varname = "trait"
+                          )
+
+  fdis.realm2 <- PlotModAvg(df = MultimodData(vars = traits,
+                                              varname = "trait",
+                                              namefun = MultimodName_trait,
+                                              "FDis",
+                                              "realm.SES.noMDG",
+                                              "OWWest"
+                                              ),
+                             var = "trait",
+                             xlim = xlim,
+                             title = "C. FDis (no Madagascar)"
+                             )
+  fdis.rsq2 <- Rsq.Barplot(GetRsq("FDis", "realm.SES", "case", "OWWest"),
+                           varname = "trait"
+                           )
+
+  # Legend
+  leg <- PlotModAvg(df = MultimodData(vars = traits,
+                                              varname = "trait",
+                                              namefun = MultimodName_trait,
+                                              "FDis",
+                                              "realm.SES.noMDG",
+                                              "OWWest"
+                                              ),
+                    var = "trait",
+                    xlim = xlim,
+                    title = "legend plot",
+                    show.legend = TRUE,
+                    legend.labels = legend.labels
+                    ) +
+         theme(legend.position = "bottom",
+               legend.key.size = unit(20, "pt"),
+               legend.text = element_text(size = 12)
+               ) +
+         labs(colour = NULL)
+  leg <- get_legend(leg)
+  # empty filler
+  filler <- ggplot() + theme_void()
+  #  Seperator line
+  line <- filler + geom_vline(xintercept = 1, size = 0.25)
+
+  ggsave(plot = arrangeGrob(filler, leg, filler, filler, filler,
+                            fric.realm, fric.realm2, line, fdis.realm, fdis.realm2,
+                            fric.rsq, fric.rsq2, line, fdis.rsq, fdis.rsq2,
+                            ncol = 5,
+                            heights = c(0.08, 0.76, 0.16),
+                            widths = c(0.24, 0.24, 0.04, 0.24, 0.24)
+                            ),
+         filename = filename,
+         width = 12,
+         height = 7.5,
+         dpi = 600
+         )
+}
+
+MultimodAfrica(xlim = 1,
+               legend.labels = trait.labels,
+               filename = paste0(plot.dir, "multimodel_averaging_Africa.png")
+               )
 
 
 
@@ -1348,38 +1565,47 @@ MakePlot <- function(index, case = "observed", name, title) {
 
 no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
-FDPlot <- function() {
+
+FDPlot <- function(case = "observed") {
   fdis.all <- MakePlot(index = "FDis.all.traits",
                        name = "FDis (unitless)",
-                       title = "FDis of all traits"
+                       title = "FDis of all traits",
+                       case = case
                        )
   fric.all <- MakePlot(index = "FRic.all.traits",
                        name = "FRic (unitless)",
-                       title = "FRic of all traits"
+                       title = "FRic of all traits",
+                       case = case
                        )
   fdis.height <- MakePlot(index = "FDis.stem.height",
                           name = "FDis (unitless)",
-                          title = "FDis of stem height"
+                          title = "FDis of stem height",
+                          case = case
                           )
   fdis.blade <- MakePlot(index = "FDis.blade.length",
                          name = "FDis (unitless)",
-                         title = "FDis of blade length"
+                         title = "FDis of blade length",
+                         case = case
                          )
   fdis.fruit <- MakePlot(index = "FDis.fruit.length",
                          name = "FDis (unitless)",
-                         title = "FDis of fruit length"
+                         title = "FDis of fruit length",
+                         case = case
                          )
   fric.height <- MakePlot(index = "FRic.stem.height",
                           name = "FRic (unitless)",
-                          title = "FRic of stem height"
+                          title = "FRic of stem height",
+                          case = case
                           )
   fric.blade <- MakePlot(index = "FRic.blade.length",
                          name = "FRic (unitless)",
-                         title = "FRic of blade length"
+                         title = "FRic of blade length",
+                         case = case
                          )
   fric.fruit <- MakePlot(index = "FRic.fruit.length",
                          name = "FRic (unitless)",
-                         title = "FRic of fruit length"
+                         title = "FRic of fruit length",
+                         case = case
                          )
 
   arrangeGrob(fric.all, fdis.all,
@@ -1390,12 +1616,14 @@ FDPlot <- function() {
               )
 }
 
-ggsave(FDPlot(),
-       filename = paste0(plot.dir, "2_raw_functional_diversity.png"),
-       width = 12,
-       height = 13.3333,
-       dpi = 600
-       )
+for (case in c("observed", "global.SES", "realm.SES", "adf.SES")) {
+  ggsave(FDPlot(case),
+         filename = paste0(plot.dir, "functional_diversity_", case, ".png"),
+         width = 12,
+         height = 13.3333,
+         dpi = 600
+         )
+}
 
 
 ##########################################
@@ -1421,40 +1649,51 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
                     )
   }
 
+  fdis.obs <- MakePlot("FDis.all.traits",
+                       "observed",
+                       "FDis (unitless)",
+                       "B. FDis (observed)"
+                       )
   fdis.global <- MakePlot("FDis.all.traits",
                           "global.SES",
                           "FDis (SES)",
-                          "B. FDis (global null model)"
+                          "D. FDis (global null model)"
                           )
   fdis.realm <- MakePlot("FDis.all.traits",
                          "realm.SES",
                          "FDis (SES)",
-                         "D. FDis (realm null model)"
+                         "F. FDis (realm null model)"
                          )
   fdis.adf <- MakePlot("FDis.all.traits",
                        "adf.SES",
                        "FDis (SES)",
-                       "F. FDis (ADF null model)"
+                       "H. FDis (ADF null model)"
                        )
 
+  fric.obs <- MakePlot("FRic.all.traits",
+                       "observed",
+                       "FRic (unitless)",
+                       "A. FRic (observed)"
+                       )
   fric.global <- MakePlot("FRic.all.traits",
                           "global.SES",
                           "FRic (SES)",
-                          "A. FRic (global null model)"
+                          "C. FRic (global null model)"
                           )
   fric.realm <- MakePlot("FRic.all.traits",
                          "realm.SES",
                          "FRic (SES)",
-                         "C. FRic (realm null model)"
+                         "E. FRic (realm null model)"
                          )
   fric.adf <- MakePlot("FRic.all.traits",
                        "adf.SES",
                        "FRic (SES)",
-                       "E. FRic (ADF null model)"
+                       "G. FRic (ADF null model)"
                        )
 
 
-  arrangeGrob(fric.global, fdis.global,
+  arrangeGrob(fric.obs, fdis.obs,
+              fric.global, fdis.global,
               fric.realm, fdis.realm,
               fric.adf, fdis.adf,
               ncol = 2
@@ -1463,9 +1702,9 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
 
 # Full resolution
 ggsave(plot = MultiFDPlot(tdwg.map, fd.indices),
-       filename = paste0(plot.dir, "3_corrected_functional_diversity.png"),
+       filename = paste0(plot.dir, "2_functional_diversity_overview.png"),
        width = 12,
-       height = 10,
+       height = 13.3333,
        dpi = 600
        )
 
