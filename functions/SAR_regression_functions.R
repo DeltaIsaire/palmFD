@@ -84,11 +84,12 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
   # Init output matrix
   y.index <- match(response, colnames(x.complete))
   mat <- matrix(data = NA,
-                ncol = 4,
+                ncol = 5,
                 nrow = ncol(x.complete) - 1,
                 dimnames = list(colnames(x.complete)[-y.index],
-                                c("slope", "p.value", "moran.p", "pseudo.Rsq")
-                                )
+                                c("slope", "p.value", "moran.p", "Rsq.full",
+                                  "Rsq.pred")
+                                  )
                 )
 
   # Fit each single-predictor model and extract results
@@ -113,8 +114,11 @@ SingleSAR <- function(x, listw, response, standardize = TRUE, digits = "all",
     # moran.p
     mat[match(names(x.complete)[index], rownames(mat)), 3] <-
       moran.test(resid(sar.mod), listw = listw)[["p.value"]]
-    # Pseudo.Rsq
+    # Rsq.full
     mat[match(names(x.complete)[index], rownames(mat)), 4] <-
+      cor(x = predict(sar.mod), y = sar.mod[["y"]], method = "pearson") ^ 2
+    # Rsq.pred
+    mat[match(names(x.complete)[index], rownames(mat)), 5] <-
       PseudoRsq(sar.mod)
   }
 
@@ -142,8 +146,8 @@ MultiSingleSAR <- function(responses, predictors, listw, ...) {
                 ncol = ncol(predictors),
                 dimnames = list(colnames(responses), colnames(predictors))
                 )
-  output <- list(mat, mat, mat, mat)
-  names(output) <- c("slope", "p.value", "moran.p", "pseudo.Rsq")
+  output <- rep(list(mat), length.out = 5)
+  names(output) <- c("slope", "p.value", "moran.p", "Rsq.full", "Rsq.pred")
 
   # Generate single-predictor models for each response variable
   for (i in seq_along(responses)) {
@@ -157,7 +161,7 @@ MultiSingleSAR <- function(responses, predictors, listw, ...) {
                      ...
                      )
     indices <- match(rownames(mat), colnames(output[[1]]))
-    for (j in 1:4) {
+    for (j in seq_len(5)) {
       output[[j]] [i, indices] <- mat[, j]
     }
   }
@@ -344,8 +348,9 @@ AllSARSingles <- function(fd.indices, colname, predictors, tdwg.map,
 
 
 
-ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
-                                                          "moran.p", "pseudo.Rsq"),
+ParseSARSingle <- function(name.all, cases,
+                           statistics = c("slope", "p.value", "moran.p", "Rsq.full",
+                                          "Rsq.pred"),
                            filter.p = TRUE) {
 # Automatically read the files created by AllSARSingles() and combine the data
 # into a dataframe.
@@ -360,7 +365,7 @@ ParseSARSingle <- function(name.all, cases, statistics = c("slope", "p.value",
 #   cases: cases to return, vector with values "full" and the realm names, or a
 #          subset thereof
 #   statistics: model statistics to parse, in c("slope", "p.value", "moran.p",
-#                                             "pseudo.Rsq")
+#                                             "Rsq.full", "Rsq.pred")
 #              See SingleSAR(). If more than one statistic is provided, the output
 #              will be a list with the dataframe for each statistic
 #   filter.p: whether to replace statistics from models where p > 0.05 with NA

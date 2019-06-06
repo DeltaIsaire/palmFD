@@ -279,7 +279,9 @@ RunSARSingles <- function(fd.indices, colname, name.all, dist.weight = FALSE,
                 )
   ParseSARSingle(name.all = name.all,
                  cases = c("full", "NewWorld", "OWWest", "OWEast"),
-                 statistics = c("slope", "p.value", "moran.p", "pseudo.Rsq"),
+                 statistics = c("slope", "p.value", "moran.p", "Rsq.full",
+                                "Rsq.pred"
+                                ),
                  filter.p = TRUE
                  )
 }

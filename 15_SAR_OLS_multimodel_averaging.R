@@ -117,9 +117,11 @@ test.data[, "response"] <- fd.indices[["FRic.all.traits"]] [, "global.SES"]
 pred.names <- AutoVIF(test.data,
                       response = "response",
                       standardize = TRUE,
-                      threshold = 3,
+                      threshold = 2.5,
                       numeric.only = TRUE
                       )
+old
+pred.names
 # alt_range was excluded at threshold 3.
 # The correlogram shows it is strongly correlated with bio1_sd, which makes sense.
 #
