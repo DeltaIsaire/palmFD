@@ -26,6 +26,7 @@ library(spdep)
 library(ncf)
 library(cowplot)
 library(reshape2)
+library(grid)
 
 theme_set(theme_bw())
 
@@ -198,16 +199,22 @@ MultiTraitPlot <- function(tdwg.map, cwm.observed) {
 
   height <- MakePlot("stem.height",
                      "Geometric mean\n(m)",
-                     "A. Stem height"
-                     )
+                     "Stem height"
+                     ) +
+              labs(tag = "A") +
+              theme(plot.tag = element_text(size = 20, face = "bold"))
   blade <- MakePlot("blade.length",
                     "Geometric mean\n(m)",
-                    "B. Blade length"
-                    )
+                    "Blade length"
+                    ) +
+              labs(tag = "B") +
+              theme(plot.tag = element_text(size = 20, face = "bold"))
   fruit <- MakePlot("fruit.length",
                     "Geometric mean\n(cm)",
-                    "C. Fruit length"
-                    )
+                    "Fruit length"
+                    ) +
+              labs(tag = "C") +
+              theme(plot.tag = element_text(size = 20, face = "bold"))
 
   arrangeGrob(height, blade, fruit, ncol = 1)
 }
@@ -1568,42 +1575,42 @@ no.ANT <- !tdwg.map$LEVEL_3_CO == "ANT"
 
 FDPlot <- function(case = "observed") {
   fdis.all <- MakePlot(index = "FDis.all.traits",
-                       name = "FDis (unitless)",
+                       name = "FDis (SES)",
                        title = "FDis of all traits",
                        case = case
                        )
   fric.all <- MakePlot(index = "FRic.all.traits",
-                       name = "FRic (unitless)",
+                       name = "FRic (SES)",
                        title = "FRic of all traits",
                        case = case
                        )
   fdis.height <- MakePlot(index = "FDis.stem.height",
-                          name = "FDis (unitless)",
+                          name = "FDis (SES)",
                           title = "FDis of stem height",
                           case = case
                           )
   fdis.blade <- MakePlot(index = "FDis.blade.length",
-                         name = "FDis (unitless)",
+                         name = "FDis (SES)",
                          title = "FDis of blade length",
                          case = case
                          )
   fdis.fruit <- MakePlot(index = "FDis.fruit.length",
-                         name = "FDis (unitless)",
+                         name = "FDis (SES)",
                          title = "FDis of fruit length",
                          case = case
                          )
   fric.height <- MakePlot(index = "FRic.stem.height",
-                          name = "FRic (unitless)",
+                          name = "FRic (SES)",
                           title = "FRic of stem height",
                           case = case
                           )
   fric.blade <- MakePlot(index = "FRic.blade.length",
-                         name = "FRic (unitless)",
+                         name = "FRic (SES)",
                          title = "FRic of blade length",
                          case = case
                          )
   fric.fruit <- MakePlot(index = "FRic.fruit.length",
-                         name = "FRic (unitless)",
+                         name = "FRic (SES)",
                          title = "FRic of fruit length",
                          case = case
                          )
@@ -1652,51 +1659,77 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
   fdis.obs <- MakePlot("FDis.all.traits",
                        "observed",
                        "FDis (unitless)",
-                       "B. FDis (observed)"
+                       "FDis (observed)"
                        )
   fdis.global <- MakePlot("FDis.all.traits",
                           "global.SES",
                           "FDis (SES)",
-                          "D. FDis (global null model)"
+                          "FDis (global null model)"
                           )
   fdis.realm <- MakePlot("FDis.all.traits",
                          "realm.SES",
                          "FDis (SES)",
-                         "F. FDis (realm null model)"
+                         "FDis (realm null model)"
                          )
   fdis.adf <- MakePlot("FDis.all.traits",
                        "adf.SES",
                        "FDis (SES)",
-                       "H. FDis (ADF null model)"
+                       "FDis (ADF null model)"
                        )
 
   fric.obs <- MakePlot("FRic.all.traits",
                        "observed",
                        "FRic (unitless)",
-                       "A. FRic (observed)"
-                       )
+                       "FRic (observed)"
+                       ) +
+              labs(tag = "A") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.02)
+                    )
   fric.global <- MakePlot("FRic.all.traits",
                           "global.SES",
                           "FRic (SES)",
-                          "C. FRic (global null model)"
-                          )
+                          "FRic (global null model)"
+                          ) +
+              labs(tag = "B") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.02)
+                    )
   fric.realm <- MakePlot("FRic.all.traits",
                          "realm.SES",
                          "FRic (SES)",
-                         "E. FRic (realm null model)"
-                         )
+                         "FRic (realm null model)"
+                         ) +
+              labs(tag = "C") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.02)
+                    )
   fric.adf <- MakePlot("FRic.all.traits",
                        "adf.SES",
                        "FRic (SES)",
-                       "G. FRic (ADF null model)"
-                       )
+                       "FRic (ADF null model)"
+                       ) +
+              labs(tag = "D") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.01)
+                    )
 
+  # empty filler
+  filler <- ggplot() + theme_void()
+  #  Horizontal seperator line
+  line <- filler + geom_hline(yintercept = 1.9, size = 0.35)
 
-  arrangeGrob(fric.obs, fdis.obs,
+  arrangeGrob(filler, filler,
+              fric.obs, fdis.obs,
+              line, line,
               fric.global, fdis.global,
+              line, line,
               fric.realm, fdis.realm,
+              line, line,
               fric.adf, fdis.adf,
-              ncol = 2
+              ncol = 2,
+#              widths = c(0.5, 0.5),
+              heights = c(0.02, 0.23, 0.02, 0.23, 0.02, 0.23, 0.02, 0.23)
               )
 }
 
