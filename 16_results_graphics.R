@@ -1204,7 +1204,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                            ),
                          var = varname,
                          xlim = xlim,
-                         title = "A. FRic (observed)"
+                         title = "A. FRic (uncorrected)"
                          )
   fric.obs.rsq <- Rsq.Barplot(GetRsq("FRic", "observed", altvarname, altvar),
                               varname = varname
@@ -1219,7 +1219,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                               ),
                             var = varname,
                             xlim = xlim,
-                            title = "B. FRic (global)"
+                            title = "B. FRic (Global)"
                             )
   fric.global.rsq <- Rsq.Barplot(GetRsq("FRic", "global.SES", altvarname, altvar),
                                  varname = varname
@@ -1234,7 +1234,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                              ),
                             var = varname,
                             xlim = xlim,
-                            title = "C. FRic (realm)"
+                            title = "C. FRic (Realm)"
                             )
   fric.realm.rsq <- Rsq.Barplot(GetRsq("FRic", "realm.SES", altvarname, altvar),
                                 varname = varname
@@ -1264,7 +1264,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                            ),
                          var = varname,
                          xlim = xlim,
-                         title = "E. FDis (observed)"
+                         title = "E. FDis (uncorrected)"
                          )
   fdis.obs.rsq <- Rsq.Barplot(GetRsq("FDis", "observed", altvarname, altvar),
                               varname = varname
@@ -1279,7 +1279,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                               ),
                             var = varname,
                             xlim = xlim,
-                            title = "F. FDis (global)"
+                            title = "F. FDis (Global)"
                             )
   fdis.global.rsq <- Rsq.Barplot(GetRsq("FDis", "global.SES", altvarname, altvar),
                                  varname = varname
@@ -1294,7 +1294,7 @@ MultimodPlot <- function(vars, varname, namefun, altvarname, altvar, xlim,
                                              ),
                             var = varname,
                             xlim = xlim,
-                            title = "G. FDis (realm)"
+                            title = "G. FDis (Realm)"
                             )
   fdis.realm.rsq <- Rsq.Barplot(GetRsq("FDis", "realm.SES", altvarname, altvar),
                                 varname = varname
@@ -1578,12 +1578,20 @@ FDPlot <- function(case = "observed") {
                        name = "FDis (SES)",
                        title = "FDis of all traits",
                        case = case
-                       )
+                       ) +
+              labs(tag = "B") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.01)
+                    )
   fric.all <- MakePlot(index = "FRic.all.traits",
                        name = "FRic (SES)",
                        title = "FRic of all traits",
                        case = case
-                       )
+                       ) +
+              labs(tag = "A") +
+              theme(plot.tag = element_text(size = 20, face = "bold"),
+                    plot.tag.position = c(0.005, 1.01)
+                    )
   fdis.height <- MakePlot(index = "FDis.stem.height",
                           name = "FDis (SES)",
                           title = "FDis of stem height",
@@ -1614,12 +1622,19 @@ FDPlot <- function(case = "observed") {
                          title = "FRic of fruit length",
                          case = case
                          )
+  # empty filler
+  filler <- ggplot() + theme_void()
+  #  Horizontal seperator line
+  line <- filler + geom_hline(yintercept = 1.9, size = 0.35)
 
-  arrangeGrob(fric.all, fdis.all,
-              fric.height, fdis.height,
-              fric.blade, fdis.blade,
-              fric.fruit, fdis.fruit,
-              ncol = 2
+  arrangeGrob(filler, filler,
+              fric.all, fric.height,
+              fric.blade, fric.fruit,
+              line, line,
+              fdis.all, fdis.height,
+              fdis.blade, fdis.fruit,
+              ncol = 2,
+              heights = c(0.02, 0.24, 0.24, 0.02, 0.24, 0.24)
               )
 }
 
@@ -1659,17 +1674,17 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
   fdis.obs <- MakePlot("FDis.all.traits",
                        "observed",
                        "FDis (unitless)",
-                       "FDis (observed)"
+                       "FDis (uncorrected)"
                        )
   fdis.global <- MakePlot("FDis.all.traits",
                           "global.SES",
                           "FDis (SES)",
-                          "FDis (global null model)"
+                          "FDis (Global null model)"
                           )
   fdis.realm <- MakePlot("FDis.all.traits",
                          "realm.SES",
                          "FDis (SES)",
-                         "FDis (realm null model)"
+                         "FDis (Realm null model)"
                          )
   fdis.adf <- MakePlot("FDis.all.traits",
                        "adf.SES",
@@ -1680,29 +1695,29 @@ MultiFDPlot <- function(tdwg.map, fd.indices) {
   fric.obs <- MakePlot("FRic.all.traits",
                        "observed",
                        "FRic (unitless)",
-                       "FRic (observed)"
+                       "FRic (uncorrected)"
                        ) +
               labs(tag = "A") +
               theme(plot.tag = element_text(size = 20, face = "bold"),
-                    plot.tag.position = c(0.005, 1.02)
+                    plot.tag.position = c(0.005, 1.01)
                     )
   fric.global <- MakePlot("FRic.all.traits",
                           "global.SES",
                           "FRic (SES)",
-                          "FRic (global null model)"
+                          "FRic (Global null model)"
                           ) +
               labs(tag = "B") +
               theme(plot.tag = element_text(size = 20, face = "bold"),
-                    plot.tag.position = c(0.005, 1.02)
+                    plot.tag.position = c(0.005, 1.01)
                     )
   fric.realm <- MakePlot("FRic.all.traits",
                          "realm.SES",
                          "FRic (SES)",
-                         "FRic (realm null model)"
+                         "FRic (Realm null model)"
                          ) +
               labs(tag = "C") +
               theme(plot.tag = element_text(size = 20, face = "bold"),
-                    plot.tag.position = c(0.005, 1.02)
+                    plot.tag.position = c(0.005, 1.01)
                     )
   fric.adf <- MakePlot("FRic.all.traits",
                        "adf.SES",
