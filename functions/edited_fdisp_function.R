@@ -3,7 +3,7 @@
 #############################
 #
 # Removed the input checks, allowing the function to be run on presence/absence
-# matrices with some colSums of zero.
+# matrices with some colSums of zero. This does not affect results.
 
 library(FD)
 

@@ -5,10 +5,6 @@
 # In which functions to help with SAR regression model construction and selection
 # are defined. It is assumed that SAR error models are used.
 #
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # PseudoRsq

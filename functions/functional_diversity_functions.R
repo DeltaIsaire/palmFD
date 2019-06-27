@@ -4,10 +4,6 @@
 #
 # In which custom (wrapper) functions for calculating functional richness (FRic)
 # and functional dispersion (FDis) are defined.
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # RunFD

@@ -14,11 +14,6 @@
 # because a site always shares the most species with itself and comparing a site
 # with itself makes the null model z-score (SES) tend towards 0.
 #
-# Input files:
-#   none
-# Generated output files:
-#   none
-#
 # FUNCTION LIST:
 #   ADF
 #   WeighADF

@@ -20,7 +20,6 @@ library(car)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/SAR_regression_functions.R")
-source(file = "functions/OLS_regression_functions.R")
 source(file = "functions/plotting_functions.R")
 
 # Graphics output directory (with trailing slash!)
@@ -125,6 +124,33 @@ env.complete <- env[, pred.names]
 # Automated best model selection
 ################################
 cat("Automated best model selection:\n")
+
+# Function to fit global OLS model
+# --------------------------------
+FitGlobalOLS <- function(response, predictors, double.std = FALSE,
+                         numeric.only = TRUE) {
+# Function to generate a global OLS model object. Provided data is subsetted to
+# complete cases via ParseData().
+# NOTE: this function uses global assignments, for compatibility with dredge() from
+# package MuMIn.
+# Args:
+#   response: vector of response data
+#   predictors: dataframe with predictor variables, in the same order as the
+#   response data.
+  ols.mod.data <<-
+    data.frame(predictors, response = response) %>%
+    ParseData(.,
+              response = "response",
+              standardize = TRUE,
+              numeric.only = numeric.only,
+              double.std = double.std
+              )
+  ols.mod.formula <<-
+    paste0("response ~ ", paste(colnames(predictors), collapse = " + ")) %>%
+    as.formula()
+  lm(formula = ols.mod.formula, data = ols.mod.data, na.action = na.fail)
+}
+
 
 # Function for model averaging
 # ----------------------------

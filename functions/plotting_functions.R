@@ -3,10 +3,6 @@
 ############################################
 #
 # In which custom plotting functions are defined.
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # Scatterplot

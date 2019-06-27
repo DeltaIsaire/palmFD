@@ -5,10 +5,6 @@
 # In which functions to help with OLS regression model construction and selection
 # are defined.
 #
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # SelectOLS

@@ -10,15 +10,8 @@
 # 'sf' object. And instead of ggplot2::fortify(), we pretend the 'sf' object
 # is a dataframe and simply add our data to it as a column.
 # See the function SpatialPlot() below for an example.
-# The geom_sf() function is included in the github version of ggplot2, but not
-# in the CRAN version. 
 # For info and tutorial see https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html
 #
-#
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # SpatialPlot

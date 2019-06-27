@@ -3,10 +3,6 @@
 ###################################
 #
 # In which custom general-purpose functions are defined.
-# Input files:
-#   none
-# Generated output files:
-#   none
 #
 # FUNCTION LIST:
 # IsOneDimensional
