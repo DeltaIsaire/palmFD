@@ -2,15 +2,9 @@
 # Palm FD project: Multimodel Averaging on OLS + SAR models
 ###########################################################
 #
-# In which automated model selection and  multimodel averaging is applied for OLS
+# In which automated model selection and multimodel averaging is applied for OLS
 # and SAR-error models correlating palm functional diversity indices to
 # environmental variation.
-#
-#
-# Input files:
-#   d
-# Generated output files:
-#   d
 
 
 cat("Loading required packages and functions...\n")
@@ -32,7 +26,7 @@ source(file = "functions/plotting_functions.R")
 # Graphics output directory (with trailing slash!)
 plot.dir <- "graphs/multimodels/"
 
-# Single-predictor model output directory (with trailing slash!)
+# Model data output directory (with trailing slash!)
 output.dir <- "output/multimodel_averaging/"
 
 # Number of cores to use for parallel processing. Default is 95% of available cores.
@@ -120,13 +114,8 @@ pred.names <- AutoVIF(test.data,
                       threshold = 2.5,
                       numeric.only = TRUE
                       )
-old
-pred.names
 # alt_range was excluded at threshold 3.
 # The correlogram shows it is strongly correlated with bio1_sd, which makes sense.
-#
-# UPDATE: bio12_mean is correlated with bio4_mean, bio15_mean and
-# bio12_sd, and excluded at threshold 3.
 
 env.complete <- env[, pred.names]
 
@@ -512,8 +501,6 @@ ReportCI <- function(x, digits = 3) {
   }
 
 
-
-
 write.csv(adply(avg.FDis.OLS, .margins = c(3, 4, 5), ReportCI),
           file = paste0(output.dir, "00_95CI_FDis_OLS.csv"),
           eol = "\r\n",
@@ -555,9 +542,6 @@ write.csv(adply(avg.FRic.SAR, .margins = c(3, 4, 5), ReportCI),
           quote = FALSE,
           row.names = FALSE
           )
-
-
-
 
 cat("Done.\n")
 

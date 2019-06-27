@@ -4,18 +4,6 @@
 #
 # In which the calculated FD indices (both observed and null model z-scores)
 # are summarized and visualized.
-#
-# Input files:
-#   output/observed_FD/FD_observed_genus_mean.csv
-#   output/observed_FD/FD_observed_stochastic_mean_of.csv
-#   output/null_model_global/FD_z_scores_global_genus_mean_z.scores.csv
-#   output/null_model_global/FD_z_scores_global_stochastic_mean_of_z.scores.csv
-#   output/null_model_regional/FD_z_scores_regional_genus_mean_z.scores.csv
-#   output/null_model_regional/FD_z_scores_regional_stochastic_mean_of_z.scores.csv
-#   output/tdwg3_info.csv
-#   output/palm_tdwg3_pres_abs_gapfilled.csv
-# Generated output files:
-#   d
 
 
 cat("Loading required packages and functions...\n")

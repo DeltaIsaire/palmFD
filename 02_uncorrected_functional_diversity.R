@@ -1,24 +1,17 @@
-#############################################################
-# Palm FD project: Functional Diversity calculation test code
-#############################################################
+##############################################################
+# Palm FD project: calculation of Functional Diversity indices
+##############################################################
 #
-# In which we explore how to properly implement calculation of FD indices.
 # For each of the 100 gapfilled datasets, calculate functional richness (FRic)
 # and functional dispersion (FRic).
 # FD is calculated (1) using all three traits, and (2) for each trait individually.
 # The community mean (CWM) trait values are also calculated.
-#
 # For comparison, FD is also calculated for the genus-mean gapfilled dataset.
 #
-#
-# Input files:
-#   dir 'output/stochastic_gapfilled/' with stochastically filled
-#     trait matrices
-#   data/palms_in_tdwg3.csv
-#   output/traits_filled_genus.mean.csv
-# Generated output files:
-#   output/palm_tdwg3_pres_abs_gapfilled.csv
-#   < output dir specified below, with 100 FD files and 100 CWM files >
+# Calculation of multidimensional FD is done using trait coordinates in PCoA-space.
+# Here, the PcoA coordinates are pre-computed for all datasets and saved to disk.
+# These can then be re-used downstream to save processing time, particularly in
+# null model procedures.
 
 
 cat("Loading required packages and functions...\n")
@@ -100,7 +93,6 @@ traits.mean <- ToMatrix(traits.mean)
 traits.mean %<>% .[rownames(.) %in% rownames(traits.gapfilled[[1]]), ]
 
 
-# -----------------------
 # presence/absence matrix
 # -----------------------
 # Rows should be TDWG3 units and columns should be species.
@@ -208,7 +200,6 @@ write.csv(traits.mean.std,
           eol = "\r\n",
           row.names = TRUE
           )
-
 
 for (i in seq_along(traits.gapfilled)) {
   write.csv(traits.gapfilled[[i]],
@@ -331,6 +322,7 @@ if (!file.exists(paste0(fd.dir, "pcoa_traits_gapfilled_100_fruit.length.csv"))) 
             )
   stopCluster(cluster)
 }
+
 
 ##################################
 # Calculating Functional Diversity

@@ -13,21 +13,6 @@
 #
 # This script supersedes all previous trait-filling scripts.
 
-# Input files:
-#   data/palms_in_tdwg3.csv
-#   data/PalmTraits_10.csv
-# Generated output files:
-#   output/palm_traits.csv
-#   output/stochastic_gapfilling_excluded_genera.csv
-#   output/stochastic_gapfilling_genus_distributions_stem.height.csv
-#   output/stochastic_gapfilling_genus_distributions_blade.length.csv
-#   output/stochastic_gapfilling_genus_distributions_fruit.length.csv
-#   dir 'output/stochastic_gapfilled/' with stochastically filled
-#     trait matrices
-#   graphs/genus_distribution_completeness.svg
-#   graphs/genus_distribution_height.png
-#   graphs/genus_distribution_blade.png
-#   graphs/genus_distribution_fruit.png
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -35,7 +20,6 @@ library(plyr)
 
 source(file = "functions/base_functions.R")
 source(file = "functions/plotting_functions.R")
-
 
 # Set random seed for reproducible output.
 # Using 9-digit integer generated with runif(1, max = 1e9)
@@ -251,7 +235,6 @@ GraphSVG(MultiHist(observations,
 # We can make a list of observed trait values by genus:
 genus.traits <- dlply(palm.traits.subset, "genus", function(x) { x } )
 names(genus.traits) <- unique(palm.traits.subset[, "genus"])
-
 # Then subset to genera with more than one growthform.
 # First, find growthforms for all species
 growthform <- numeric(length = length(trait.data$SpecName))

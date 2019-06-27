@@ -2,20 +2,11 @@
 # Palm FD project: Local null model for FD indices
 ##################################################
 #
-# In which we generate FD null model three, based on 
-# Random communities sampled from the same species pool.
-# The definiton of species pool for this null model is the Assemblage
-# Dispersion Field (ADF) weighted by proportion of shared species.
-# This could be the called the "local" null model.
-#
-# Input files:
-#   dir 'output/observed_FD/' with 100 observed FD files
-#   output/observed_FD/community_trait_means_genus_mean_standardized.csv
-#   output/palm_tdwg3_pres_abs_gapfilled.csv
-# Generated output files:
-#   < output dir specified below, with 100 FD z-score files >
-#   < nullmodel processing dir specified below, containing for each iteration
-#     1 file with null FD values >
+# In which we generate FD null model three, based on random communities sampled
+# from the same species pool. The definiton of species pool for this null model is
+# the Assemblage Dispersion Field (ADF) weighted by proportion of shared species.
+# This could be the called the "ADF" null model.
+# NOTE: in this script, the legacy name "local" null model is used instead.
 
 
 cat("Loading required packages and functions...\n")

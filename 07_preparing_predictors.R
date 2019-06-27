@@ -11,11 +11,6 @@
 # with greater environmental heterogeneity). As such we focus on key predictors
 # measuring variability, rather then absolute values (e.g. variability in mean
 # annual temperature, rather than said mean).
-#
-# Input files:
-#   d
-# Generated output files:
-#   d
 
 
 cat("Loading required packages and functions...\n")

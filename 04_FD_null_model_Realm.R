@@ -2,20 +2,11 @@
 # Palm FD project: Regional null model for FD indices
 #####################################################
 #
-# In which we generate FD null model two, based on 
-# Random communities sampled from the same species pool.
-# The definiton of species pool for this null model is all species
-# occurring in the same realm (New World, Old World East or Old World West).
-# Which could be the called the "regional" null model.
-#
-# Input files:
-#   dir 'output/test/observed_FD/' with 100 observed FD files
-#   output/test/observed_FD/test_community_trait_means_genus_mean_standardized.csv
-#   output/test/test_palm_tdwg3_pres_abs_gapfilled.csv
-# Generated output files:
-#   < output dir specified below, with 100 FD z-score files >
-#   < nullmodel processing dir specified below, containing for each iteration
-#     1 file with null FD values >
+# In which we generate FD null model two, based on random communities sampled from
+# the same species pool. The definiton of species pool for this null model is all
+# species occurring in the same realm (New World, Old World East or Old World West).
+# hence the "Realm" null model.
+# NOTE: in this script, the legacy name "regional" null model is used instead.
 
 
 cat("Loading required packages and functions...\n")

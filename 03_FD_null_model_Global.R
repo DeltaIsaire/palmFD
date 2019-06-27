@@ -2,21 +2,10 @@
 # Palm FD project: Global null model for FD indices
 ###################################################
 #
-# In which we generate FD null model one, based on 
-# Random communities sampled from the same species pool.
-# The definiton of species pool for this null model is all palm species
-# occurring worldwide.
-# Which could be the called the "global" null model.
-#
-# Input files:
-#   dir 'output/observed_FD/' with 100 observed FD files
-#   output/observed_FD/community_trait_means_genus_mean_standardized.csv
-#   output/palm_tdwg3_pres_abs_gapfilled.csv
-# Generated output files:
-#   "output/tdwg3_info.csv"
-#   < output dir specified below, with 100 FD z-score files >
-#   < nullmodel processing dir specified below, containing for each iteration
-#     1 file with null FD values >
+# In which we generate FD null model one, based on random communities sampled from
+# the same species pool. The definiton of species pool for this null model is all
+# palm species occurring worldwide, hence the "global" null model.
+
 
 cat("Loading required packages and functions...\n")
 library(magrittr)
@@ -353,9 +342,6 @@ StochasticMeans(stat = "",
                 output.dir = "output/trait_matrices/",
                 header = "palm_trait_matrix_filled_"
                 )
-
-
-
 
 cat("Done.\n")
 

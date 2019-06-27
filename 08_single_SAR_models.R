@@ -1,6 +1,6 @@
-###################################################
-# Palm FD project: Preparation for SAR error models
-###################################################
+####################################################
+# Palm FD project: Single-predictor SAR error models
+####################################################
 #
 # In which data and custom functions are prepared for correlating FD indices with
 # environmental predictors, using simultaneous autoregressive error (SAR error)
@@ -8,12 +8,7 @@
 # This includes assessing spatial autocorrelaton with Moran's I, calculating and
 # choosing neighbourhoods for the spatial weights matrix, and implementing
 # single-predictor models.
-#
-#
-# Input files:
-#   d
-# Generated output files:
-#   d
+# Subsequently, single-predictor SARerror models are fitted.
 
 
 cat("Loading required packages and functions...\n")
@@ -51,7 +46,6 @@ if (!dir.exists(output.dir)) {
 }
 
 set.seed(125)
-
 
 
 ############################################
@@ -96,16 +90,59 @@ for (index in fd.names) {
 
 # Environmental data
 # ------------------
-env.complete <- read.csv(file = "output/tdwg3_predictors_complete.csv",
-                         row.names = 1
-                         )
-env.complete.noch <- read.csv(file = "output/tdwg3_predictors_complete_noch.csv",
-                              row.names = 1
-                              )
+env <- read.csv(file = "output/tdwg3_environmental_predictors_new.csv",
+                row.names = 1
+                )
+
+
+# Merge meta-predictors realm, richness and endemism into env
+# -----------------------------------------------------------
+# Richness and endemism
+indices <- match(rownames(fd.indices[[1]]), rownames(env))
+env[, "palm.richness"] <- fd.indices[[1]] [indices, "palm.richness"]
+env[, "endemism"] <- fd.indices[[1]] [indices, "percent.endemism"]
+# Richness and endemism may need to be transformed to be more normal
+# Using Histogram(), the following transformation was deemed necessary:
+env[, "palm.richness"] %<>% log10()
+# Furthermore, endemism is zero-inflated, although the zeros are true zeros.
+
+# realm
+indices <- match(rownames(env), tdwg3.info[, "tdwg3.code"])
+env[, "realm"] <- tdwg3.info[indices, "realm"]
+
+# Account for NAs in predictors AND responses.
+# Subsetting to complete cases would reduce the number of rows (tdwg3.units), which
+# hinders data merging. Instead, propagate NAs across rows.
+# Check for NAs in predictors:
+env.complete <- env
+env.complete[!complete.cases(env.complete), ] <- NA
+# 14 NAs from canopy height + 1 NA from LGM anomalies.
+# We also want a version without canopy height:
+env.complete.noch <- env[, !colnames(env) %in% "CH_SD"]
+env.complete.noch[!complete.cases(env.complete.noch), ] <- NA
+# Only one NA, from LGM anomalies
+#
+# Additionally, check for NAs in responses: the exclusion of 100% endemic
+# communities for the ADF null model
+indices <- !complete.cases(fd.indices[["FRic.all.traits"]] [, "adf.SES"])
+env.complete[indices, ] <- NA
+# 4 NAs from 100% endemism, but 3 of those overlap with canopy height NAs.
+# Final sample size is 116  # sum(complete.cases(env.complete))
+env.complete.noch[indices, ] <- NA
+# 4 NAs from 100% endemism. Final sample size is 126.
+
+# Save result for downstream use
+write.csv(env.complete,
+          file = "output/tdwg3_predictors_complete.csv",
+          eol = "\r\n"
+          )
+write.csv(env.complete.noch,
+          file = "output/tdwg3_predictors_complete_noch.csv",
+          eol = "\r\n"
+          )
 # The 'noch' (no canopy height) version has more data points, because canopy
 # height has some missing values. Since canopy height is a questionable predictor,
 # We don't want to unnecessarily throw away data.
-
 
 
 ############################
@@ -374,8 +411,6 @@ DoParse(SAR.FRic, filename = "00_SAR_single_output_FRic")
 DoParse(SAR.FRic.dw, filename = "00_SAR_single_output_FRic_dw")
 DoParse(SAR.FDis, filename = "00_SAR_single_output_FDis")
 DoParse(SAR.FDis.dw, filename = "00_SAR_single_output_FDis_dw")
-
-
 
 cat("Done.\n")
 
