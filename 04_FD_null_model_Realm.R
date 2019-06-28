@@ -7,6 +7,8 @@
 # species occurring in the same realm (New World, Old World East or Old World West).
 # hence the "Realm" null model.
 # NOTE: in this script, the legacy name "regional" null model is used instead.
+# NOTE: The null model procedure is only performed if the corresponding output
+# files do NOT already exist.
 
 
 cat("Loading required packages and functions...\n")

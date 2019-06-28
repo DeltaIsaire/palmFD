@@ -12,6 +12,8 @@
 # Here, the PcoA coordinates are pre-computed for all datasets and saved to disk.
 # These can then be re-used downstream to save processing time, particularly in
 # null model procedures.
+# NOTE: PCoA precomputing is only performed if the corresponding output files do NOT
+# already exist.
 
 
 cat("Loading required packages and functions...\n")

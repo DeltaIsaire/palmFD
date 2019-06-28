@@ -7,6 +7,8 @@
 # the Assemblage Dispersion Field (ADF) weighted by proportion of shared species.
 # This could be the called the "ADF" null model.
 # NOTE: in this script, the legacy name "local" null model is used instead.
+# NOTE: The null model procedure is only performed if the corresponding output
+# files do NOT already exist.
 
 
 cat("Loading required packages and functions...\n")

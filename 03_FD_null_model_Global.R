@@ -5,6 +5,8 @@
 # In which we generate FD null model one, based on random communities sampled from
 # the same species pool. The definiton of species pool for this null model is all
 # palm species occurring worldwide, hence the "global" null model.
+# NOTE: The null model procedure is only performed if the corresponding output
+# files do NOT already exist.
 
 
 cat("Loading required packages and functions...\n")

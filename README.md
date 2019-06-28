@@ -19,33 +19,41 @@ Third, you have to manually add the 'data/' directory, including the datafiles, 
 
 ## Prerequisites
 
-The code of this project is written for R statistical software version 3.4.4 (R Core Team, 2018).
+The code of this project is written for R statistical software version 3.6.0 (R Core Team, 2019).
 See https://www.R-project.org/ for more information and installation instructions. 
 
-In addition, the following R packages are required:
+In addition, the following R packages (and their prerequisites) are required:
 ```
-parallel - should come pre-installed with your R installation
-plyr
-magrittr
-BHPMF - install with devtools::install_github("fisw10/BHPMF")
-reshape2
+car
+corrplot
+cowplot
 FD
+ggplot2
+grid
+gridExtra
+leaps
+magrittr
+MuMIn
+ncf
+parallel
+plyr
+reshape2
+scales
 sf
+spatialreg
 spdep
+viridis
 ```
 
 ### Compatibility with Windows
 
-The code has been developed and tested on Linux Mint 18. I have tried to make the code fully compatible with Windows, but compatibility is not guaranteed.
-
-In particular, the null models for functional diversity are generated with parallel processing using 'parallel::mclapply'. This R function uses forking, which is not supported on Windows.
-
+The code has been developed and tested on Linux Mint 18 MATE (64 bit). I have tried to make the code fully compatible with Windows, but compatibility is not guaranteed.
 
 ## Running the code
 
-There are two series of scripts.
-The first is the test series, whose filenames begin with 'test\_'. This script series is used for code development. There is a parent script ('00\_run\_all\_tests\_.R') that will automatically execute all test scripts.
-The second series of scripts are the main scripts, which are like the no-nonsense final version of the code. There is also a parent script for these ('00\_run\_all\_main.R').
+The complete analysis is performed in 10 scripts, each of which depends on the output of one or more previous scripts. The filenames have number prefixes to indicate the proper order.
+
+There is a parent script (00_run_all.R) that will execute all scripts in their proper order. Running this parent script is the easiest way to re-generate all output at once.
 
 Each script contains a description of what it does, at the top of the file.
 
@@ -54,9 +62,9 @@ To run any of the scripts, launch R and set the working directory to the root fo
 setwd("/home/delta/R_Projects/palm_FD")
 ```
 
-Then you can run any of the scripts with source(). Keep in mind that each script requires the output of the previous script in the sequence, so for a first-time run you should execute the parent scripts.
+Then you can run any of the scripts with source(). Keep in mind that each script requires the output of the previous script in the sequence, so for a first-time run you should probably execute the parent script.
 ```
 source(file = "00_run_all.R")
-source(file = "00_run_all_tests.R")
 ```
 
+Note that the total runtime of the scripts is considerable, in particular the null model procedures. Calculation of multi-dimensional functional diversity indices is computationally expensive, and the null models require it to be done thousands of times. It can take a few weeks on a dedicated server.

@@ -2,11 +2,13 @@
 # Palm Functional Diversity Project
 ###################################
 #
-# This script executes all code scripts in sensible order,
+# This script executes all main scripts in sensible order,
 # thus providing a one-click way to re-generate all output.
-# Keep in mind that the total runtime of all scripts is considerable.
+# Keep in mind that the total runtime of all scripts is considerable (the null
+# model procedure can take a few weeks on a dedicated server).
 
-# SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT.
+# SET YOUR WORKING DIRECTORY TO THE PALM_FD DIRECTORY BEFORE RUNNING THIS SCRIPT
+# (i.e. the directory where this script is located)
 # File paths in all scripts are relative to the palm_FD/ directory.
 # The scripts depend on the following subdirectories being present:
 #   data/
@@ -37,61 +39,36 @@ if (!dir.exists("graphs/")) {
   dir.create("graphs/")
 }
 
+
 cat("Gap-filling palm traits matrix:\n")
-source(file = "01_trait_filling.R")
+source(file = "01_stochastic_trait_filling.R")
 
-cat("Comparing genus-mean and BHPMF gap-filling:\n")
-source(file = "02_trait_filling_comparison.R")
+cat("Calculating uncorrected functional diversity indices:\n")
+source(file = "02_uncorrected_functional_diversity.R")
 
-cat("Testing accuracy of gap-filling:\n")
-source(file = "03_trait_filling_accuracy.R")
+cat("Standardizing FD with null model (Global):\n")
+source(file = "03_FD_null_model_Global.R")
 
-cat("Identifying gap-filling error:\n")
-source(file = "04_trait_filling_error.R")
+cat("Standardizing FD with null model (Realm):\n")
+source(file = "04_FD_null_model_Realm.R")
 
-cat("Creating stochastic genus-level gapfilling series:\n")
-source(file = "05_trait_filling_stochastic.R")
+cat("Standardizing FD with null model (ADF):\n")
+source(file = "05_FD_null_model_ADF.R")
 
-cat("Calculating functional diversity indices:\n")
-source(file = "06_FD_observed.R")
-
-cat("Standardizing FD with null model (global):\n")
-source(file = "07_FD_null_model_global.R")
-
-cat("Standardizing FD with null model (realm):\n")
-source(file = "08_FD_null_model_regional.R")
-
-cat("Standardizing FD with null model (dispersion field):\n")
-source(file = "09_FD_null_model_local.R")
-
-cat("Parsing and graphing standardized FD results:\n")
-source(file = "10_FD_results_overview.R")
+cat("Parsing and summarizing FD results:\n")
+source(file = "06_FD_summary.R")
 
 cat("Parsing and preparing environmental predictors for regression:\n")
-source(file = "11_TDWG_environmental.R")
+source(file = "07_preparing_predictors.R")
 
-cat("Performing single-predictor OLS regression:\n")
-source(file = "12_OLS_regression.R")
-
-cat("Comparing FD between realms with ANOVA:\n")
-source(file = "13_trait_realm_relation.R")
-
-cat("Performing single-predictor SAR error modeling:\n")
-source(file = "14_SAR_models.R")
+cat("Performing single-predictor SAR-error modeling:\n")
+source(file = "08_single_SAR_models.R")
 
 cat("Performing multimodel averaging with OLS and SAR models:\n")
-source(file = "15_SAR_OLS_multimodel_averaging.R")
+source(file = "09_multimodel_averaging.R")
 
 cat("Creating graphs of results:\n")
-source(file = "16_results_graphics.R")
-
-
-cat("EXTRA: Performing k-means clustering of TDWG3 units based on ADF:\n")
-source(file = "adf_kmeans_clustering.R")
-
-cat("EXTRA: Creating custom plots for presentations:\n")
-source(file = "presentation_graphics.R")
-
+source(file = "10_results_graphics.R")
 
 cat("Finished running all main scripts.\n")
 

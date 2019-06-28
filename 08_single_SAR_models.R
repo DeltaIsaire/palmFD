@@ -9,6 +9,8 @@
 # choosing neighbourhoods for the spatial weights matrix, and implementing
 # single-predictor models.
 # Subsequently, single-predictor SARerror models are fitted.
+# NOTE: Moran's I graphs are only generated if the corresponding output
+# files do NOT already exist.
 
 
 cat("Loading required packages and functions...\n")
