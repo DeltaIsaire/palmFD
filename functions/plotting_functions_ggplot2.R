@@ -236,11 +236,12 @@ SpatialPlotNB <- function(tdwg.map, presence, segments, title = NULL,
                       title = title,
                       subtitle = subtitle
                       ) +
-                 geom_point(data = tdwg.map[which(presence), ],
-                            aes(x = Long, y = Lat),
-                            pch = 21,
-                            size = 2
-                            ) +
+# Points disabled because they clutter the graph too much. Lines should be enough
+#                 geom_point(data = tdwg.map[which(presence), ],
+#                            aes(x = Long, y = Lat),
+#                            pch = 21,
+#                            size = 2
+#                            ) +
                  geom_segment(data = segments,
                               aes(x = segments[, 1],
                                   y = segments[, 2],

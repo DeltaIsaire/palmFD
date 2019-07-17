@@ -351,6 +351,8 @@ for (i in 1:3) {
 MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
 
   tdwg.map.subset <- tdwg.map[complete.cases(env.complete), ]
+  # Avoid plotting SAM (Samoa) because it has nonstandard neighbours
+  tdwg.map.subset %<>% .[!.$LEVEL_3_CO %in% "SAM", ]
   nb.soi <- SoiNB(tdwg.map.subset)
   global <- NbPlot(nb.soi,
                    tdwg.map,
@@ -371,21 +373,24 @@ MultiSOIPlot <- function(tdwg.map, env.complete, realm.tdwg3) {
                      tdwg.newworld,
                      title = "B. New World SOI neighborhood",
                      filename = NULL
-                     )
+                     ) +
+              coord_sf(xlim = c(-120, -20), ylim = c(-50, 40))
 
   owwest <- NbPlot(SoiNB(tdwg.owwest),
                    tdwg.map,
                    tdwg.owwest,
                    title = "C. Old World West SOI neighborhood",
                    filename = NULL
-                   )
+                   ) +
+            coord_sf(xlim = c(-20, 60), ylim = c(-40, 40))
 
   oweast <- NbPlot(SoiNB(tdwg.oweast),
                      tdwg.map,
                      tdwg.oweast,
                      title = "D. Old World East SOI neighborhood",
                      filename = NULL
-                     )
+                     ) +
+            coord_sf(xlim = c(30, 180), ylim = c(-40, 40))
 
   arrangeGrob(global, newworld, owwest, oweast, ncol = 2)
 }
